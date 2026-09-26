@@ -215,9 +215,15 @@ class JanelaPrincipal(QMainWindow):
         self.toast = ui.Toast(self)
         self._atualizar_estado()
         self._conferir_leitor_padrao()
+        self._release_nova = None
+        self._mostrar_nova_versao(self.config.get("atualizacao/versao_disponivel", ""))
         if verificar_atualizacao:
-            # consulta discreta: só destaca o botão, não abre janela sozinha
-            QTimer.singleShot(4000, self._checar_atualizacao_em_segundo_plano)
+            # consulta discreta, no máximo 1x por dia (a hora é conferida de hora em
+            # hora, para o NuPDF que fica aberto por dias); nunca abre janela sozinha
+            QTimer.singleShot(4000, self._checar_atualizacao_diaria)
+            self._timer_atualizacao = QTimer(self)
+            self._timer_atualizacao.timeout.connect(self._checar_atualizacao_diaria)
+            self._timer_atualizacao.start(60 * 60 * 1000)
 
     # ================================================================== montagem
     def _criar_topo(self) -> QWidget:
@@ -269,6 +275,13 @@ class JanelaPrincipal(QMainWindow):
         self.b_padrao.clicked.connect(self.definir_leitor_padrao)
         self.b_padrao.hide()
         lay.addWidget(self.b_padrao)
+        # nova versão encontrada pela verificação diária: um clique já atualiza
+        self.b_nova_versao = QPushButton()
+        self.b_nova_versao.setObjectName("avisoPadrao")  # mesmo visual do aviso de leitor padrão
+        self.b_nova_versao.setCursor(Qt.PointingHandCursor)
+        self.b_nova_versao.clicked.connect(self._atualizar_agora)
+        self.b_nova_versao.hide()
+        lay.addWidget(self.b_nova_versao)
         self.b_atualizacao = ui.botao("atualizar", "Verificar Atualizações")
         self.b_atualizacao.clicked.connect(self.verificar_atualizacoes)
         lay.addWidget(self.b_atualizacao)
@@ -702,22 +715,51 @@ class JanelaPrincipal(QMainWindow):
             self._conferir_leitor_padrao()
         super().changeEvent(e)
 
-    def _checar_atualizacao_em_segundo_plano(self):
+    # ------------------------------------------------------------------ atualização diária
+    INTERVALO_VERIFICACAO = 24 * 60 * 60  # segundos
+
+    def _checar_atualizacao_diaria(self):
+        import time
         from . import atualizacao
+
+        try:
+            ultima = float(self.config.get("atualizacao/ultima_verificacao", 0) or 0)
+        except (TypeError, ValueError):
+            ultima = 0
+        if time.time() - ultima < self.INTERVALO_VERIFICACAO:
+            return
+        if getattr(self, "_tarefa_atualizacao", None) is not None and self._tarefa_atualizacao.isRunning():
+            return
 
         def verificar():
             rel = atualizacao.ultima_release()
             return rel if atualizacao.eh_mais_nova(rel.versao) else None
 
         self._tarefa_atualizacao = ui.Tarefa(verificar)
-        self._tarefa_atualizacao.concluida.connect(self._atualizacao_disponivel)
-        self._tarefa_atualizacao.start()  # falha (sem internet etc.) é ignorada em silêncio
+        self._tarefa_atualizacao.concluida.connect(self._verificacao_concluida)
+        self._tarefa_atualizacao.start()  # falha (sem internet etc.) é ignorada: tenta na próxima hora
 
-    def _atualizacao_disponivel(self, release):
-        if release is None:
-            return
-        ui.aplicar_icone(self.b_atualizacao, "atualizar", chave_cor="destaque")
-        self.b_atualizacao.setToolTip(f"Nova versão {release.versao} disponível — clique para atualizar")
+    def _verificacao_concluida(self, release):
+        import time
+        self.config.set("atualizacao/ultima_verificacao", time.time())
+        self._release_nova = release
+        versao = release.versao if release is not None else ""
+        self.config.set("atualizacao/versao_disponivel", versao)
+        self._mostrar_nova_versao(versao)
+
+    def _mostrar_nova_versao(self, versao: str):
+        from . import atualizacao
+        if versao and atualizacao.eh_mais_nova(versao):
+            self.b_nova_versao.setText(f"Nova Versão {versao} Disponível - Atualizar")
+            self.b_nova_versao.setToolTip(f"Baixar e Instalar a Versão {versao} do NuPDF")
+            self.b_nova_versao.show()
+        else:
+            self.b_nova_versao.hide()
+
+    def _atualizar_agora(self):
+        from .dialogo_atualizacao import DialogoAtualizacao
+        # sem a release em memória (encontrada em outro dia), o diálogo consulta de novo
+        DialogoAtualizacao(self, release=self._release_nova, iniciar=True).exec()
 
     def _tela_cheia(self):
         self.showNormal() if self.isFullScreen() else self.showFullScreen()

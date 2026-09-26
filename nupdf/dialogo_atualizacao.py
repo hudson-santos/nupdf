@@ -77,12 +77,15 @@ class _Download(QThread):
 
 
 class DialogoAtualizacao(QDialog):
-    def __init__(self, parent=None, release=None):
+    def __init__(self, parent=None, release=None, iniciar: bool = False):
+        """`iniciar=True` (aviso de nova versão no topo): se houver versão mais nova,
+        já começa o download e a instalação, sem esperar o clique em "Atualizar"."""
         super().__init__(parent)
         self.setWindowTitle("Verificar Atualizações")
         self.setMinimumWidth(600)
         self.release = release
         self._download = None
+        self._iniciar = iniciar
 
         lay = QVBoxLayout(self)
         lay.setContentsMargins(22, 20, 22, 20)
@@ -215,6 +218,9 @@ class DialogoAtualizacao(QDialog):
             self._estado(f"Versão: {release.versao}",
                          f"Você está usando a versão {VERSAO}{mb}\n\nO que há de novo:",
                          notas=_notas_html(release.notas, ui.cores()["destaque"]), atualizar=True)
+            if self._iniciar:
+                self._iniciar = False
+                QTimer.singleShot(0, self._atualizar)
         else:
             self._estado("Você já está usando a versão mais recente",
                          f"Versão instalada: {VERSAO}")

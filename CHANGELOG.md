@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.5.0] - 2026-09-26
+
+### Added
+- Verificação automática de nova versão no máximo 1x por dia (conferida de hora em hora,
+  inclusive com o NuPDF aberto por vários dias). Quando há versão nova, aparece no topo o
+  aviso "Nova Versão X.Y.Z Disponível - Atualizar", no mesmo visual do aviso de leitor
+  padrão; um clique já baixa e instala a atualização. O aviso continua visível ao reabrir o
+  NuPDF e some quando a versão é instalada.
+
 ## [1.4.1] - 2026-09-26
 
 ### Fixed
