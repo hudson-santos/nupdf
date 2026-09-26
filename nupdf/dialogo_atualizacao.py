@@ -136,13 +136,9 @@ class DialogoAtualizacao(QDialog):
         self.nota.setOpenExternalLinks(True)
         lay.addWidget(self.nota)
 
-        # Um único botão centralizado: "Atualizar" (ou "Tentar novamente") e,
-        # durante o download, "Cancelar" no lugar dele. A janela fecha pelo X/Esc.
+        # Um único botão centralizado: "Atualizar" (ou "Tentar novamente"). Durante
+        # o download não há botão - fechar a janela (X/Esc) cancela (ver reject).
         botoes = QHBoxLayout()
-        self.b_cancelar = QPushButton("Cancelar")
-        self.b_cancelar.setMinimumHeight(38)
-        self.b_cancelar.setFixedWidth(260)
-        self.b_cancelar.clicked.connect(self._cancelar_download)
         self.b_atualizar = QPushButton("Atualizar")
         self.b_atualizar.setObjectName("primario")
         self.b_atualizar.setMinimumHeight(38)
@@ -151,7 +147,6 @@ class DialogoAtualizacao(QDialog):
         self.b_atualizar.setFixedWidth(260)
         botoes.addStretch(1)
         botoes.addWidget(self.b_atualizar)
-        botoes.addWidget(self.b_cancelar)
         botoes.addStretch(1)
         lay.addLayout(botoes)
 
@@ -165,7 +160,7 @@ class DialogoAtualizacao(QDialog):
             self._recebida(release)
 
     # ------------------------------------------------------------------ estados
-    def _estado(self, titulo, texto="", notas=None, barra=None, status="", atualizar=False, cancelar=False):
+    def _estado(self, titulo, texto="", notas=None, barra=None, status="", atualizar=False):
         self.titulo.setText(titulo)
         self.texto.setText(texto)
         self.texto.setVisible(bool(texto))
@@ -182,7 +177,6 @@ class DialogoAtualizacao(QDialog):
         self.status.setText(status)
         self.status.setVisible(bool(status))
         self.b_atualizar.setVisible(atualizar)
-        self.b_cancelar.setVisible(cancelar)
 
     def _ajustar_altura(self):
         """Área de novidades do tamanho do texto (sem rolagem), até um limite -
@@ -227,8 +221,7 @@ class DialogoAtualizacao(QDialog):
 
     # ------------------------------------------------------------------ ações
     def _atualizar(self):
-        self._estado(f"Baixando a versão {self.release.versao}…", barra=0, status="Iniciando o download…",
-                     cancelar=True)
+        self._estado(f"Baixando a versão {self.release.versao}…", barra=0, status="Iniciando o download…")
         self._download = _Download(self.release)
         self._download.progresso.connect(self._progresso)
         self._download.concluido.connect(self._baixado)
@@ -259,13 +252,6 @@ class DialogoAtualizacao(QDialog):
             self._estado("Não foi possível iniciar o instalador", f"{e}\n\nArquivo: {caminho}")
             return
         QApplication.instance().quit()
-
-    def _cancelar_download(self):
-        if self._download is not None:
-            self._download.cancelar()
-            self._download.wait(3000)
-            self._download = None
-        self._recebida(self.release)
 
     def reject(self):
         if self._download is not None:

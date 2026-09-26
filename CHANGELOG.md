@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.2.2] - 2026-09-26
+
+### Changed
+- Janela "Verificar Atualizações": sem o botão "Cancelar" durante o download (fechar a
+  janela pelo X ou Esc continua cancelando).
+
 ## [1.2.1] - 2026-09-26
 
 ### Changed
