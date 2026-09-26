@@ -39,6 +39,14 @@ const recursos = [
       gtag('config', 'G-K3WNBF02JT');
     </script>
     <meta charset="utf-8" />
+    <script is:inline>
+      // Tema: claro por padrão; "escuro" só se o visitante escolheu antes.
+      try {
+        if (localStorage.getItem("nupdf-tema") === "escuro") {
+          document.documentElement.dataset.tema = "escuro";
+        }
+      } catch (e) {}
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>NuPDF - Leitor de PDF Leve com Assinatura Digital ICP-Brasil</title>
     <meta
@@ -59,10 +67,16 @@ const recursos = [
         <img src="/favicon.svg" alt="" width="28" height="28" />
         <span>Nu<b>PDF</b></span>
       </a>
+      <nav class="acoes-topo">
+      <button class="botao-tema" type="button" data-alternar-tema aria-label="Alternar tema claro/escuro" title="Alternar tema claro/escuro">
+        <svg class="icone-lua" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        <svg class="icone-sol" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </button>
       <a class="link-topo" href={REPO} target="_blank" rel="noopener">
         <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.33-1.28-1.69-1.28-1.69-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.56-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.84 1.19 3.1 0 4.42-2.69 5.39-5.25 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5Z"/></svg>
         GitHub
       </a>
+      </nav>
     </header>
 
     <main>
@@ -110,6 +124,15 @@ const recursos = [
       <p>© {new Date().getFullYear()} Nukt Ltda · <a href={REPO} target="_blank" rel="noopener">Código-fonte no GitHub</a></p>
     </footer>
 
+    <script is:inline>
+      document.querySelector("[data-alternar-tema]").addEventListener("click", () => {
+        const raiz = document.documentElement;
+        const escuro = raiz.dataset.tema !== "escuro";
+        if (escuro) raiz.dataset.tema = "escuro"; else delete raiz.dataset.tema;
+        try { localStorage.setItem("nupdf-tema", escuro ? "escuro" : "claro"); } catch (e) {}
+      });
+    </script>
+
     <script is:inline define:vars={{ API_RELEASE }}>
       // Mostra a versão e o tamanho da última release (API pública do GitHub).
       // Se falhar (sem internet, limite de requisições ou ainda sem release),
@@ -147,17 +170,16 @@ const recursos = [
         --destaque-suave: #fdecec;
         --sombra: 0 24px 60px -24px rgba(20, 22, 30, 0.25);
       }
-      @media (prefers-color-scheme: dark) {
-        :root {
-          --fundo: #151619;
-          --superficie: #1f2023;
-          --texto: #e7e7ea;
-          --texto2: #a1a3aa;
-          --texto3: #7a7d85;
-          --borda: #2e3034;
-          --destaque-suave: #3b2023;
-          --sombra: 0 24px 60px -24px rgba(0, 0, 0, 0.7);
-        }
+      :root[data-tema="escuro"] {
+        --fundo: #151619;
+        --superficie: #1f2023;
+        --texto: #e7e7ea;
+        --texto2: #a1a3aa;
+        --texto3: #7a7d85;
+        --borda: #2e3034;
+        --destaque-suave: #3b2023;
+        --sombra: 0 24px 60px -24px rgba(0, 0, 0, 0.7);
+        color-scheme: dark;
       }
       * { box-sizing: border-box; margin: 0; }
       html {
@@ -196,6 +218,18 @@ const recursos = [
         padding: 8px 12px; border-radius: 10px;
       }
       .link-topo:hover { background: var(--superficie); color: var(--texto); }
+      .acoes-topo { display: flex; align-items: center; gap: 4px; }
+      .botao-tema {
+        display: inline-grid; place-items: center;
+        width: 36px; height: 36px; border-radius: 10px;
+        border: none; background: transparent; color: var(--texto2); cursor: pointer;
+      }
+      .botao-tema:hover { background: var(--superficie); color: var(--texto); }
+      .botao-tema:focus-visible { outline: 3px solid var(--destaque); outline-offset: 2px; }
+      /* claro: mostra a lua (ir para o escuro); escuro: mostra o sol (voltar ao claro) */
+      .icone-sol { display: none; }
+      :root[data-tema="escuro"] .icone-sol { display: block; }
+      :root[data-tema="escuro"] .icone-lua { display: none; }
 
       main { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
 
