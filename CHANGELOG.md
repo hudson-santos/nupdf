@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.3.1] - 2026-09-26
+
+### Changed
+- Barra de ferramentas (salvar, imprimir, seleção, mão, ajustes de zoom, girar, buscar e
+  "Assinar com Certificado Digital") só aparece com documento aberto; sem documento a
+  tela inicial ocupa a janela inteira.
+- Botão "Abrir" removido da barra de ferramentas: a abertura é feita pelo botão central
+  "Abrir PDF", pelo "+" das abas, por Ctrl+O ou arrastando o arquivo.
+- Botão "+" das abas só aparece quando há um ou mais documentos abertos.
+- Arquivos recentes mostram só o nome do arquivo (nomes longos são abreviados); ao passar
+  o mouse aparece, ao lado da lixeira, um botão de pasta que abre o Explorer com o arquivo
+  selecionado (também no menu do botão direito).
+- Janela "Verificar Atualizações": sem o botão "Fechar" no rodapé quando ele seria o único
+  botão (a janela fecha pelo X ou Esc).
+- Site de apresentação: tag do Google Analytics adicionada.
+
 ## [0.3.0] - 2026-09-26
 
 ### Added

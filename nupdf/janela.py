@@ -1,5 +1,6 @@
 """Janela principal do NuPDF."""
 
+import subprocess
 from pathlib import Path
 
 import pymupdf
@@ -18,8 +19,9 @@ from .versao import NOME_APP, VERSAO
 
 
 class _LinhaRecente(QFrame):
-    """Item da lista de recentes: clique abre; o X (visível ao passar o mouse)
-    ou o menu do botão direito removem da lista - o arquivo não é apagado."""
+    """Item da lista de recentes: mostra só o nome do arquivo; clique abre.
+    Ao passar o mouse aparecem "abrir pasta" (Explorer com o arquivo
+    selecionado) e a lixeira (remove da lista - o arquivo não é apagado)."""
 
     def __init__(self, tela: "TelaInicial", caminho: str):
         super().__init__()
@@ -30,38 +32,51 @@ class _LinhaRecente(QFrame):
         lay = QHBoxLayout(self)
         lay.setContentsMargins(0, 0, 4, 0)
         lay.setSpacing(0)
-        abrir = QPushButton(f"  {p.name}   ·   {p.parent.name or p.parent}")
+        abrir = QPushButton()
         abrir.setObjectName("link")
-        abrir.setToolTip(str(p))
+        nome = abrir.fontMetrics().elidedText(p.name, Qt.ElideMiddle, 400)
+        abrir.setText(f"  {nome}")
         ui.aplicar_icone(abrir, "arquivo", 16)
         abrir.setCursor(Qt.PointingHandCursor)
         abrir.clicked.connect(lambda: tela.janela.abrir_arquivo(caminho))
         lay.addWidget(abrir, 1)
+        self.pasta = ui.botao("pasta", "Abrir a pasta do arquivo", tamanho=15)
+        self.pasta.clicked.connect(self.abrir_pasta)
         self.remover = ui.botao("lixeira", "Remover da lista de recentes", tamanho=15)
         self.remover.clicked.connect(lambda: tela.remover(caminho))
-        politica = self.remover.sizePolicy()
-        politica.setRetainSizeWhenHidden(True)
-        self.remover.setSizePolicy(politica)
-        self.remover.hide()
-        lay.addWidget(self.remover)
+        for b in (self.pasta, self.remover):
+            politica = b.sizePolicy()
+            politica.setRetainSizeWhenHidden(True)
+            b.setSizePolicy(politica)
+            b.hide()
+            lay.addWidget(b)
+
+    def abrir_pasta(self):
+        # Explorer com o arquivo já selecionado (funciona também em caminhos de rede)
+        subprocess.Popen(f'explorer /select,"{Path(self.caminho)}"')
 
     def enterEvent(self, e):
+        self.pasta.show()
         self.remover.show()
         super().enterEvent(e)
 
     def leaveEvent(self, e):
+        self.pasta.hide()
         self.remover.hide()
         super().leaveEvent(e)
 
     def contextMenuEvent(self, e):
         m = QMenu(self)
         a_abrir = m.addAction("Abrir")
+        a_pasta = m.addAction("Abrir a pasta do arquivo")
         a_remover = m.addAction("Remover da lista")
         m.addSeparator()
         a_limpar = m.addAction("Limpar todos os recentes")
         esc = m.exec(e.globalPos())
         if esc is a_abrir:
             self.tela.janela.abrir_arquivo(self.caminho)
+        elif esc is a_pasta:
+            self.abrir_pasta()
         elif esc is a_remover:
             self.tela.remover(self.caminho)
         elif esc is a_limpar:
@@ -259,15 +274,20 @@ class JanelaPrincipal(QMainWindow):
     def _criar_ferramentas(self) -> QWidget:
         barra = QFrame()
         barra.setObjectName("ferramentas")
+        self.barra_ferramentas = barra  # só aparece com documento aberto
         barra.setFixedHeight(50)
         lay = QHBoxLayout(barra)
         lay.setContentsMargins(12, 0, 14, 0)
         lay.setSpacing(4)
 
-        self.b_abrir = ui.botao("abrir", "Abrir (Ctrl+O)")
+        # Salvar/Imprimir só aparecem com documento aberto; o espaço deles fica
+        # reservado para as ferramentas do centro não mudarem de lugar.
         self.b_salvar = ui.botao("salvar", "Salvar uma cópia (Ctrl+S)")
         self.b_imprimir = ui.botao("imprimir", "Imprimir (Ctrl+P)")
-        for b in (self.b_abrir, self.b_salvar, self.b_imprimir):
+        for b in (self.b_salvar, self.b_imprimir):
+            politica = b.sizePolicy()
+            politica.setRetainSizeWhenHidden(True)
+            b.setSizePolicy(politica)
             lay.addWidget(b)
         lay.addStretch(1)
 
@@ -278,8 +298,10 @@ class JanelaPrincipal(QMainWindow):
         self.b_pagina = ui.botao("pagina", "Página inteira (Ctrl+2)")
         self.b_girar = ui.botao("girar", "Girar visualização (Ctrl+R)")
         self.b_buscar = ui.botao("buscar", "Buscar (Ctrl+F)")
-        for w in (self.b_cursor, self.b_mao, ui.separador_vertical(), self.b_largura, self.b_pagina,
-                  self.b_girar, ui.separador_vertical(), self.b_buscar):
+        # Ações de documento: só visíveis quando há um PDF aberto (ver _atualizar_estado)
+        self._acoes_documento = [self.b_cursor, self.b_mao, ui.separador_vertical(), self.b_largura,
+                                 self.b_pagina, self.b_girar, ui.separador_vertical(), self.b_buscar]
+        for w in self._acoes_documento:
             lay.addWidget(w)
         lay.addStretch(1)
 
@@ -289,8 +311,8 @@ class JanelaPrincipal(QMainWindow):
         self.b_assinar.setCursor(Qt.PointingHandCursor)
         self.b_assinar.setToolTip("Assinar digitalmente com certificado ICP-Brasil")
         lay.addWidget(self.b_assinar)
+        self._acoes_documento.append(self.b_assinar)
 
-        self.b_abrir.clicked.connect(self.abrir_dialogo)
         self.b_salvar.clicked.connect(self.salvar_copia)
         self.b_imprimir.clicked.connect(self.imprimir)
         self.b_cursor.clicked.connect(lambda: self._modo("texto"))
@@ -380,9 +402,12 @@ class JanelaPrincipal(QMainWindow):
     def _atualizar_estado(self):
         aba = self.aba_atual()
         tem = aba is not None
-        for b in (self.b_salvar, self.b_imprimir, self.b_cursor, self.b_mao, self.b_largura, self.b_pagina,
-                  self.b_girar, self.b_buscar, self.b_assinar, *self.b_paineis.values()):
+        for b in self.b_paineis.values():
             b.setEnabled(tem)
+        for w in (self.b_salvar, self.b_imprimir, *self._acoes_documento):
+            w.setVisible(tem)
+        self.barra_ferramentas.setVisible(tem)
+        self.faixa_mais.setVisible(tem)  # "+" só com documento aberto (sem documento, usa o botão central)
         painel = aba.painel if aba else None
         for nome, b in self.b_paineis.items():
             b.setChecked(nome == painel)

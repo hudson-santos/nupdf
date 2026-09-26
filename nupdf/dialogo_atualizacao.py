@@ -147,6 +147,9 @@ class DialogoAtualizacao(QDialog):
         self.status.setText(status)
         self.status.setVisible(bool(status))
         self.b_atualizar.setVisible(atualizar)
+        # Sozinho, o "Fechar" é redundante com o X da janela; só aparece ao lado
+        # do "Atualizar" (e como "Cancelar" durante o download).
+        self.b_fechar.setVisible(atualizar)
 
     def _colorir_links(self):
         """O import de markdown do Qt grava o azul padrão nos links; troca
