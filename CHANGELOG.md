@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.0] - 2026-09-26
+
+### Added
+- Desinstalador: o NuPDF aparece em "Aplicativos instalados" / "Programas e Recursos" do
+  Windows, com nome, ícone, versão e editora. A desinstalação fecha o NuPDF aberto,
+  remove os atalhos, o registro em "Abrir com" para .pdf e a pasta C:\NuPDF (inclusive o
+  ambiente Python); as preferências do usuário em %APPDATA%\NuPDF são mantidas.
+
 ## [1.1.1] - 2026-09-26
 
 ### Changed

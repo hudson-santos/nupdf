@@ -27,8 +27,17 @@ AppPublisher={#MyAppPublisher}
 DefaultDirName=C:\NuPDF
 DisableDirPage=yes
 DisableProgramGroupPage=yes
-; Sem desinstalador formal: remover o NuPDF é apagar C:\NuPDF e os atalhos.
-Uninstallable=no
+; Desinstalador em "Aplicativos instalados" / "Programas e Recursos" do
+; usuário (instalação sem admin -> entrada em HKCU). Remove também o que os
+; scripts criam fora do controle do Inno (venv, NuPDF.exe, atalhos, "Abrir
+; com") - ver [UninstallRun] (desinstalar.ps1) e [UninstallDelete].
+; As preferências do usuário (%APPDATA%\NuPDF) são mantidas.
+Uninstallable=yes
+UninstallDisplayName={#MyAppName}
+UninstallDisplayIcon={app}\assets\nupdf.ico
+AppPublisherURL=https://nupdf.com.br
+AppSupportURL=https://github.com/hudson-santos/nupdf
+AppUpdatesURL=https://nupdf.com.br
 PrivilegesRequired=lowest
 Compression=lzma2/ultra64
 SolidCompression=yes
@@ -47,6 +56,8 @@ Source: "main.py"; DestDir: "{app}"; Flags: ignoreversion
 Source: "NuPDF.cs"; DestDir: "{app}"; Flags: ignoreversion
 Source: "nupdf\*"; DestDir: "{app}\nupdf"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "__pycache__,.claude"
 Source: "assets\*"; DestDir: "{app}\assets"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Limpeza executada pelo desinstalador (ver [UninstallRun])
+Source: "desinstalar.ps1"; DestDir: "{app}"; Flags: ignoreversion
 
 ; Scripts auxiliares: não vão para {app}, só são extraídos sob demanda
 ; (ExtractTemporaryFile em [Code]) e executados de uma pasta temporária.
@@ -57,6 +68,15 @@ Source: "criar_atalho_definir_appid.ps1"; DestDir: "{tmp}"; Flags: dontcopy
 [Dirs]
 ; Cadeias de certificados confiáveis (ICP-Brasil) para validar assinaturas.
 Name: "{app}\cadeias"
+
+[UninstallRun]
+; Fecha o NuPDF e remove atalhos e o "Abrir com" antes de apagar os arquivos
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\desinstalar.ps1"""; Flags: runhidden waituntilterminated; RunOnceId: "LimpezaNuPDF"
+
+[UninstallDelete]
+; Tudo o que ficou em C:\NuPDF e não foi copiado pelo Inno (venv, NuPDF.exe,
+; Instalador.exe baixado pela atualização, cadeias, __pycache__...)
+Type: filesandordirs; Name: "{app}"
 
 [Run]
 ; Abre o NuPDF ao final (também no modo /SILENT de uma atualização).

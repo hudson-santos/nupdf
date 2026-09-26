@@ -31,6 +31,11 @@ pedir administrador, cria atalho na Área de Trabalho e no Menu Iniciar e
 registra o NuPDF em "Abrir com" para .pdf. Para torná-lo o leitor padrão:
 botão direito num PDF → Abrir com → NuPDF → "Sempre usar este aplicativo".
 
+Para desinstalar: Configurações → Aplicativos → Aplicativos instalados (ou
+Painel de Controle → Programas e Recursos) → **NuPDF** → Desinstalar. Remove
+a pasta `C:\NuPDF`, os atalhos e o registro em "Abrir com"; as preferências
+do usuário (`%APPDATA%\NuPDF`) são mantidas.
+
 ## Desenvolvimento
 
 ```
