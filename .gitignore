@@ -1,0 +1,18 @@
+__pycache__/
+*.py[cod]
+venv/
+.vscode/
+.claude
+*.log
+
+# Gerado pelo Inno Setup a partir de Instalador.iss (ISCC.exe Instalador.iss)
+Instalador.exe
+
+# Gerado pelo instalar.ps1 (etapa 6) a partir de NuPDF.cs
+NuPDF.exe
+NuPDF.new.exe
+
+# Certificado de assinatura de código / certificados de teste
+sign/
+*.pfx
+*.p12

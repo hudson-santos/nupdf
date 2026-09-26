@@ -1,0 +1,105 @@
+name: versao
+
+# Dispara ao subir um commit cuja mensagem comece com "release - [X.Y.Z]"
+# (mesmo padrão já usado nos commits de release deste projeto, ex.:
+# "release - [1.10.1]") - cria a tag e a Release do GitHub dessa versão,
+# com título/descrição copiados direto do CHANGELOG.md (a mesma fonte
+# única já usada em todo o resto do projeto - nada aqui fica hardcoded
+# por versão) e o Instalador.exe recém-compilado como anexo.
+"on":
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    if: startsWith(github.event.head_commit.message, 'release - [')
+    runs-on: windows-latest
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@v4
+
+      - name: Extrair a versão da mensagem do commit
+        id: versao
+        shell: bash
+        env:
+          MENSAGEM_COMMIT: ${{ github.event.head_commit.message }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$MENSAGEM_COMMIT" =~ ^release\ -\ \[([^]]+)\] ]]; then
+            echo "Mensagem de commit não bate com 'release - [X.Y.Z]': $MENSAGEM_COMMIT"
+            exit 1
+          fi
+          VERSAO="${BASH_REMATCH[1]}"
+          echo "Versão extraída: $VERSAO"
+          echo "versao=$VERSAO" >> "$GITHUB_OUTPUT"
+
+      - name: Extrair título e descrição do CHANGELOG.md
+        id: changelog
+        shell: bash
+        env:
+          VERSAO: ${{ steps.versao.outputs.versao }}
+        run: |
+          set -euo pipefail
+
+          TITULO="$(grep -m1 -F "## [$VERSAO] - " CHANGELOG.md || true)"
+          if [ -z "$TITULO" ]; then
+            echo "Não encontrei a seção '## [$VERSAO] - ...' em CHANGELOG.md"
+            exit 1
+          fi
+          TITULO="${TITULO#\#\# }"
+          echo "Título da release: $TITULO"
+          echo "titulo=$TITULO" >> "$GITHUB_OUTPUT"
+
+          # Corpo = tudo entre o título desta versão (exclusive) e o
+          # próximo "## [" (exclusive) ou o fim do arquivo - usa índice
+          # de substring (não regex) pra não precisar escapar nada da
+          # versão em si.
+          awk -v marca="## [$VERSAO] - " '
+            $0 ~ /^## \[/ && index($0, marca) == 1 { capturando=1; next }
+            capturando && /^## \[/ { exit }
+            capturando { print }
+          ' CHANGELOG.md > corpo_release.md
+
+          # Remove linhas em branco só do início (o CHANGELOG sempre tem
+          # uma linha em branco logo após o título de cada versão).
+          sed -i -e '/./,$!d' corpo_release.md
+
+          if [ ! -s corpo_release.md ]; then
+            echo "Seção do CHANGELOG para $VERSAO ficou vazia."
+            exit 1
+          fi
+
+          {
+            echo "corpo<<CHANGELOG_EOF"
+            cat corpo_release.md
+            echo "CHANGELOG_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Instalar o Inno Setup
+        shell: powershell
+        run: choco install innosetup -y --no-progress
+
+      - name: Compilar o Instalador.exe
+        shell: powershell
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" Instalador.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Criar a tag e a Release no GitHub
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSAO: ${{ steps.versao.outputs.versao }}
+          TITULO: ${{ steps.changelog.outputs.titulo }}
+          CORPO: ${{ steps.changelog.outputs.corpo }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$CORPO" > corpo_release.md
+          gh release create "$VERSAO" \
+            --title "$TITULO" \
+            --notes-file corpo_release.md \
+            --target "${{ github.sha }}" \
+            "Instalador.exe"
