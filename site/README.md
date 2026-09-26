@@ -17,17 +17,22 @@ npm run dev        # http://localhost:4321
 npm run build      # gera dist/
 ```
 
-## Cloudflare Pages
+## Cloudflare (Workers Builds)
 
-Em *Workers & Pages → Create → Pages → Connect to Git*, escolha o repositório
-`hudson-santos/nupdf` e configure:
+Ao conectar o repositório `hudson-santos/nupdf` no Cloudflare (*Workers &
+Pages → Create → Import a repository*), configure em *Settings → Build*:
 
-| Campo                  | Valor           |
-|------------------------|-----------------|
-| Framework preset       | Astro           |
-| Root directory         | `site`          |
-| Build command          | `npm run build` |
-| Build output directory | `dist`          |
+| Campo            | Valor               |
+|------------------|---------------------|
+| Root directory   | `site`              |
+| Build command    | `npm run build`     |
+| Deploy command   | `npx wrangler deploy` |
 
-A versão do Node vem do arquivo `.node-version` (22). Os cabeçalhos de cache e
-segurança ficam em `public/_headers`.
+O `wrangler.jsonc` desta pasta publica o conteúdo de `dist/` como arquivos
+estáticos (sem código de servidor). O campo `name` dele precisa ser igual ao
+nome do projeto no painel. A versão do Node vem de `.node-version` (22), e os
+cabeçalhos de cache e segurança de `public/_headers` são aplicados pelo
+Cloudflare.
+
+Sem o *Root directory* `site`, o Cloudflare trabalha na raiz do repositório:
+instala as dependências Python do app e não encontra o site para publicar.

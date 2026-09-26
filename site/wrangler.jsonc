@@ -1,0 +1,12 @@
+// Configuração do deploy no Cloudflare (Workers Builds com arquivos estáticos).
+// O Cloudflare roda, a partir da pasta site/:
+//   build:  npm run build      -> gera dist/
+//   deploy: npx wrangler deploy -> publica dist/ como assets estáticos
+// "name" precisa ser igual ao nome do projeto criado no painel do Cloudflare.
+{
+  "name": "nupdf",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "./dist"
+  }
+}
