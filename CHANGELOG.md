@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.2.1] - 2026-09-26
+
+### Changed
+- Programas e Recursos / Aplicativos instalados: nome exibido com a versão
+  ("NuPDF 1.2.1"), no mesmo padrão dos demais programas, atualizado a cada instalação.
+
 ## [1.2.0] - 2026-09-26
 
 ### Added
