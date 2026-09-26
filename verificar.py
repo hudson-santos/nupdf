@@ -45,7 +45,7 @@ def gerar_pfx(pasta: Path, senha: str) -> Path:
     nome = x509.Name([
         x509.NameAttribute(NameOID.COUNTRY_NAME, "BR"),
         x509.NameAttribute(NameOID.ORGANIZATION_NAME, "ICP-Brasil"),
-        x509.NameAttribute(NameOID.COMMON_NAME, "FULANO DE TESTE:12125005808"),
+        x509.NameAttribute(NameOID.COMMON_NAME, "FULANO DE TESTE:12345678909"),
     ])
     agora = datetime.now(timezone.utc)
     cert = (
@@ -68,9 +68,9 @@ def gerar_pdf(pasta: Path) -> Path:
         pg = doc.new_page()
         pg.insert_text((72, 80), "CERTIDÃO NEGATIVA DE DÉBITOS", fontsize=14)
         pg.insert_text((72, 120), "Proprietário:", fontsize=11)
-        pg.insert_text((150, 120), "HUGO DE TESTE JUNIOR", fontsize=11)
+        pg.insert_text((150, 120), "FULANO DE TAL", fontsize=11)
         pg.insert_text((72, 140), "CPF:", fontsize=11)
-        pg.insert_text((150, 140), "121.250.058-08", fontsize=11)
+        pg.insert_text((150, 140), "123.456.789-09", fontsize=11)
         pg.insert_text((72, 160), "CNPJ: 11.222.333/0001-81   Valor: R$ 1.234,56", fontsize=11)
         pg.insert_text((72, 180), f"Data Emissão: 09/09/2026   Página {n + 1}", fontsize=11)
     caminho = pasta / "teste.pdf"
@@ -92,11 +92,11 @@ def main() -> int:
     from nupdf import dados
     doc = Documento(str(pdf))
     checar("3 páginas", doc.n_paginas == 3)
-    checar("texto em ordem visual", "Proprietário: HUGO DE TESTE JUNIOR" in doc.texto_pagina(0), doc.texto_pagina(0))
+    checar("texto em ordem visual", "Proprietário: FULANO DE TAL" in doc.texto_pagina(0), doc.texto_pagina(0))
     ds = dados.extrair(doc)
     pares = {(d.categoria, d.rotulo, d.valor) for d in ds}
-    checar("campo Proprietário", ("Campos", "Proprietário", "HUGO DE TESTE JUNIOR") in pares, str(pares))
-    checar("CPF válido detectado", any(d.categoria == "CPF" and d.valor == "121.250.058-08" for d in ds))
+    checar("campo Proprietário", ("Campos", "Proprietário", "FULANO DE TAL") in pares, str(pares))
+    checar("CPF válido detectado", any(d.categoria == "CPF" and d.valor == "123.456.789-09" for d in ds))
     checar("CNPJ válido detectado", any(d.categoria == "CNPJ" for d in ds))
     checar("valor e data", any(d.categoria == "Valores" for d in ds) and any(d.categoria == "Datas" for d in ds))
     checar("CPF inválido ignorado", not dados._dv_cpf_ok("12345678901"))
@@ -112,7 +112,7 @@ def main() -> int:
     except ErroCertificado:
         checar("senha errada rejeitada", True)
     info = carregar_pfx(str(pfx), "1234")
-    checar("titular/CPF lidos do CN ICP", info.titular == "FULANO DE TESTE" and info.documento == "121.250.058-08",
+    checar("titular/CPF lidos do CN ICP", info.titular == "FULANO DE TESTE" and info.documento == "123.456.789-09",
            info.resumo())
 
     try:
@@ -169,7 +169,7 @@ def main() -> int:
         v._pag.grab()  # força pintura
         checar("busca (texto + carimbo)", v.buscar("CPF") == 4)
         v.selecionar_tudo()
-        checar("selecionar tudo + copiar", "121.250.058-08" in v.texto_selecionado())
+        checar("selecionar tudo + copiar", "123.456.789-09" in v.texto_selecionado())
         ini = v._ponto_tela(0, __import__("pymupdf").Point(73, 116))
         fim = v._ponto_tela(0, __import__("pymupdf").Point(300, 136))
         v.sel_ini, v.sel_fim = v._palavra_em(ini), v._palavra_em(fim)

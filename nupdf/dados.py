@@ -62,7 +62,7 @@ ORDEM_CATEGORIAS = ["Campos"] + [p[0] for p in _PADROES]
 
 def _campos_da_linha(linha, pagina: int) -> list[Dado]:
     """Divide uma linha visual em segmentos (por espaços grandes) e extrai pares
-    'Rótulo: valor'. Ex.: 'Proprietário:  HUGO STRELOW JUNIOR'."""
+    'Rótulo: valor'. Ex.: 'Proprietário:  FULANO DE TAL'."""
     if not linha:
         return []
     segmentos, atual = [], [linha[0]]

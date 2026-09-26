@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.2.0] - 2026-09-25
+
+### Added
+- Arquivos recentes da tela inicial podem ser removidos individualmente (ícone de lixeira
+  ao passar o mouse ou botão direito → "Remover da lista") ou todos de uma vez
+  ("Limpar tudo"). Só a lista é limpa; os arquivos não são apagados.
+- Página de apresentação do NuPDF em Astro (pasta `site/`), estática e compatível com o
+  Cloudflare Pages, com botão de download do `Instalador.exe` da última release e link
+  para o repositório no GitHub.
+
+### Changed
+- A janela abre maximizada por padrão.
+- Novo ícone do aplicativo, sem a letra "N": folha com traço de assinatura, em várias
+  resoluções (16 a 256 px) no `nupdf.ico`.
+- Fonte da interface trocada para Google Sans, embutida em `assets/fonts` (com Segoe UI
+  como alternativa).
+- Botão "Assinar" renomeado para "Assinar com Certificado Digital".
+- Textos da tela inicial: subtítulo "Leia PDFs, Copie Dados e Assine Digitalmente com
+  Certificado ICP-Brasil" e instrução de arrastar em duas linhas ("ou" / "Arraste um
+  Arquivo para esta Janela").
+
+### Fixed
+- Botão de fechar da aba e botão "+" alinhados verticalmente com o nome do documento.
+- Itens removidos da lista de recentes e do painel de assinaturas não ficam mais
+  desenhados por cima do cartão até serem descartados.
+- Dados pessoais reais nos testes (`verificar.py`) e em um comentário de `nupdf/dados.py`
+  substituídos por dados fictícios.
+
 ## [0.1.0] - 2026-09-25
 
 ### Added
