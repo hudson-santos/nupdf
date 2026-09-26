@@ -218,6 +218,7 @@ class AbaDocumento(QWidget):
         v = self.visualizador
         self.miniaturas.paginaEscolhida.connect(v.ir_para_pagina)
         v.paginaMudou.connect(self._pagina_mudou)
+        v.copiadoPeloBotao.connect(lambda _t: self.toast("Texto copiado"))
 
     # ------------------------------------------------------------------ painéis
     @property

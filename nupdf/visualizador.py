@@ -15,9 +15,10 @@ from collections import OrderedDict
 import pymupdf
 from PySide6.QtCore import QPoint, QPointF, QRect, QRectF, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QColor, QDesktopServices, QGuiApplication, QImage, QPainter, QPen, QPixmap
-from PySide6.QtWidgets import QFrame, QMenu, QMessageBox, QScrollArea, QWidget
+from PySide6.QtWidgets import QFrame, QMenu, QMessageBox, QPushButton, QScrollArea, QWidget
 
 from .documento import Documento
+from .icones import icone
 
 MARGEM = 24
 ESPACO = 14
@@ -32,6 +33,7 @@ class Visualizador(QScrollArea):
     selecaoMudou = Signal(bool)
     retanguloDesenhado = Signal(int, object)  # página, pymupdf.Rect (espaço da página)
     posicionamentoCancelado = Signal()
+    copiadoPeloBotao = Signal(str)
 
     def __init__(self, documento: Documento, cores: dict, parent=None):
         super().__init__(parent)
@@ -63,6 +65,15 @@ class Visualizador(QScrollArea):
 
         self._pag = _Paginas(self)
         self.setWidget(self._pag)
+        # botão "Copiar" que aparece junto do texto selecionado (rola com as páginas)
+        self._bt_copiar = QPushButton("  Copiar", self._pag)
+        self._bt_copiar.setObjectName("botaoCopiar")
+        self._bt_copiar.setIcon(icone("copiar", "#ffffff", 15))
+        self._bt_copiar.setCursor(Qt.PointingHandCursor)
+        self._bt_copiar.hide()
+        self._bt_copiar.clicked.connect(self._copiar_pelo_botao)
+        self._sem_botao_copiar = False
+        self.selecaoMudou.connect(self._posicionar_botao_copiar)
         self.verticalScrollBar().valueChanged.connect(self._ao_rolar)
         self._recalcular()
 
@@ -86,6 +97,8 @@ class Visualizador(QScrollArea):
         self._geo, self._topos = geos, topos
         self._pag.resize(larg, alt)
         self._pag.update()
+        if self._bt_copiar.isVisible():  # zoom/rotação: acompanha o texto selecionado
+            self._posicionar_botao_copiar(True)
 
     def _pagina_em(self, pos: QPointF) -> int:
         if not self._geo:
@@ -430,13 +443,50 @@ class Visualizador(QScrollArea):
         self.sel_ini = (primeira, 0)
         self.sel_fim = (ultima, len(self.doc.palavras(ultima)) - 1)
         self._pag.update()
+        self._sem_botao_copiar = True  # documento inteiro: Ctrl+C basta
         self.selecaoMudou.emit(True)
+        self._sem_botao_copiar = False
 
     def copiar(self) -> str:
         texto = self.texto_selecionado()
         if texto:
             QGuiApplication.clipboard().setText(texto)
         return texto
+
+    def _copiar_pelo_botao(self):
+        texto = self.copiar()
+        self._bt_copiar.hide()
+        self._pag.setFocus()
+        if texto:
+            self.copiadoPeloBotao.emit(texto)
+
+    def _posicionar_botao_copiar(self, tem: bool):
+        """Mostra o "Copiar" logo abaixo da última palavra selecionada (ou acima,
+        se não couber na página)."""
+        bt = self._bt_copiar
+        if not tem or self._sem_botao_copiar or self.modo != "texto":
+            bt.hide()
+            return
+        alvo = None
+        for i in reversed(self._paginas_selecionadas()):
+            ks = list(self._selecao_na_pagina(i))
+            if ks:
+                alvo = (i, self.doc.palavras(i)[ks[-1]])
+                break
+        if alvo is None:
+            bt.hide()
+            return
+        i, w = alvo
+        q = self._ret_tela(i, w[:4])
+        pag = self._geo[i][0]
+        bt.adjustSize()
+        x = int(min(max(q.left(), pag.left() + 4), pag.right() - bt.width() - 4))
+        y = int(q.bottom() + 6)
+        if y + bt.height() > pag.bottom():
+            y = int(q.top() - bt.height() - 6)
+        bt.move(x, y)
+        bt.raise_()
+        bt.show()
 
     # ------------------------------------------------------------------ links
     def _link_em(self, pos: QPointF):
@@ -536,6 +586,7 @@ class _Paginas(QWidget):
     def mousePressEvent(self, e):
         self.setFocus()
         v = self.v
+        v._bt_copiar.hide()
         if e.button() == Qt.MiddleButton or (e.button() == Qt.LeftButton and v.modo == "mao"):
             self._pan = (e.globalPosition(), v.horizontalScrollBar().value(), v.verticalScrollBar().value())
             self.setCursor(Qt.ClosedHandCursor)

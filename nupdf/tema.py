@@ -136,6 +136,9 @@ QScrollBar::add-page, QScrollBar::sub-page { background: transparent; }
 
 #flutuante { background: $superficie; border: 1px solid $borda; border-radius: 12px; }
 #flutuante QLineEdit { background: $superficie2; border: none; }
+#botaoCopiar { background: #202124; color: #ffffff; border: none; border-radius: 8px;
+               padding: 6px 12px; font-weight: 600; }
+#botaoCopiar:hover { background: #33353a; }
 #aviso { background: $destaque; color: #ffffff; border-radius: 10px; padding: 8px 14px; font-weight: 600; }
 #toast { background: $superficie2; color: $texto; border: 1px solid $borda; border-radius: 10px; padding: 8px 14px; }
 

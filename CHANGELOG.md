@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.1.0] - 2026-09-26
+
+### Added
+- Botão "Copiar" que aparece junto do texto ao selecioná-lo no PDF (arrastar, duplo ou
+  triplo clique, seleção retangular): um clique copia o texto e mostra "Texto copiado".
+  Some ao clicar fora, iniciar outra seleção ou pressionar Esc; não aparece no Ctrl+A.
+- Site de apresentação: alternância de tema claro/escuro no topo, com o claro como padrão
+  (a escolha fica salva no navegador).
+
+### Changed
+- Site de apresentação: todo o conteúdo visível em uma tela de computador, sem rolagem
+  (1366×768 e 1280×720).
+
 ## [1.0.1] - 2026-09-26
 
 ### Changed
