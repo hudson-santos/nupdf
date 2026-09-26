@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.1.1] - 2026-09-26
+
+### Changed
+- Site de apresentação: card "Copie com um clique" descreve o botão "Copiar" que aparece ao
+  selecionar texto no PDF.
+
 ## [1.1.0] - 2026-09-26
 
 ### Added
