@@ -31,7 +31,7 @@ const recursos = [
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>NuPDF — Leitor de PDF leve com assinatura ICP-Brasil</title>
+    <title>NuPDF - Leitor de PDF Leve com Assinatura Digital ICP-Brasil</title>
     <meta
       name="description"
       content="Leia PDFs, Copie Dados e Assine Digitalmente com Certificado ICP-Brasil. Leitor de PDF leve para Windows."
@@ -155,7 +155,14 @@ const recursos = [
         }
       }
       * { box-sizing: border-box; margin: 0; }
-      html { -webkit-text-size-adjust: 100%; }
+      html {
+        -webkit-text-size-adjust: 100%;
+        /* sem barra de rolagem visível - a página continua rolando
+           normalmente (roda do mouse, toque, teclado) */
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+      }
+      html::-webkit-scrollbar { display: none; }
       body {
         font-family: "Google Sans", "Segoe UI", system-ui, sans-serif;
         background: var(--fundo);
