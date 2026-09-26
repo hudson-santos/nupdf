@@ -202,10 +202,14 @@ const recursos = [
     </style>
 
     <style>
+      /* Tudo visível numa tela de computador (≈ 1366×768) sem rolagem: espaços
+         verticais proporcionais à altura da janela e conteúdo centralizado. */
+      :global(body) { min-height: 100vh; display: flex; flex-direction: column; }
       .topo {
+        width: 100%;
         max-width: 1120px;
         margin: 0 auto;
-        padding: 20px 20px;
+        padding: 10px 20px;
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -231,18 +235,22 @@ const recursos = [
       :root[data-tema="escuro"] .icone-sol { display: block; }
       :root[data-tema="escuro"] .icone-lua { display: none; }
 
-      main { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
+      main {
+        flex: 1; width: 100%; max-width: 1120px; margin: 0 auto; padding: 0 20px;
+        display: flex; flex-direction: column; justify-content: center;
+      }
 
-      .hero { text-align: center; padding: 40px 0 24px; }
-      .logo { margin: 0 auto 18px; filter: drop-shadow(0 10px 24px rgba(229, 72, 77, 0.35)); }
-      h1 { font-size: clamp(40px, 7vw, 60px); line-height: 1.05; letter-spacing: -1px; font-weight: 700; }
-      .sub { margin: 14px auto 0; max-width: 760px; font-size: clamp(17px, 2.4vw, 20px); color: var(--texto2); }
+      .hero { text-align: center; padding: 0; }
+      .logo { width: clamp(44px, 6vh, 60px); height: auto; margin: 0 auto clamp(6px, 1.2vh, 14px);
+              filter: drop-shadow(0 10px 24px rgba(229, 72, 77, 0.35)); }
+      h1 { font-size: clamp(32px, 5.4vh, 50px); line-height: 1.05; letter-spacing: -1px; font-weight: 700; }
+      .sub { margin: clamp(4px, 1vh, 10px) auto 0; max-width: 760px; font-size: clamp(15px, 2.2vh, 19px); color: var(--texto2); }
 
       .inteiro { white-space: nowrap; }
-      .acoes { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 32px; }
+      .acoes { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: clamp(12px, 2.4vh, 26px); }
       .botao {
         display: inline-flex; align-items: center; gap: 10px;
-        padding: 14px 24px; border-radius: 12px;
+        padding: 11px 22px; border-radius: 12px;
         font-size: 16px; font-weight: 600; text-decoration: none;
         transition: background 0.15s, transform 0.15s, border-color 0.15s;
       }
@@ -252,40 +260,42 @@ const recursos = [
       .primario:hover { background: var(--destaque-hover); }
       .secundario { background: var(--superficie); color: var(--texto); border: 1px solid var(--borda); }
       .secundario:hover { border-color: var(--texto3); }
-      .meta { margin-top: 14px; font-size: 13px; color: var(--texto3); }
+      .meta { margin-top: 8px; font-size: 13px; color: var(--texto3); }
 
 
       .recursos {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
         gap: 16px;
-        margin: 72px 0 0;
+        margin: clamp(16px, 3.4vh, 44px) 0 0;
       }
+      /* ícone ao lado do título (economiza altura) */
       .cartao {
+        display: grid; grid-template-columns: auto 1fr; column-gap: 14px; align-items: center; align-content: start;
         background: var(--superficie);
         border: 1px solid var(--borda);
         border-radius: 16px;
-        padding: 24px;
+        padding: clamp(12px, 2vh, 20px) 18px;
       }
       .icone {
         display: inline-grid; place-items: center;
-        width: 44px; height: 44px; border-radius: 12px;
+        width: 40px; height: 40px; border-radius: 12px;
         background: var(--destaque-suave); color: var(--destaque);
       }
-      .cartao h2 { margin-top: 16px; font-size: 18px; font-weight: 600; }
-      .cartao p { margin-top: 6px; color: var(--texto2); font-size: 15px; }
+      .cartao h2 { font-size: 17px; font-weight: 600; }
+      .cartao p { grid-column: 1 / -1; margin-top: 8px; color: var(--texto2); font-size: 14px; line-height: 1.45; }
 
-      .instalar { margin: 72px 0 0; text-align: center; }
-      .instalar h2 { font-size: 24px; font-weight: 700; }
+      .instalar { margin: clamp(16px, 3vh, 40px) 0 0; text-align: center; }
+      .instalar h2 { font-size: 18px; font-weight: 700; }
       .instalar ol {
         list-style: none; padding: 0;
         display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
-        margin-top: 24px; text-align: left;
+        margin-top: clamp(8px, 1.6vh, 16px); text-align: left;
       }
       .instalar li {
         display: flex; gap: 12px; align-items: flex-start;
         background: var(--superficie); border: 1px solid var(--borda);
-        border-radius: 14px; padding: 18px; color: var(--texto2); font-size: 15px;
+        border-radius: 14px; padding: clamp(10px, 1.8vh, 16px) 16px; color: var(--texto2); font-size: 14px; line-height: 1.45;
       }
       .instalar li b { color: var(--texto); }
       .instalar li span {
@@ -294,12 +304,13 @@ const recursos = [
         background: var(--destaque); color: #fff; font-size: 13px; font-weight: 700;
       }
 
-      footer { margin-top: 80px; padding: 28px 20px 36px; border-top: 1px solid var(--borda); text-align: center; }
+      footer { margin-top: clamp(14px, 2.6vh, 36px); padding: clamp(8px, 1.6vh, 16px) 20px; border-top: 1px solid var(--borda); text-align: center; }
       footer p { font-size: 13px; color: var(--texto3); }
       footer a { color: var(--texto2); }
 
       @media (max-width: 820px) {
         .recursos, .instalar ol { grid-template-columns: 1fr; }
+        main { justify-content: flex-start; }
         .hero { padding-top: 24px; }
       }
       @media (max-width: 480px) {
