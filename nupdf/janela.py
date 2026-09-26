@@ -113,10 +113,13 @@ class TelaInicial(QWidget):
         bt.setFixedWidth(200)
         bt.clicked.connect(janela.abrir_dialogo)
         zl.addWidget(bt, 0, Qt.AlignCenter)
-        dica = QLabel("ou\nArraste um Arquivo para esta Janela")
-        dica.setObjectName("sub3")
-        dica.setAlignment(Qt.AlignCenter)
-        zl.addWidget(dica)
+        # Linhas separadas: o espaçamento do layout (10px) fica igual
+        # entre o botão e o "ou" e entre o "ou" e a instrução.
+        for texto in ("ou", "Arraste um Arquivo para esta Janela"):
+            dica = QLabel(texto)
+            dica.setObjectName("sub3")
+            dica.setAlignment(Qt.AlignCenter)
+            zl.addWidget(dica)
         lay.addWidget(zona)
 
         lay.addSpacing(8)

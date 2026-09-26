@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.2.1] - 2026-09-26
+
+### Changed
+- Site de apresentação publicado em https://nupdf.com.br (Cloudflare Workers com
+  arquivos estáticos, configurado pelo `wrangler.jsonc` da raiz), com o título "NuPDF -
+  Leitor de PDF Leve com Assinatura Digital ICP-Brasil" e sem barra de rolagem visível.
+
+### Fixed
+- Tela inicial: espaçamento entre "ou" e "Arraste um Arquivo para esta Janela" igual ao
+  espaçamento entre o botão "Abrir PDF" e o "ou".
+
 ## [0.2.0] - 2026-09-25
 
 ### Added
