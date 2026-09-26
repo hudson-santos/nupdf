@@ -58,6 +58,13 @@ Sem o pedido "Atualizar Changelog - NuPDF" (ou equivalente inequívoco),
 não faça bump de versão, commit ou push - só implemente e verifique a
 mudança, e avise que está pronta para o changelog.
 
+**Exceção - site de apresentação** (https://nupdf.com.br): mudanças que
+alteram SOMENTE a pasta `site/` (e o `wrangler.jsonc` da raiz, que faz o
+deploy dele) podem ter commit + push direto, logo após verificadas, com
+mensagem simples (nunca começando com `release - [`) - o Cloudflare
+republica o site sozinho a cada push na `main`. Sem bump de versão nem
+entrada no CHANGELOG. Se a mudança também tocar o app, vale a regra acima.
+
 ## Estrutura
 
 - `main.py` - entrada (instância única via QLocalServer, AppUserModelID `NuPDF.App`).
