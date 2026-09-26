@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.2] - 2026-09-26
+
+### Changed
+- Janela "Verificar Atualizações": um único botão centralizado ("Atualizar", trocado por
+  "Cancelar" durante o download), sem o "Fechar" no rodapé.
+- Novidades da atualização com espaçamento após os títulos (Novidades, Alterações,
+  Correções) e entre os itens.
+
+### Fixed
+- A área de novidades da janela de atualização cresce conforme o conteúdo, sem ocultar
+  itens (barra de rolagem só em notas muito longas).
+- Endereços e trechos de código nas novidades apareciam vazios.
+
 ## [0.3.1] - 2026-09-26
 
 ### Changed

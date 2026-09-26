@@ -1,9 +1,9 @@
 """Janela "Verificar Atualizações" (no estilo da do JoPDF)."""
 
+import html
 import re
 
-from PySide6.QtCore import Qt, QThread, Signal
-from PySide6.QtGui import QColor, QTextCharFormat, QTextCursor
+from PySide6.QtCore import Qt, QThread, QTimer, Signal
 from PySide6.QtWidgets import (QApplication, QDialog, QFrame, QHBoxLayout, QLabel, QProgressBar,
                                QPushButton, QTextBrowser, QVBoxLayout)
 
@@ -16,13 +16,42 @@ _SECOES = {"added": "Novidades", "changed": "Alterações", "fixed": "Correçõe
            "security": "Segurança", "deprecated": "Descontinuado"}
 
 
-def _notas_em_portugues(md: str) -> str:
-    """As notas vêm do CHANGELOG (Keep a Changelog, títulos em inglês)."""
-    def titulo(m):
-        nome = m.group(1).strip()
-        return f"**{_SECOES.get(nome.lower(), nome)}**"
-    md = re.sub(r"^#{2,4}\s*(.+?)\s*$", titulo, md, flags=re.M)
-    return md or "Correções e melhorias."
+def _notas_html(md: str, cor_link: str) -> str:
+    """Converte as notas da release (seção do CHANGELOG no formato Keep a
+    Changelog: "### Added" + itens "- ...", com continuação indentada) em HTML
+    com títulos traduzidos e espaçamento controlado."""
+    esc = lambda t: html.escape(t, quote=False)
+
+    def inline(t):
+        t = esc(t)
+        t = re.sub(r"`([^`]+)`", lambda m: f"<code>{m.group(1)}</code>", t)
+        return re.sub(r"(https?://[^\s)<]+)",
+                      lambda m: f'<a href="{m.group(1)}" style="color:{cor_link}">{m.group(1)}</a>', t)
+
+
+    partes, itens = [], []
+
+    def fechar_lista():
+        if itens:
+            partes.append('<ul style="margin-top:0; margin-bottom:10px; -qt-list-indent:1;">'
+                          + "".join(f'<li style="margin-bottom:4px;">{inline(i)}</li>' for i in itens) + "</ul>")
+            itens.clear()
+
+    for linha in md.splitlines():
+        m = re.match(r"^#{2,4}\s*(.+?)\s*$", linha)
+        if m:
+            fechar_lista()
+            nome = _SECOES.get(m.group(1).lower(), m.group(1))
+            partes.append(f'<p style="margin-top:4px; margin-bottom:8px;"><b>{esc(nome)}</b></p>')
+        elif re.match(r"^\s*[-*]\s+", linha):
+            itens.append(re.sub(r"^\s*[-*]\s+", "", linha))
+        elif linha.strip() and itens:
+            itens[-1] += " " + linha.strip()
+        elif linha.strip():
+            fechar_lista()
+            partes.append(f"<p>{inline(linha.strip())}</p>")
+    fechar_lista()
+    return "".join(partes) or "<p>Correções e melhorias.</p>"
 
 
 class _Download(QThread):
@@ -51,7 +80,7 @@ class DialogoAtualizacao(QDialog):
     def __init__(self, parent=None, release=None):
         super().__init__(parent)
         self.setWindowTitle("Verificar Atualizações")
-        self.setMinimumWidth(560)
+        self.setMinimumWidth(600)
         self.release = release
         self._download = None
 
@@ -85,6 +114,7 @@ class DialogoAtualizacao(QDialog):
         cl.addWidget(self.texto)
         self.notas = QTextBrowser()
         self.notas.setOpenExternalLinks(True)
+        self.notas.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.notas.setFrameShape(QFrame.NoFrame)
         self.notas.setStyleSheet("QTextBrowser { background: transparent; border: none; }")
         cl.addWidget(self.notas, 1)
@@ -106,18 +136,23 @@ class DialogoAtualizacao(QDialog):
         self.nota.setOpenExternalLinks(True)
         lay.addWidget(self.nota)
 
+        # Um único botão centralizado: "Atualizar" (ou "Tentar novamente") e,
+        # durante o download, "Cancelar" no lugar dele. A janela fecha pelo X/Esc.
         botoes = QHBoxLayout()
-        botoes.setSpacing(12)
-        self.b_fechar = QPushButton("Fechar")
-        self.b_fechar.setMinimumHeight(38)
-        self.b_fechar.clicked.connect(self._fechar_ou_cancelar)
+        self.b_cancelar = QPushButton("Cancelar")
+        self.b_cancelar.setMinimumHeight(38)
+        self.b_cancelar.setFixedWidth(260)
+        self.b_cancelar.clicked.connect(self._cancelar_download)
         self.b_atualizar = QPushButton("Atualizar")
         self.b_atualizar.setObjectName("primario")
         self.b_atualizar.setMinimumHeight(38)
         self.b_atualizar.setCursor(Qt.PointingHandCursor)
         self.b_atualizar.clicked.connect(self._atualizar)
-        botoes.addWidget(self.b_fechar, 1)
-        botoes.addWidget(self.b_atualizar, 1)
+        self.b_atualizar.setFixedWidth(260)
+        botoes.addStretch(1)
+        botoes.addWidget(self.b_atualizar)
+        botoes.addWidget(self.b_cancelar)
+        botoes.addStretch(1)
         lay.addLayout(botoes)
 
         if release is None:
@@ -130,14 +165,14 @@ class DialogoAtualizacao(QDialog):
             self._recebida(release)
 
     # ------------------------------------------------------------------ estados
-    def _estado(self, titulo, texto="", notas=None, barra=None, status="", atualizar=False):
+    def _estado(self, titulo, texto="", notas=None, barra=None, status="", atualizar=False, cancelar=False):
         self.titulo.setText(titulo)
         self.texto.setText(texto)
         self.texto.setVisible(bool(texto))
         self.notas.setVisible(notas is not None)
         if notas is not None:
-            self.notas.setMarkdown(notas)
-            self._colorir_links()
+            self.notas.setHtml(notas)
+            QTimer.singleShot(0, self._ajustar_altura)
         self.barra.setVisible(barra is not None)
         if barra == "indeterminada":
             self.barra.setRange(0, 0)
@@ -147,28 +182,17 @@ class DialogoAtualizacao(QDialog):
         self.status.setText(status)
         self.status.setVisible(bool(status))
         self.b_atualizar.setVisible(atualizar)
-        # Sozinho, o "Fechar" é redundante com o X da janela; só aparece ao lado
-        # do "Atualizar" (e como "Cancelar" durante o download).
-        self.b_fechar.setVisible(atualizar)
+        self.b_cancelar.setVisible(cancelar)
 
-    def _colorir_links(self):
-        """O import de markdown do Qt grava o azul padrão nos links; troca
-        pela cor de destaque do tema (legível no escuro e no claro)."""
-        cor = QColor(ui.cores()["destaque"])
-        bloco = self.notas.document().begin()
-        while bloco.isValid():
-            it = bloco.begin()
-            while not it.atEnd():
-                frag = it.fragment()
-                if frag.isValid() and frag.charFormat().isAnchor():
-                    cur = QTextCursor(self.notas.document())
-                    cur.setPosition(frag.position())
-                    cur.setPosition(frag.position() + frag.length(), QTextCursor.KeepAnchor)
-                    fmt = QTextCharFormat()
-                    fmt.setForeground(cor)
-                    cur.mergeCharFormat(fmt)
-                it += 1
-            bloco = bloco.next()
+    def _ajustar_altura(self):
+        """Área de novidades do tamanho do texto (sem rolagem), até um limite -
+        acima dele, aparece a barra de rolagem. A janela é redimensionada no
+        ciclo de eventos seguinte, quando o Qt já recalculou o layout."""
+        limite = int(self.screen().availableGeometry().height() * 0.55) if self.screen() else 520
+        doc = self.notas.document()
+        doc.setTextWidth(self.notas.viewport().width())
+        self.notas.setFixedHeight(min(int(doc.size().height()) + 8, limite))
+        QTimer.singleShot(0, lambda: self.resize(self.width(), self.sizeHint().height()))
 
     def _verificando(self):
         self._estado("Verificando atualizações…", f"Versão instalada: {VERSAO}", barra="indeterminada")
@@ -182,17 +206,15 @@ class DialogoAtualizacao(QDialog):
             mb = f" · {release.tamanho / 1048576:.1f} MB".replace(".", ",") if release.tamanho else ""
             self._estado(f"Versão: {release.versao}",
                          f"Você está usando a versão {VERSAO}{mb}\n\nO que há de novo:",
-                         notas=_notas_em_portugues(release.notas), atualizar=True)
+                         notas=_notas_html(release.notas, ui.cores()["destaque"]), atualizar=True)
         else:
             self._estado("Você já está usando a versão mais recente",
                          f"Versão instalada: {VERSAO}")
 
     # ------------------------------------------------------------------ ações
     def _atualizar(self):
-        self.b_atualizar.setEnabled(False)
-        self.b_fechar.setText("Cancelar")
         self._estado(f"Baixando a versão {self.release.versao}…", barra=0, status="Iniciando o download…",
-                     atualizar=True)
+                     cancelar=True)
         self._download = _Download(self.release)
         self._download.progresso.connect(self._progresso)
         self._download.concluido.connect(self._baixado)
@@ -209,8 +231,6 @@ class DialogoAtualizacao(QDialog):
 
     def _falha_download(self, msg):
         self._download = None
-        self.b_fechar.setText("Fechar")
-        self.b_atualizar.setEnabled(True)
         self.b_atualizar.setText("Tentar novamente")
         self._estado("Não foi possível atualizar", msg, atualizar=True)
 
@@ -219,26 +239,19 @@ class DialogoAtualizacao(QDialog):
         self._estado("Instalando a atualização…",
                      "O NuPDF será fechado e reaberto automaticamente ao final da instalação.",
                      barra=100)
-        self.b_fechar.setEnabled(False)
         try:
             atu.executar_instalador(caminho)
         except OSError as e:
-            self.b_fechar.setEnabled(True)
-            self.b_fechar.setText("Fechar")
             self._estado("Não foi possível iniciar o instalador", f"{e}\n\nArquivo: {caminho}")
             return
         QApplication.instance().quit()
 
-    def _fechar_ou_cancelar(self):
+    def _cancelar_download(self):
         if self._download is not None:
             self._download.cancelar()
             self._download.wait(3000)
             self._download = None
-            self.b_fechar.setText("Fechar")
-            self.b_atualizar.setEnabled(True)
-            self._recebida(self.release)
-            return
-        self.reject()
+        self._recebida(self.release)
 
     def reject(self):
         if self._download is not None:

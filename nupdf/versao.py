@@ -7,4 +7,4 @@ Segue semver MAJOR.MINOR.PATCH:
 """
 
 NOME_APP = "NuPDF"
-VERSAO = "0.3.1"
+VERSAO = "0.3.2"
