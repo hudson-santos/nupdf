@@ -1,7 +1,7 @@
 # NuPDF
 
 Leitor de PDF leve para uso corporativo interno: **ler**, **copiar dados** e
-**assinar digitalmente no padrão ICP-Brasil** — sem o peso do Adobe Reader.
+**assinar digitalmente no padrão ICP-Brasil** - sem o peso do Adobe Reader.
 
 ## Funcionalidades
 
@@ -46,5 +46,5 @@ venv\Scripts\python.exe verificar.py       # verificação de integridade
 ```
 
 Tecnologias: PySide6 (Qt), PyMuPDF, pyHanko, cryptography.
-Release: ver `CLAUDE.md` (mesmo fluxo do Zeebs; o GitHub Actions compila o
-`Instalador.exe` com Inno Setup a cada commit `release - [X.Y.Z]`).
+Release: ver `CLAUDE.md` (o GitHub Actions compila o `Instalador.exe` com
+Inno Setup a cada commit `release - [X.Y.Z]`).

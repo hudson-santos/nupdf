@@ -96,6 +96,19 @@ def main() -> int:
     checar("nome sem extensão", doc.nome == "teste")
     checar("data do PDF formatada", paineis._data_pdf("D:20260928103000-03'00'") == "28/09/2026 10:30")
     checar("tamanho da página A4", paineis._formato_pagina(595, 842).startswith("A4 (retrato)"))
+    import pymupdf as _pm
+    girado = _pm.open(stream=doc.bytes_com_rotacao({1: 90, 2: 270}), filetype="pdf")
+    checar("salvar com páginas giradas", [pg.rotation for pg in girado] == [0, 90, 270]
+           and doc.bytes_com_rotacao({}) is doc.dados)
+
+    print("Impressão:")
+    from nupdf import impressao
+    checar("intervalo de páginas", impressao.interpretar_intervalo("1-3, 5", 5) == [0, 1, 2, 4])
+    try:
+        impressao.interpretar_intervalo("2-9", 5)
+        checar("intervalo inválido rejeitado", False)
+    except ValueError:
+        checar("intervalo inválido rejeitado", True)
 
     print("Atualização:")
     from nupdf import atualizacao
@@ -140,6 +153,12 @@ def main() -> int:
         d2 = pymupdf.open(stream=duas, filetype="pdf")
         widgets = [w for w in d2[0].widgets() if w.field_type == pymupdf.PDF_WIDGET_TYPE_SIGNATURE]
         checar("campo visível na página 1", len(widgets) >= 1)
+        links = [l for l in d2[0].get_links() if l.get("uri") == "https://validar.iti.gov.br"]
+        from nupdf.documento import Documento as _Doc
+        vis = _Doc(str(pasta / "assinado.pdf")).assinaturas_visiveis(0)
+        checar("assinatura visível clicável (abre o painel)", len(vis) == 1 and vis[0][1] == res[0].campo, str(vis))
+        checar("link validar.iti.gov.br dentro do carimbo", len(links) == 1
+               and widgets[0].rect.contains(links[0]["from"]), str(links))
         # adulteração: troca um byte dentro do conteúdo assinado
         corrompido = bytearray(duas)
         k = duas.find(b"stream") + 20

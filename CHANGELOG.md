@@ -1,5 +1,43 @@
 # Changelog
 
+## [1.3.0] - 2026-09-26
+
+### Added
+- Impressão própria, que não trava o NuPDF com impressoras de rede fora do ar: janela
+  "Imprimir Documento" com impressora (a padrão indicada com "( Padrão )"), Todas / Página
+  Atual / Intervalo (ex.: 1-3, 5) e número de cópias; o envio acontece em segundo plano,
+  com progresso e opção de cancelar.
+- Girar com duas opções (seta ao lado do botão Girar): "Girar Página Atual" (Ctrl+Shift+R)
+  e "Girar Todas as Páginas" (Ctrl+R), também no menu de contexto. O "Salvar" grava a
+  rotação no PDF; em documentos assinados a rotação é só de visualização e o "Salvar" fica
+  desabilitado (salvar invalidaria as assinaturas).
+- Assinatura visível com a logo ICP-Brasil entre a barra lateral e o texto, e o endereço
+  "validar.iti.gov.br" clicável (link para https://validar.iti.gov.br - adicionado só na
+  primeira assinatura do documento, para não afetar a validade das anteriores).
+- Clicar numa assinatura visível na página abre o painel "Assinaturas Digitais" e destaca
+  a assinatura correspondente, como no Adobe Reader.
+
+### Changed
+- Carimbo da assinatura: "Assinado Digitalmente por :", "Data/Hora:" e CPF exibido completo.
+- Painel "Assinaturas Digitais": "N Assinatura(s) Encontrada(s)", sem o selo "Assinatura
+  válida" (ressalvas e erros continuam destacados) e sem Motivo/Local.
+- Diálogo "Assinar Documento": certificado escolhido só por clique na lista, com
+  "Válido Até" no rótulo e separador " - "; status só aparece quando há problema;
+  aparência "Visível ( Posicionar na Página )"; botão Cancelar em cinza escuro.
+- Aviso ao posicionar a assinatura: "Clique ou Arraste na Página para Posicionar a
+  Assinatura • ESC - Cancela".
+- Confirmação de link externo: "Abrir Link Externo", "O Documento está Tentando Acessar :",
+  "Deseja Continuar ?", botões "Sim" (laranja) e "Não" (cinza), sem ícone.
+- Botões Cancelar/Fechar dos diálogos padronizados em cinza escuro; seleção em cinza nas
+  listas e caixas de seleção; botões de opção e caixas de marcação no visual do app.
+- Dicas dos botões com iniciais maiúsculas (ex.: "Página Anterior", "Aumentar Zoom") e
+  seta do menu de zoom no mesmo padrão do Girar.
+- "Limpar Tudo" dos arquivos recentes com a dica "Limpar a Lista de Arquivos Recentes
+  ( os Arquivos não são Apagados )"; aviso "Texto Copiado".
+- Instalação e atualização: ao terminar, o instalador fecha sozinho (sem a página final) e
+  abre o NuPDF automaticamente.
+- Removidos os botões "Mover página" e "Selecionar texto" da barra de ferramentas.
+
 ## [1.2.2] - 2026-09-26
 
 ### Changed

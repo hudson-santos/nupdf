@@ -24,31 +24,34 @@ class BarraNavegacao(QFrame):
         lay.setContentsMargins(8, 5, 8, 5)
         lay.setSpacing(2)
         n = v.doc.n_paginas
-        self.b_primeira = ui.botao("primeira", "Primeira página", tamanho=16)
-        self.b_anterior = ui.botao("anterior", "Página anterior", tamanho=16)
+        self.b_primeira = ui.botao("primeira", "Primeira Página", tamanho=16)
+        self.b_anterior = ui.botao("anterior", "Página Anterior", tamanho=16)
         self.pagina = QLineEdit("1")
         self.pagina.setFixedWidth(46)
         self.pagina.setAlignment(Qt.AlignCenter)
         self.pagina.setValidator(QIntValidator(1, max(n, 1)))
         self.total = QLabel(f"/ {n}")
         self.total.setObjectName("sub")
-        self.b_proxima = ui.botao("proxima", "Próxima página", tamanho=16)
-        self.b_ultima = ui.botao("ultima", "Última página", tamanho=16)
-        self.b_menos = ui.botao("zoom_menos", "Diminuir zoom (Ctrl -)", tamanho=16)
+        self.b_proxima = ui.botao("proxima", "Próxima Página", tamanho=16)
+        self.b_ultima = ui.botao("ultima", "Última Página", tamanho=16)
+        self.b_menos = ui.botao("zoom_menos", "Diminuir Zoom (Ctrl -)", tamanho=16)
         self.zoom = QToolButton()
+        self.zoom.setObjectName("comMenu")  # seta ao lado do texto, como no botão Girar
         self.zoom.setText("100%")
-        self.zoom.setToolButtonStyle(Qt.ToolButtonTextOnly)
+        self.zoom.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        self.zoom.setLayoutDirection(Qt.RightToLeft)  # ícone (seta) à direita do texto
+        ui.aplicar_icone(self.zoom, "seta_menu", 10)
         self.zoom.setPopupMode(QToolButton.InstantPopup)
-        self.zoom.setMinimumWidth(58)
+        self.zoom.setMinimumWidth(64)
         self.zoom.setCursor(Qt.PointingHandCursor)
         menu = QMenu(self.zoom)
         for z in (50, 75, 100, 125, 150, 200, 300, 400):
             menu.addAction(f"{z}%", lambda z=z: v.definir_zoom(z / 100))
         menu.addSeparator()
-        menu.addAction("Ajustar à largura", lambda: v.ajustar("largura"))
-        menu.addAction("Página inteira", lambda: v.ajustar("pagina"))
+        menu.addAction("Ajustar à Largura", lambda: v.ajustar("largura"))
+        menu.addAction("Página Inteira", lambda: v.ajustar("pagina"))
         self.zoom.setMenu(menu)
-        self.b_mais = ui.botao("zoom_mais", "Aumentar zoom (Ctrl +)", tamanho=16)
+        self.b_mais = ui.botao("zoom_mais", "Aumentar Zoom (Ctrl +)", tamanho=16)
 
         for w in (self.b_primeira, self.b_anterior, self.pagina, self.total, self.b_proxima, self.b_ultima):
             lay.addWidget(w)
@@ -218,7 +221,8 @@ class AbaDocumento(QWidget):
         v = self.visualizador
         self.miniaturas.paginaEscolhida.connect(v.ir_para_pagina)
         v.paginaMudou.connect(self._pagina_mudou)
-        v.copiadoPeloBotao.connect(lambda _t: self.toast("Texto copiado"))
+        v.copiadoPeloBotao.connect(lambda _t: self.toast("Texto Copiado"))
+        v.assinaturaClicada.connect(self._assinatura_clicada)
 
     # ------------------------------------------------------------------ painéis
     @property
@@ -243,6 +247,11 @@ class AbaDocumento(QWidget):
             else:
                 self.assinaturas.carregar()
         self.painelMudou.emit(self._painel)
+
+    def _assinatura_clicada(self, campo: str):
+        if self._painel != "assinaturas":
+            self.mostrar_painel("assinaturas")
+        self.assinaturas.destacar(campo)
 
     def _pagina_mudou(self, i: int):
         if self._painel == "miniaturas":

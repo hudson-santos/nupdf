@@ -88,11 +88,14 @@ QToolButton { background: transparent; border: none; border-radius: 8px; padding
 QToolButton:hover { background: $hover; }
 QToolButton:pressed, QToolButton:checked { background: $superficie2; }
 QToolButton#trilho:checked { background: $destaque_suave; }
+QToolButton#comMenu::menu-indicator { image: none; width: 0; }
 QToolButton#abaFechar { padding: 2px; border-radius: 5px; }
 
 QPushButton { background: $superficie2; border: 1px solid $borda; border-radius: 8px; padding: 7px 14px; }
 QPushButton:hover { background: $hover; }
 QPushButton:disabled { color: $texto3; }
+QPushButton#fechar { background: #4b4d53; border: 1px solid #4b4d53; color: #ffffff; font-weight: 600; }
+QPushButton#fechar:hover { background: #5b5d64; }
 QPushButton#primario { background: $destaque; border: 1px solid $destaque; color: #ffffff; font-weight: 600; }
 QPushButton#primario:hover { background: $destaque_hover; }
 QPushButton#primario:disabled { background: $superficie2; border-color: $borda; color: $texto3; }
@@ -105,12 +108,28 @@ QPushButton#linkPequeno { background: transparent; border: none; color: $texto3;
 QPushButton#linkPequeno:hover { color: $destaque; }
 
 QLineEdit, QComboBox, QSpinBox { background: $superficie; border: 1px solid $borda; border-radius: 7px;
-                                 padding: 6px 8px; selection-background-color: $selecao; }
+                                 padding: 6px 8px; }
+/* azul só para texto selecionado em campos de digitação; listas usam o cinza do tema */
+QLineEdit, QSpinBox { selection-background-color: $selecao; }
+QComboBox { selection-background-color: $hover; selection-color: $texto;
+            combobox-popup: 0; }  /* lista abre abaixo do campo, com rolagem (maxVisibleItems) */
 QLineEdit:focus, QComboBox:focus { border: 1px solid $destaque; }
 QComboBox::drop-down { border: none; width: 22px; }
-QComboBox QAbstractItemView { background: $superficie; border: 1px solid $borda; selection-background-color: $hover; }
+QComboBox QAbstractItemView { background: $superficie; border: 1px solid $borda;
+                              selection-background-color: $hover; selection-color: $texto; outline: none; }
+QComboBox QAbstractItemView::item { padding: 6px 8px; }
+QComboBox QAbstractItemView::item:selected, QComboBox QAbstractItemView::item:hover { background: $hover; color: $texto; }
 
 QCheckBox, QRadioButton { spacing: 8px; }
+/* tamanho total 18px (conteúdo + borda) nos dois estados, para ficarem redondos */
+QRadioButton::indicator { width: 14px; height: 14px; border: 2px solid $texto3; border-radius: 9px;
+                          background: $superficie; }
+QRadioButton::indicator:hover { border-color: $destaque; }
+QRadioButton::indicator:checked { width: 8px; height: 8px; border: 5px solid $destaque; background: #ffffff; }
+QCheckBox::indicator { width: 14px; height: 14px; border: 2px solid $texto3; border-radius: 4px;
+                       background: $superficie; }
+QCheckBox::indicator:hover { border-color: $destaque; }
+QCheckBox::indicator:checked { border-color: $destaque; background: $destaque; image: url($check); }
 QGroupBox { border: 1px solid $borda; border-radius: 10px; margin-top: 14px; padding: 12px 10px 10px 10px; }
 QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 4px; color: $texto2; }
 
@@ -150,6 +169,7 @@ QScrollBar::add-page, QScrollBar::sub-page { background: transparent; }
 #sub3 { color: $texto3; font-size: 12px; }
 
 #cartao { background: $superficie2; border: 1px solid $borda; border-radius: 10px; }
+#cartao[destaque="true"] { border: 1px solid $destaque; }
 #cartaoTitulo { font-weight: 600; }
 #statusOk { color: $ok; font-weight: 600; }
 #statusAviso { color: $aviso; font-weight: 600; }
@@ -171,5 +191,20 @@ def paleta(escuro: bool) -> dict:
     return ESCURO if escuro else CLARO
 
 
+def aplicar(app, escuro: bool):
+    """Folha de estilo + paleta do tema. A cor de destaque (Highlight) da paleta
+    vira o cinza do tema - o azul padrão do Qt aparecia em listas suspensas."""
+    from PySide6.QtGui import QColor, QPalette
+    c = paleta(escuro)
+    pal = app.palette()
+    for grupo in (QPalette.Active, QPalette.Inactive):
+        pal.setColor(grupo, QPalette.Highlight, QColor(c["hover"]))
+        pal.setColor(grupo, QPalette.HighlightedText, QColor(c["texto"]))
+    app.setPalette(pal)
+    app.setStyleSheet(qss(escuro))
+
+
 def qss(escuro: bool) -> str:
-    return _QSS.substitute(paleta(escuro))
+    # caminho com "/" (o QSS não aceita "\\" do Windows)
+    check = (Path(__file__).resolve().parents[1] / "assets" / "check.svg").as_posix()
+    return _QSS.substitute(paleta(escuro), check=check)

@@ -200,24 +200,26 @@ class _CartaoAssinatura(QFrame):
     def __init__(self, r):
         super().__init__()
         self.setObjectName("cartao")
+        self.campo = r.campo
         c = ui.cores()
         lay = QVBoxLayout(self)
         lay.setContentsMargins(12, 10, 12, 10)
         lay.setSpacing(3)
-        topo = QHBoxLayout()
-        topo.setSpacing(8)
-        ic = QLabel()
-        nome_ic, cor, status, obj = {
-            "ok": ("escudo", c["ok"], "Assinatura válida", "statusOk"),
-            "aviso": ("escudo_alerta", c["aviso"], "Válida, com ressalvas", "statusAviso"),
-            "erro": ("escudo_x", c["erro"], "Assinatura inválida", "statusErro"),
-        }[r.nivel]
-        ic.setPixmap(icone(nome_ic, cor, 22).pixmap(22, 22))
-        topo.addWidget(ic)
-        st = QLabel(status)
-        st.setObjectName(obj)
-        topo.addWidget(st, 1)
-        lay.addLayout(topo)
+        # assinatura válida não ganha selo; ressalvas e erros continuam em destaque
+        if r.nivel != "ok":
+            topo = QHBoxLayout()
+            topo.setSpacing(8)
+            nome_ic, cor, status, obj = {
+                "aviso": ("escudo_alerta", c["aviso"], "Válida, com ressalvas", "statusAviso"),
+                "erro": ("escudo_x", c["erro"], "Assinatura inválida", "statusErro"),
+            }[r.nivel]
+            ic = QLabel()
+            ic.setPixmap(icone(nome_ic, cor, 22).pixmap(22, 22))
+            topo.addWidget(ic)
+            st = QLabel(status)
+            st.setObjectName(obj)
+            topo.addWidget(st, 1)
+            lay.addLayout(topo)
         nome = QLabel(r.titular)
         nome.setObjectName("cartaoTitulo")
         nome.setWordWrap(True)
@@ -231,10 +233,6 @@ class _CartaoAssinatura(QFrame):
                           + (" (carimbo de tempo)" if r.carimbo_tempo else ""))
         if r.emissor:
             linhas.append("Emissor: " + r.emissor)
-        if r.motivo:
-            linhas.append("Motivo: " + r.motivo)
-        if r.local:
-            linhas.append("Local: " + r.local)
         info = QLabel("\n".join(linhas))
         info.setObjectName("sub")
         info.setWordWrap(True)
@@ -255,6 +253,7 @@ class PainelAssinaturas(QWidget):
         self.doc = doc
         self._carregado = False
         self._resultados = None
+        self._destaque = None  # campo da assinatura clicada na página
         lay = QVBoxLayout(self)
         lay.setContentsMargins(12, 14, 12, 12)
         lay.setSpacing(8)
@@ -263,7 +262,7 @@ class PainelAssinaturas(QWidget):
         self.status.setObjectName("sub")
         self.status.setWordWrap(True)
         lay.addWidget(self.status)
-        area = QScrollArea()
+        area = self._area = QScrollArea()
         area.setWidgetResizable(True)
         area.setStyleSheet("QScrollArea { background: transparent; }")
         self.conteudo = QWidget()
@@ -301,6 +300,24 @@ class PainelAssinaturas(QWidget):
             self.status.setText("Documento sem Assinatura Digital.")
             return
         n = len(resultados)
-        self.status.setText(f"{n} assinatura{'s' if n > 1 else ''} encontrada{'s' if n > 1 else ''}.")
+        self.status.setText(f"{n} Assinatura{'s' if n > 1 else ''} Encontrada{'s' if n > 1 else ''}.")
         for r in resultados:
             self.lista.insertWidget(self.lista.count() - 1, _CartaoAssinatura(r))
+        self._aplicar_destaque()
+
+    def destacar(self, campo: str):
+        """Realça o cartão da assinatura clicada (aplicado quando a validação terminar)."""
+        self._destaque = campo
+        self._aplicar_destaque()
+
+    def _aplicar_destaque(self):
+        for k in range(self.lista.count() - 1):
+            w = self.lista.itemAt(k).widget()
+            if not isinstance(w, _CartaoAssinatura):
+                continue
+            ativo = bool(self._destaque) and w.campo == self._destaque
+            w.setProperty("destaque", ativo)
+            w.style().unpolish(w)
+            w.style().polish(w)
+            if ativo:
+                QTimer.singleShot(0, lambda w=w: self._area.ensureWidgetVisible(w))

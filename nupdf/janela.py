@@ -5,10 +5,10 @@ from pathlib import Path
 
 import pymupdf
 from PySide6.QtCore import QSize, Qt, QTimer
-from PySide6.QtGui import QAction, QImage, QKeySequence, QPainter
-from PySide6.QtWidgets import (QApplication, QFileDialog, QFrame, QHBoxLayout, QInputDialog, QLabel,
+from PySide6.QtGui import QAction, QKeySequence
+from PySide6.QtWidgets import (QApplication, QDialog, QFileDialog, QFrame, QHBoxLayout, QInputDialog, QLabel,
                                QLineEdit, QMainWindow, QMenu, QMessageBox, QProgressDialog, QPushButton,
-                               QStackedWidget, QTabBar, QVBoxLayout, QWidget)
+                               QStackedWidget, QTabBar, QToolButton, QVBoxLayout, QWidget)
 
 from . import tema, ui
 from .aba import AbaDocumento
@@ -40,9 +40,9 @@ class _LinhaRecente(QFrame):
         abrir.setCursor(Qt.PointingHandCursor)
         abrir.clicked.connect(lambda: tela.janela.abrir_arquivo(caminho))
         lay.addWidget(abrir, 1)
-        self.pasta = ui.botao("pasta", "Abrir a pasta do arquivo", tamanho=15)
+        self.pasta = ui.botao("pasta", "Abrir a Pasta do Arquivo", tamanho=15)
         self.pasta.clicked.connect(self.abrir_pasta)
-        self.remover = ui.botao("lixeira", "Remover da lista de recentes", tamanho=15)
+        self.remover = ui.botao("lixeira", "Remover da Lista de Recentes", tamanho=15)
         self.remover.clicked.connect(lambda: tela.remover(caminho))
         for b in (self.pasta, self.remover):
             politica = b.sizePolicy()
@@ -68,7 +68,7 @@ class _LinhaRecente(QFrame):
     def contextMenuEvent(self, e):
         m = QMenu(self)
         a_abrir = m.addAction("Abrir")
-        a_pasta = m.addAction("Abrir a pasta do arquivo")
+        a_pasta = m.addAction("Abrir a Pasta do Arquivo")
         a_remover = m.addAction("Remover da lista")
         m.addSeparator()
         a_limpar = m.addAction("Limpar todos os recentes")
@@ -141,14 +141,14 @@ class TelaInicial(QWidget):
         self.cab_recentes = QWidget()
         cab = QHBoxLayout(self.cab_recentes)
         cab.setContentsMargins(0, 0, 0, 0)
-        titulo_recentes = QLabel("RECENTES")
+        titulo_recentes = QLabel("Arquivos Recentes")
         titulo_recentes.setObjectName("tituloPainel")
         cab.addWidget(titulo_recentes)
         cab.addStretch(1)
         limpar = QPushButton("Limpar Tudo")
         limpar.setObjectName("linkPequeno")
         limpar.setCursor(Qt.PointingHandCursor)
-        limpar.setToolTip("Limpar a lista de arquivos recentes (os arquivos não são apagados)")
+        limpar.setToolTip("Limpar a Lista de Arquivos Recentes ( os Arquivos não são Apagados )")
         limpar.clicked.connect(self.limpar_tudo)
         cab.addWidget(limpar)
         lay.addWidget(self.cab_recentes)
@@ -188,7 +188,7 @@ class JanelaPrincipal(QMainWindow):
         self.escuro = bool(self.config.get("tema_escuro", True))
         tema.carregar_fontes()
         ui.definir_cores(tema.paleta(self.escuro))
-        QApplication.instance().setStyleSheet(tema.qss(self.escuro))
+        tema.aplicar(QApplication.instance(), self.escuro)
         self.setWindowTitle(NOME_APP)
         self.setWindowIcon(icone_app())
         self.setAcceptDrops(True)
@@ -260,10 +260,10 @@ class JanelaPrincipal(QMainWindow):
         fm.addWidget(nova, 0, Qt.AlignCenter)
         lay.addWidget(self.faixa_mais, 0, Qt.AlignBottom)
         lay.addStretch(1)
-        self.b_atualizacao = ui.botao("atualizar", "Verificar atualizações")
+        self.b_atualizacao = ui.botao("atualizar", "Verificar Atualizações")
         self.b_atualizacao.clicked.connect(self.verificar_atualizacoes)
         lay.addWidget(self.b_atualizacao)
-        self.b_tema = ui.botao("sol" if self.escuro else "lua", "Alternar tema claro/escuro")
+        self.b_tema = ui.botao("sol" if self.escuro else "lua", "Alternar Tema Claro/Escuro")
         self.b_tema.clicked.connect(self.alternar_tema)
         lay.addWidget(self.b_tema)
         sobre = ui.botao("info", "Sobre o NuPDF")
@@ -282,7 +282,7 @@ class JanelaPrincipal(QMainWindow):
 
         # Salvar/Imprimir só aparecem com documento aberto; o espaço deles fica
         # reservado para as ferramentas do centro não mudarem de lugar.
-        self.b_salvar = ui.botao("salvar", "Salvar uma cópia (Ctrl+S)")
+        self.b_salvar = ui.botao("salvar", "Salvar uma Cópia (Ctrl+S)")
         self.b_imprimir = ui.botao("imprimir", "Imprimir (Ctrl+P)")
         for b in (self.b_salvar, self.b_imprimir):
             politica = b.sizePolicy()
@@ -291,15 +291,19 @@ class JanelaPrincipal(QMainWindow):
             lay.addWidget(b)
         lay.addStretch(1)
 
-        self.b_cursor = ui.botao("cursor", "Selecionar texto (Alt+arrastar = seleção retangular)", checavel=True)
-        self.b_mao = ui.botao("mao", "Mover a página (ou botão do meio do mouse)", checavel=True)
-        self.b_cursor.setChecked(True)
-        self.b_largura = ui.botao("largura", "Ajustar à largura (Ctrl+1)")
-        self.b_pagina = ui.botao("pagina", "Página inteira (Ctrl+2)")
-        self.b_girar = ui.botao("girar", "Girar visualização (Ctrl+R)")
+        self.b_largura = ui.botao("largura", "Ajustar à Largura (Ctrl+1)")
+        self.b_pagina = ui.botao("pagina", "Página Inteira (Ctrl+2)")
+        self.b_girar = ui.botao("girar+seta", "Girar", obj="comMenu")  # seta ao lado, não no canto
+        self.b_girar.setPopupMode(QToolButton.InstantPopup)  # menu com as duas opções
+        menu_girar = QMenu(self.b_girar)
+        menu_girar.addAction("Girar Página Atual	Ctrl+Shift+R",
+                             lambda: self._no_visualizador(lambda v: v.girar_pagina()))
+        menu_girar.addAction("Girar Todas as Páginas	Ctrl+R",
+                             lambda: self._no_visualizador(lambda v: v.girar()))
+        self.b_girar.setMenu(menu_girar)
         self.b_buscar = ui.botao("buscar", "Buscar (Ctrl+F)")
         # Ações de documento: só visíveis quando há um PDF aberto (ver _atualizar_estado)
-        self._acoes_documento = [self.b_cursor, self.b_mao, ui.separador_vertical(), self.b_largura,
+        self._acoes_documento = [self.b_largura,
                                  self.b_pagina, self.b_girar, ui.separador_vertical(), self.b_buscar]
         for w in self._acoes_documento:
             lay.addWidget(w)
@@ -315,11 +319,8 @@ class JanelaPrincipal(QMainWindow):
 
         self.b_salvar.clicked.connect(self.salvar_copia)
         self.b_imprimir.clicked.connect(self.imprimir)
-        self.b_cursor.clicked.connect(lambda: self._modo("texto"))
-        self.b_mao.clicked.connect(lambda: self._modo("mao"))
         self.b_largura.clicked.connect(lambda: self._no_visualizador(lambda v: v.ajustar("largura")))
         self.b_pagina.clicked.connect(lambda: self._no_visualizador(lambda v: v.ajustar("pagina")))
-        self.b_girar.clicked.connect(lambda: self._no_visualizador(lambda v: v.girar()))
         self.b_buscar.clicked.connect(self.buscar)
         self.b_assinar.clicked.connect(self.assinar)
         return barra
@@ -361,6 +362,7 @@ class JanelaPrincipal(QMainWindow):
         atalho("Ctrl+1", lambda: self._no_visualizador(lambda v: v.ajustar("largura")))
         atalho("Ctrl+2", lambda: self._no_visualizador(lambda v: v.ajustar("pagina")))
         atalho("Ctrl+R", lambda: self._no_visualizador(lambda v: v.girar()))
+        atalho("Ctrl+Shift+R", lambda: self._no_visualizador(lambda v: v.girar_pagina()))
         atalho("Ctrl+Tab", lambda: self._trocar_aba(1))
         atalho("Ctrl+Shift+Tab", lambda: self._trocar_aba(-1))
         atalho("F11", self._tela_cheia)
@@ -407,6 +409,12 @@ class JanelaPrincipal(QMainWindow):
             b.setEnabled(tem)
         for w in (self.b_salvar, self.b_imprimir, *self._acoes_documento):
             w.setVisible(tem)
+        # PDF assinado: pode girar, mas não salvar girado (invalidaria as assinaturas)
+        bloqueado = self._salvar_bloqueado(aba)
+        self.b_salvar.setEnabled(not bloqueado)
+        self.b_salvar.setToolTip(
+            "Documento com assinatura digital: não é possível salvar com páginas giradas "
+            "(as assinaturas seriam invalidadas)" if bloqueado else "Salvar uma Cópia (Ctrl+S)")
         self.barra_ferramentas.setVisible(tem)
         self.faixa_mais.setVisible(tem)  # "+" só com documento aberto (sem documento, usa o botão central)
         self.trilho.setVisible(tem)
@@ -414,9 +422,6 @@ class JanelaPrincipal(QMainWindow):
         for nome, b in self.b_paineis.items():
             b.setChecked(nome == painel)
         if aba:
-            modo = aba.visualizador.modo
-            self.b_cursor.setChecked(modo != "mao")
-            self.b_mao.setChecked(modo == "mao")
             self.setWindowTitle(f"{NOME_APP} - Versão: {VERSAO} - {aba.doc.nome}")
         else:
             self.setWindowTitle(f"{NOME_APP} - Versão: {VERSAO}")
@@ -427,12 +432,6 @@ class JanelaPrincipal(QMainWindow):
         if aba:
             aba.mostrar_painel(nome)
             self.config.set("painel", aba.painel or "")
-
-    def _modo(self, modo: str):
-        aba = self.aba_atual()
-        if aba:
-            aba.visualizador.definir_modo(modo)
-        self._atualizar_estado()
 
     # ================================================================== abrir / salvar
     def abrir_dialogo(self):
@@ -475,6 +474,7 @@ class JanelaPrincipal(QMainWindow):
 
         aba = AbaDocumento(doc)
         aba.painelMudou.connect(lambda _: self._atualizar_estado())
+        aba.visualizador.rotacaoMudou.connect(self._atualizar_estado)
         aba.visualizador.retanguloDesenhado.connect(lambda pg, r, a=aba: self._posicionado(a, pg, r))
         aba.visualizador.posicionamentoCancelado.connect(lambda a=aba: self._posicionamento_cancelado(a))
         self.abas.append(aba)
@@ -502,19 +502,36 @@ class JanelaPrincipal(QMainWindow):
         aba.visualizador._pag.setFocus()
         return aba
 
+    @staticmethod
+    def _salvar_bloqueado(aba) -> bool:
+        return bool(aba and aba.doc.tem_assinaturas and aba.visualizador.rotacoes())
+
     def salvar_copia(self):
         aba = self.aba_atual()
         if not aba:
             return
-        destino, _ = QFileDialog.getSaveFileName(self, "Salvar uma cópia", str(aba.doc.caminho),
+        if self._salvar_bloqueado(aba):  # também pelo Ctrl+S
+            aba.toast("Documento assinado: não é possível salvar com páginas giradas", 2800)
+            return
+        destino, _ = QFileDialog.getSaveFileName(self, "Salvar uma Cópia", str(aba.doc.caminho),
                                                  "Documentos PDF (*.pdf)")
         if not destino:
             return
+        # grava o documento como está na tela (páginas giradas incluídas)
+        rotacoes = aba.visualizador.rotacoes()
         try:
-            Path(destino).write_bytes(aba.doc.dados)
-            aba.toast("Cópia salva")
-        except OSError as e:
+            Path(destino).write_bytes(aba.doc.bytes_com_rotacao(rotacoes))
+        except Exception as e:
             QMessageBox.critical(self, NOME_APP, f"Não foi possível salvar:\n{e}")
+            return
+        mesmo_arquivo = Path(destino).resolve() == aba.doc.caminho.resolve()
+        if mesmo_arquivo and rotacoes:
+            # recarrega: o que está na tela passa a ser exatamente o arquivo salvo
+            painel = aba.painel
+            self.fechar_aba(self.abas.index(aba))
+            aba = self.abrir_arquivo(destino, painel=painel or "")
+        if aba:
+            aba.toast("Documento salvo" if mesmo_arquivo else "Cópia salva")
 
     # ================================================================== busca / impressão
     def buscar(self):
@@ -523,47 +540,55 @@ class JanelaPrincipal(QMainWindow):
             aba.buscar()
 
     def imprimir(self):
+        """Janela própria + envio em segundo plano: uma impressora inacessível
+        (ex.: rede/WSD desligada) não trava mais o NuPDF - ver impressao.py."""
         aba = self.aba_atual()
         if not aba:
             return
-        from PySide6.QtPrintSupport import QPrintDialog, QPrinter
-        doc = aba.doc
-        printer = QPrinter(QPrinter.HighResolution)
-        printer.setDocName(doc.nome)
-        dlg = QPrintDialog(printer, self)
-        dlg.setMinMax(1, doc.n_paginas)
-        dlg.setFromTo(1, doc.n_paginas)
-        if dlg.exec() != QPrintDialog.Accepted:
+        from .impressao import DialogoImpressao, TrabalhoImpressao
+        v = aba.visualizador
+        dlg = DialogoImpressao(aba.doc.n_paginas, v.pagina_atual,
+                               self.config.get("impressao/impressora", ""), self)
+        if dlg.exec() != QDialog.Accepted:
             return
-        ini, fim = printer.fromPage(), printer.toPage()
-        paginas = list(range(ini - 1, fim)) if ini > 0 else list(range(doc.n_paginas))
-        dpi = min(printer.resolution(), 300)
-        prog = QProgressDialog("Enviando para a impressora…", "Cancelar", 0, len(paginas), self)
-        prog.setWindowModality(Qt.WindowModal)
-        prog.setMinimumDuration(300)
-        painter = QPainter()
-        if not painter.begin(printer):
-            QMessageBox.critical(self, NOME_APP, "Não foi possível iniciar a impressão.")
-            return
-        try:
-            for k, i in enumerate(paginas):
-                if prog.wasCanceled():
-                    printer.abort()
-                    break
-                if k:
-                    printer.newPage()
-                pm = doc.doc[i].get_pixmap(dpi=dpi, alpha=False)
-                img = QImage(pm.samples, pm.width, pm.height, pm.stride, QImage.Format_RGB888)
-                alvo = painter.viewport()
-                escala = min(alvo.width() / img.width(), alvo.height() / img.height())
-                w, h = int(img.width() * escala), int(img.height() * escala)
-                painter.drawImage(alvo.x() + (alvo.width() - w) // 2, alvo.y() + (alvo.height() - h) // 2,
-                                  img.scaled(w, h, Qt.KeepAspectRatio, Qt.SmoothTransformation))
-                prog.setValue(k + 1)
-                QApplication.processEvents()
-        finally:
-            painter.end()
+        self.config.set("impressao/impressora", dlg.nome_impressora)
+        trabalho = TrabalhoImpressao(
+            aba.doc.bytes_com_rotacao(v.rotacoes()),  # imprime como está na tela
+            aba.doc.senha, dlg.paginas, dlg.nome_impressora, dlg.copias.value(), aba.doc.nome)
+        prog = QProgressDialog(f"Conectando à impressora {dlg.nome_impressora}…", "Cancelar",
+                               0, len(dlg.paginas), self)
+        prog.setWindowTitle("Imprimir")
+        bt_cancelar = QPushButton("Cancelar")
+        bt_cancelar.setObjectName("fechar")  # cinza escuro, mesmo visual do "Fechar"
+        bt_cancelar.setCursor(Qt.PointingHandCursor)
+        prog.setCancelButton(bt_cancelar)
+        prog.setWindowModality(Qt.NonModal)  # o NuPDF continua utilizável durante a impressão
+        prog.setMinimumDuration(0)
+        prog.setAutoClose(False)
+        prog.setAutoReset(False)
+        prog.canceled.connect(trabalho.cancelar)
+
+        def andamento(feitas, total):
+            prog.setLabelText(f"Enviando para {dlg.nome_impressora}… ({feitas} de {total})")
+            prog.setValue(feitas)
+
+        def ok():
             prog.close()
+            if not prog.wasCanceled():
+                aba.toast("Documento enviado para a impressora", 2500)
+
+        def erro(msg):
+            prog.close()
+            QMessageBox.warning(self, NOME_APP, f"Não foi possível imprimir em {dlg.nome_impressora}:\n\n{msg}")
+
+        trabalho.progresso.connect(andamento)
+        trabalho.concluido.connect(ok)
+        trabalho.falhou.connect(erro)
+        self._impressoes = getattr(self, "_impressoes", set())
+        self._impressoes.add(trabalho)
+        trabalho.finished.connect(lambda: self._impressoes.discard(trabalho))
+        prog.show()
+        trabalho.start()
 
     # ================================================================== assinatura
     def assinar(self):
@@ -577,7 +602,7 @@ class JanelaPrincipal(QMainWindow):
         cfg = dlg.config_assinatura()
         if cfg.visivel:
             aba.cfg_pendente = cfg
-            aba.mostrar_aviso("Clique ou arraste na página para posicionar a assinatura   •   Esc cancela")
+            aba.mostrar_aviso("Clique ou Arraste na Página para Posicionar a Assinatura   •   ESC - Cancela")
             aba.visualizador.iniciar_posicionamento()
         else:
             self._executar_assinatura(aba, cfg)
@@ -643,7 +668,7 @@ class JanelaPrincipal(QMainWindow):
         self.escuro = not self.escuro
         self.config.set("tema_escuro", self.escuro)
         ui.definir_cores(tema.paleta(self.escuro))
-        QApplication.instance().setStyleSheet(tema.qss(self.escuro))
+        tema.aplicar(QApplication.instance(), self.escuro)
         ui.aplicar_icone(self.b_tema, "sol" if self.escuro else "lua")
         for aba in self.abas:
             aba.atualizar_cores()

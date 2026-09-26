@@ -5,7 +5,7 @@ from PySide6.QtCore import QSize, Qt, QThread, QTimer, Signal
 from PySide6.QtWidgets import QFrame, QLabel, QToolButton, QWidget
 
 from . import tema
-from .icones import icone
+from .icones import icone, largura_icone
 
 _cores: dict = tema.ESCURO
 _registro: list = []  # (widget, nome_icone, tamanho, chave_cor)
@@ -31,7 +31,7 @@ def definir_cores(c: dict):
 
 def aplicar_icone(w, nome: str, tamanho: int = 18, chave_cor: str = "texto2"):
     w.setIcon(icone(nome, _cores[chave_cor], tamanho))
-    w.setIconSize(QSize(tamanho, tamanho))
+    w.setIconSize(QSize(largura_icone(nome, tamanho), tamanho))
     _registro.append((w, nome, tamanho, chave_cor))
 
 

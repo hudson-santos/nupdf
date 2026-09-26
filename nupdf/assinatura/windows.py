@@ -26,8 +26,8 @@ class CertificadoWindows:
     info: InfoCertificado
 
     def rotulo(self) -> str:
-        doc = f" — {self.info.tipo} {self.info.documento}" if self.info.documento else ""
-        return f"{self.info.titular}{doc} — válido até {self.info.valido_ate:%d/%m/%Y}"
+        doc = f" - {self.info.tipo} {self.info.documento}" if self.info.documento else ""
+        return f"{self.info.titular}{doc} - Válido Até {self.info.valido_ate:%d/%m/%Y}"
 
 
 # ---------------------------------------------------------------- API do Windows

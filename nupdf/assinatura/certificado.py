@@ -33,13 +33,6 @@ class InfoCertificado:
         agora = datetime.now(timezone.utc)
         return not (self.valido_de <= agora <= self.valido_ate)
 
-    @property
-    def documento_mascarado(self) -> str:
-        d = self.documento
-        if self.tipo == "e-CPF" and len(d) == 14:
-            return f"***.{d[4:7]}.{d[8:11]}-**"
-        return d
-
     def resumo(self) -> str:
         doc = f" ({self.tipo} {self.documento})" if self.documento else ""
         return f"{self.titular}{doc}"

@@ -58,6 +58,7 @@ class Documento:
             self.senha = senha
         self._palavras: dict[int, list[Palavra]] = {}
         self._links: dict[int, list] = {}
+        self._assinaturas_pag: dict[int, list] = {}
 
     @property
     def nome(self) -> str:
@@ -82,6 +83,22 @@ class Documento:
                 self._links[i] = []
         return self._links[i]
 
+    def assinaturas_visiveis(self, i: int) -> list[tuple[pymupdf.Rect, str]]:
+        """Campos de assinatura com aparência na página i: (retângulo, nome do campo).
+        O retângulo segue o mesmo sistema dos links (página já com /Rotate aplicado)."""
+        if i not in self._assinaturas_pag:
+            achados = []
+            try:
+                pg = self.doc[i]
+                for w in pg.widgets(types=[pymupdf.PDF_WIDGET_TYPE_SIGNATURE]) or []:
+                    r = (w.rect * pg.rotation_matrix).normalize()
+                    if r.width > 1 and r.height > 1:
+                        achados.append((r, w.field_name or ""))
+            except Exception:
+                pass
+            self._assinaturas_pag[i] = achados
+        return self._assinaturas_pag[i]
+
     def linhas(self, i: int) -> list[list[Palavra]]:
         linhas: dict[int, list] = {}
         for w in self.palavras(i):
@@ -93,6 +110,30 @@ class Documento:
 
     def texto_completo(self) -> str:
         return "\n\n".join(self.texto_pagina(i) for i in range(self.n_paginas))
+
+    @property
+    def tem_assinaturas(self) -> bool:
+        try:
+            return self.doc.get_sigflags() > 0
+        except Exception:
+            return False
+
+    def bytes_com_rotacao(self, rotacoes: dict[int, int]) -> bytes:
+        """PDF com a rotação da visualização gravada nas páginas (/Rotate).
+        Sem rotação, devolve os bytes originais intactos (preserva assinaturas)."""
+        rotacoes = {i: r % 360 for i, r in rotacoes.items() if r % 360}
+        if not rotacoes:
+            return self.dados
+        copia = pymupdf.open(stream=self.dados, filetype="pdf")
+        try:
+            if copia.needs_pass:
+                copia.authenticate(self.senha or "")
+            for i, r in rotacoes.items():
+                pg = copia[i]
+                pg.set_rotation((pg.rotation + r) % 360)
+            return copia.tobytes()
+        finally:
+            copia.close()
 
     def fechar(self):
         try:

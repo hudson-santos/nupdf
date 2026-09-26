@@ -47,6 +47,9 @@ OutputDir=.
 OutputBaseFilename=Instalador
 SetupIconFile=assets\nupdf.ico
 WizardStyle=modern
+; sem a página "Completando o Assistente": ao terminar, o instalador fecha
+; sozinho e o NuPDF é aberto ([Run])
+DisableFinishedPage=yes
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 
@@ -81,9 +84,12 @@ Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile
 Type: filesandordirs; Name: "{app}"
 
 [Run]
-; Abre o NuPDF ao final (também no modo /SILENT de uma atualização).
-Filename: "{app}\NuPDF.exe"; WorkingDir: "{app}"; Description: "Executar NuPDF"; Flags: nowait postinstall runasoriginaluser; Check: LauncherExiste
-Filename: "{app}\venv\Scripts\pythonw.exe"; Parameters: """{app}\main.py"""; WorkingDir: "{app}"; Description: "Executar NuPDF"; Flags: nowait postinstall runasoriginaluser; Check: not LauncherExiste
+; Abre o NuPDF automaticamente ao final, sem pedir confirmação (sem
+; "postinstall", não vira caixa de seleção na página final - que também foi
+; desativada, ver DisableFinishedPage). Vale para instalação, atualização
+; pelo botão do app (/SILENT) e atualização manual.
+Filename: "{app}\NuPDF.exe"; WorkingDir: "{app}"; Flags: nowait; Check: LauncherExiste
+Filename: "{app}\venv\Scripts\pythonw.exe"; Parameters: """{app}\main.py"""; WorkingDir: "{app}"; Flags: nowait; Check: not LauncherExiste
 
 [Code]
 var

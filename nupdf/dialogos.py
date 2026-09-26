@@ -2,16 +2,14 @@
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QGuiApplication
-from PySide6.QtWidgets import (QCheckBox, QComboBox, QCompleter, QDialog, QFormLayout, QFrame, QGroupBox,
-                               QHBoxLayout, QLabel, QLineEdit, QPushButton, QRadioButton, QVBoxLayout)
+from PySide6.QtWidgets import (QComboBox, QDialog, QFormLayout, QFrame, QGroupBox,
+                               QHBoxLayout, QLabel, QPushButton, QRadioButton, QVBoxLayout)
 
 from . import ui
 from .assinatura.assinador import ConfigAssinatura
 from .assinatura.certificado import InfoCertificado
 from .assinatura.windows import CertificadoWindows, listar_certificados
 from .config import Config
-
-TSA_PADRAO = "http://timestamp.digicert.com"
 
 
 class _CartaoCertificado(QFrame):
@@ -47,12 +45,10 @@ class _CartaoCertificado(QFrame):
         linhas.append(f"Emissor: {info.emissor}")
         linhas.append(f"Validade: {info.valido_de:%d/%m/%Y} a {info.valido_ate:%d/%m/%Y}")
         self.detalhe.setText("\n".join(linhas))
-        if info.expirado:
-            self.status.setObjectName("statusErro")
-            self.status.setText("Certificado fora da validade")
-        else:
-            self.status.setObjectName("statusOk")
-            self.status.setText("Certificado pronto para assinar")
+        # só avisa quando há problema (vencidos já nem aparecem na lista)
+        self.status.setObjectName("statusErro")
+        self.status.setText("Certificado fora da validade" if info.expirado else "")
+        self.status.setVisible(info.expirado)
         self.status.style().unpolish(self.status)
         self.status.style().polish(self.status)
 
@@ -61,18 +57,15 @@ class DialogoAssinatura(QDialog):
     def __init__(self, config: Config, parent=None):
         super().__init__(parent)
         self.config = config
-        self.setWindowTitle("Assinar documento")
-        self.setMinimumWidth(600)
+        self.setWindowTitle("Assinar Documento")
+        self.setMinimumWidth(680)  # cabe o rótulo inteiro do certificado
 
         lay = QVBoxLayout(self)
         lay.setContentsMargins(20, 18, 20, 18)
         lay.setSpacing(12)
-        titulo = QLabel("Assinatura digital ICP-Brasil")
+        titulo = QLabel("Assinatura Digital ICP-Brasil")
         titulo.setStyleSheet("font-size: 17px; font-weight: 700;")
         lay.addWidget(titulo)
-        sub = QLabel("Padrão PAdES (PDF Advanced Electronic Signature), SHA-256.")
-        sub.setObjectName("sub")
-        lay.addWidget(sub)
 
         # certificado: lista dos instalados no Windows (repositório Pessoal)
         grupo = QGroupBox("Certificado digital")
@@ -80,10 +73,10 @@ class DialogoAssinatura(QDialog):
         gl.setSpacing(8)
         linha = QHBoxLayout()
         self.lista = QComboBox()
-        self.lista.setEditable(True)  # digitar filtra por nome ou CPF/CNPJ
-        self.lista.setInsertPolicy(QComboBox.NoInsert)
-        self.lista.lineEdit().setPlaceholderText("Selecione ou digite para buscar…")
+        # seleção só por clique: o campo inteiro abre a lista (sem digitação/busca)
+        self.lista.setMaxVisibleItems(15)
         self.lista.setMinimumContentsLength(40)
+        self.lista.setCursor(Qt.PointingHandCursor)
         self.lista.currentIndexChanged.connect(self._escolhido)
         atualizar = ui.botao("girar", "Atualizar a lista de certificados", tamanho=16)
         atualizar.clicked.connect(self._carregar_lista)
@@ -99,40 +92,27 @@ class DialogoAssinatura(QDialog):
         lay.addWidget(grupo)
         self._certs: list[CertificadoWindows] = []
 
-        # aparência e metadados
+        # aparência (motivo, local e carimbo de tempo não são pedidos)
         form = QFormLayout()
         form.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
         form.setHorizontalSpacing(12)
         form.setVerticalSpacing(8)
         linha_ap = QHBoxLayout()
         linha_ap.setSpacing(18)
-        self.rb_visivel = QRadioButton("Visível (posicionar na página)")
+        self.rb_visivel = QRadioButton("Visível ( Posicionar na Página )")
         self.rb_invisivel = QRadioButton("Invisível")
         (self.rb_visivel if config.get("assinatura/visivel", True) else self.rb_invisivel).setChecked(True)
         linha_ap.addWidget(self.rb_visivel)
         linha_ap.addWidget(self.rb_invisivel)
         linha_ap.addStretch(1)
         form.addRow("Aparência:", linha_ap)
-        self.motivo = QLineEdit(config.get("assinatura/motivo", "Assinatura digital"))
-        form.addRow("Motivo:", self.motivo)
-        self.local = QLineEdit(config.get("assinatura/local", ""))
-        self.local.setPlaceholderText("Ex.: Rio Verde - GO")
-        form.addRow("Local:", self.local)
-        linha_tsa = QHBoxLayout()
-        linha_tsa.setSpacing(12)
-        self.cb_tsa = QCheckBox("Carimbo de tempo")
-        self.cb_tsa.setChecked(config.get("assinatura/usar_tsa", False))
-        self.tsa = QLineEdit(config.get("assinatura/tsa", TSA_PADRAO))
-        self.tsa.setEnabled(self.cb_tsa.isChecked())
-        self.cb_tsa.toggled.connect(self.tsa.setEnabled)
-        linha_tsa.addWidget(self.cb_tsa)
-        linha_tsa.addWidget(self.tsa, 1)
-        form.addRow("", linha_tsa)
         lay.addLayout(form)
 
         botoes = QHBoxLayout()
         botoes.addStretch(1)
         cancelar = QPushButton("Cancelar")
+        cancelar.setObjectName("fechar")  # cinza escuro, mesmo visual do "Fechar"
+        cancelar.setCursor(Qt.PointingHandCursor)
         cancelar.clicked.connect(self.reject)
         self.ok = QPushButton("Continuar")
         self.ok.setObjectName("primario")
@@ -151,40 +131,30 @@ class DialogoAssinatura(QDialog):
         finally:
             QGuiApplication.restoreOverrideCursor()
         self._certs = [c for c in todos if not c.info.expirado]
-        vencidos = len(todos) - len(self._certs)
         self.lista.blockSignals(True)
         self.lista.clear()
         for c in self._certs:
             self.lista.addItem(c.rotulo(), c.impressao)
-        completar = QCompleter([c.rotulo() for c in self._certs], self.lista)
-        completar.setFilterMode(Qt.MatchContains)
-        completar.setCaseSensitivity(Qt.CaseInsensitive)
-        self.lista.setCompleter(completar)
         salvo = self.config.get("assinatura/certificado", "")
         idx = self.lista.findData(salvo) if salvo else -1
         self.lista.setCurrentIndex(idx if idx >= 0 else (0 if self._certs else -1))
         self.lista.blockSignals(False)
-        if not self._certs:
-            self.aviso.setText("Nenhum certificado digital válido instalado no Windows. Para instalar um "
-                               "certificado A1, dê duplo clique no arquivo .pfx e siga o assistente; "
-                               "depois clique em atualizar.")
-        elif vencidos:
-            self.aviso.setText(f"{len(self._certs)} certificado(s) disponível(is) · {vencidos} vencido(s) "
-                               "não exibido(s).")
-        else:
-            self.aviso.setText(f"{len(self._certs)} certificado(s) disponível(is).")
+        # só orienta quando não há certificado; a contagem não é exibida
+        self.aviso.setText("Nenhum certificado digital válido instalado no Windows. Para instalar um "
+                           "certificado A1, dê duplo clique no arquivo .pfx e siga o assistente; "
+                           "depois clique em atualizar.")
+        self.aviso.setVisible(not self._certs)
         self._escolhido(self.lista.currentIndex())
 
     def _atual(self) -> CertificadoWindows | None:
         i = self.lista.currentIndex()
-        if 0 <= i < len(self._certs) and self.lista.currentText() == self.lista.itemText(i):
+        if 0 <= i < len(self._certs):
             return self._certs[i]
         return None
 
     def _escolhido(self, _i: int = -1):
         c = self._atual()
         if c:
-            self.lista.lineEdit().setCursorPosition(0)  # mostra o início (nome), não o fim
             self.cartao.mostrar(c.info)
         else:
             self.cartao.hide()
@@ -199,10 +169,6 @@ class DialogoAssinatura(QDialog):
         c = self.config
         c.set("assinatura/certificado", self._atual().impressao)
         c.set("assinatura/visivel", self.rb_visivel.isChecked())
-        c.set("assinatura/motivo", self.motivo.text().strip())
-        c.set("assinatura/local", self.local.text().strip())
-        c.set("assinatura/usar_tsa", self.cb_tsa.isChecked())
-        c.set("assinatura/tsa", self.tsa.text().strip())
         self.accept()
 
     def config_assinatura(self) -> ConfigAssinatura:
@@ -211,8 +177,5 @@ class DialogoAssinatura(QDialog):
             cert.info,
             impressao=cert.impressao,
             der=cert.der,
-            motivo=self.motivo.text().strip(),
-            local=self.local.text().strip(),
-            tsa_url=self.tsa.text().strip() if self.cb_tsa.isChecked() else "",
             visivel=self.rb_visivel.isChecked(),
         )

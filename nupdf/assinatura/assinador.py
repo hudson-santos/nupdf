@@ -11,8 +11,10 @@ import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime
 from io import BytesIO
+from pathlib import Path
 
 from pyhanko import stamp
+from pyhanko.pdf_utils import generic
 from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
 from pyhanko.pdf_utils.reader import PdfFileReader
 from pyhanko.sign import fields, signers, timestamps
@@ -41,21 +43,30 @@ class ConfigAssinatura:
     extras: dict = field(default_factory=dict)
 
 
-def _gerar_carimbo(info: InfoCertificado, largura: float, altura: float, rotacao: int = 0) -> str:
+_LOGO_ICP = Path(__file__).resolve().parents[2] / "assets" / "icp_brasil.png"
+_LOGO_PROPORCAO = 297 / 360  # largura / altura do PNG
+_DOMINIO_VALIDAR = "validar.iti.gov.br"
+URL_VALIDAR = "https://validar.iti.gov.br"
+
+
+def _gerar_carimbo(info: InfoCertificado, largura: float, altura: float,
+                   rotacao: int = 0) -> tuple[str, tuple[float, float, float, float] | None]:
     """Desenha a aparência da assinatura visível num PDF de uma página (PyMuPDF)
-    e devolve o caminho do arquivo temporário. Usar o PyMuPDF garante boa
+    e devolve o caminho do arquivo temporário e a área do texto
+    "validar.iti.gov.br" (coordenadas do carimbo, origem no canto superior
+    esquerdo, já considerando a rotação) para o link. Usar o PyMuPDF garante boa
     renderização de texto (acentos, métricas) em qualquer visualizador."""
     import pymupdf
 
     agora = datetime.now().astimezone()
     linhas = [
-        ("helv", "Assinado digitalmente por", 0.42),
+        ("helv", "Assinado Digitalmente por :", 0.42),
         ("hebo", info.titular, 0.10),
     ]
     if info.documento:
-        linhas.append(("helv", f"{'CPF' if info.tipo == 'e-CPF' else 'CNPJ'}: {info.documento_mascarado}", 0.10))
-    linhas.append(("helv", f"Data: {agora:%d/%m/%Y %H:%M:%S} {agora:%z}", 0.10))
-    linhas.append(("helv", "Verifique em validar.iti.gov.br", 0.42))
+        linhas.append(("helv", f"{'CPF' if info.tipo == 'e-CPF' else 'CNPJ'}: {info.documento}", 0.10))
+    linhas.append(("helv", f"Data/Hora: {agora:%d/%m/%Y %H:%M:%S} {agora:%z}", 0.10))
+    linhas.append(("helv", f"Verifique em {_DOMINIO_VALIDAR}", 0.42))
 
     rotacao %= 360
     if rotacao in (90, 270):  # desenha na orientação que o usuário vê
@@ -66,7 +77,14 @@ def _gerar_carimbo(info: InfoCertificado, largura: float, altura: float, rotacao
                  fill=(1, 1, 1), width=0.8, radius=0.06)
     pg.draw_rect(pymupdf.Rect(0.5, 0.5, 4, altura - 0.5), color=None, fill=(0.898, 0.282, 0.302))
 
-    margem_x, margem_y = 10, 5
+    # logo ICP-Brasil (preta) entre a barra e o texto, na altura útil do carimbo
+    margem_y = 5
+    # (em caixas estreitas a logo encolhe para não tomar o lugar do texto)
+    logo_w = min((altura - 2 * margem_y) * _LOGO_PROPORCAO, largura * 0.25)
+    logo_h = logo_w / _LOGO_PROPORCAO
+    margem_logo = (altura - logo_h) / 2
+    pg.insert_image(pymupdf.Rect(9, margem_logo, 9 + logo_w, margem_logo + logo_h), filename=str(_LOGO_ICP))
+    margem_x = 9 + logo_w + 7
     util_w = largura - margem_x - 6
     fs = min(10.5, (altura - 2 * margem_y) / (len(linhas) * 1.22))
     for fonte, texto, _ in linhas:  # reduz a fonte até a linha mais larga caber
@@ -86,11 +104,39 @@ def _gerar_carimbo(info: InfoCertificado, largura: float, altura: float, rotacao
         doc.close()
         doc = final
 
+    achados = doc[0].search_for(_DOMINIO_VALIDAR)
+    area_link = tuple(achados[0]) if achados else None
     arq = tempfile.NamedTemporaryFile(prefix="nupdf_carimbo_", suffix=".pdf", delete=False)
     arq.close()
     doc.save(arq.name)
     doc.close()
-    return arq.name
+    return arq.name, area_link
+
+
+def _adicionar_link(w: IncrementalPdfFileWriter, pagina: int, rect: tuple[float, float, float, float],
+                    url: str):
+    """Anotação de link (URI) na página, gravada na mesma revisão da assinatura
+    (antes de assinar, então fica coberta por ela)."""
+    page_ref, _ = w.find_page_for_modification(pagina)
+    page = page_ref.get_object()
+    link = generic.DictionaryObject({
+        generic.NameObject("/Type"): generic.NameObject("/Annot"),
+        generic.NameObject("/Subtype"): generic.NameObject("/Link"),
+        generic.NameObject("/Rect"): generic.ArrayObject(generic.FloatObject(v) for v in rect),
+        generic.NameObject("/Border"): generic.ArrayObject([generic.NumberObject(0)] * 3),
+        generic.NameObject("/F"): generic.NumberObject(4),  # imprimível
+        generic.NameObject("/P"): page_ref,
+        generic.NameObject("/A"): generic.DictionaryObject({
+            generic.NameObject("/S"): generic.NameObject("/URI"),
+            generic.NameObject("/URI"): generic.TextStringObject(url),
+        }),
+    })
+    ref = w.add_object(link)
+    existentes = page.get("/Annots")
+    anots = generic.ArrayObject(list(existentes) if existentes is not None else [])
+    anots.append(ref)
+    page[generic.NameObject("/Annots")] = anots
+    w.update_container(page)
 
 
 def _nome_campo(reader: PdfFileReader) -> str:
@@ -124,7 +170,13 @@ def assinar_pdf(dados: bytes, cfg: ConfigAssinatura, senha_pdf: str | None = Non
         if cfg.visivel and cfg.caixa:
             x0, y0, x1, y1 = (int(round(v)) for v in cfg.caixa)
             spec = fields.SigFieldSpec(sig_field_name=nome, on_page=cfg.pagina, box=(x0, y0, x1, y1))
-            carimbo = _gerar_carimbo(cfg.info, x1 - x0, y1 - y0, cfg.rotacao)
+            carimbo, area = _gerar_carimbo(cfg.info, x1 - x0, y1 - y0, cfg.rotacao)
+            # link só na 1ª assinatura: anotação nova numa revisão posterior faz os
+            # validadores (Adobe, pyHanko) acusarem as assinaturas anteriores como modificadas
+            ja_assinado = any(True for _ in fields.enumerate_sig_fields(w.prev, filled_status=True))
+            if area and not ja_assinado:  # carimbo (origem em cima) -> página (origem embaixo)
+                _adicionar_link(w, cfg.pagina, (x0 + area[0], y1 - area[3], x0 + area[2], y1 - area[1]),
+                                URL_VALIDAR)
             estilo = stamp.StaticStampStyle.from_pdf_file(carimbo, border_width=0)
         else:
             spec = fields.SigFieldSpec(sig_field_name=nome)

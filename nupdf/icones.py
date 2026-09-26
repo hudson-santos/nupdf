@@ -33,10 +33,12 @@ _SVG = {
     "proxima": '<path d="m9 18 6-6-6-6"/>',
     "ultima": '<path d="m7 18 6-6-6-6"/><path d="M17 6v12"/>',
     "acima": '<path d="m18 15-6-6-6 6"/>',
+    "seta_menu": '<path d="m6 9 6 6 6-6"/>',
     "abaixo": '<path d="m6 9 6 6 6-6"/>',
     "sol": '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>',
     "lua": '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
     "arquivo": '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8M16 17H8M10 9H8"/>',
+    "menos": '<path d="M5 12h14"/>',
     "mais": '<path d="M12 5v14M5 12h14"/>',
     "info": '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
     "chave": '<circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6M15.5 7.5l3 3L22 7l-3-3"/>',
@@ -71,8 +73,44 @@ def _render(svg: bytes, tamanho: int, escala: int = 2) -> QPixmap:
     return pix
 
 
+SUFIXO_SETA = "+seta"  # ex.: "girar+seta" = ícone com a seta de menu ao lado
+
+
+def largura_icone(nome: str, tamanho: int) -> int:
+    return tamanho + _respiro(tamanho) + (tamanho // 2) if nome.endswith(SUFIXO_SETA) else tamanho
+
+
+def _respiro(tamanho: int) -> int:
+    """Espaço entre o ícone e a seta de menu."""
+    return max(5, tamanho // 3)
+
+
+def _icone_com_seta(nome: str, cor: str, tamanho: int) -> QIcon:
+    """Ícone + seta de menu (⌄) à direita, centralizada na altura do ícone."""
+    escala = 2
+    base = _render(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" '
+                   f'stroke="{cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+                   f"{_SVG[nome]}</svg>".encode(), tamanho, escala)
+    lado = tamanho // 2
+    seta = _render(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" '
+                   f'stroke="{cor}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">'
+                   f'<path d="m6 9 6 6 6-6"/></svg>'.encode(), lado, escala)
+    pix = QPixmap(largura_icone(nome + SUFIXO_SETA, tamanho) * escala, tamanho * escala)
+    pix.setDevicePixelRatio(escala)  # desenho em coordenadas lógicas (as dos pixmaps de origem)
+    pix.fill(Qt.transparent)
+    p = QPainter(pix)
+    p.drawPixmap(0, 0, base)
+    p.drawPixmap(tamanho + _respiro(tamanho), (tamanho - lado) // 2, seta)
+    p.end()
+    return QIcon(pix)
+
+
 def icone(nome: str, cor: str, tamanho: int = 20) -> QIcon:
     chave = (nome, cor, tamanho)
+    if nome.endswith(SUFIXO_SETA):
+        if chave not in _cache:
+            _cache[chave] = _icone_com_seta(nome[:-len(SUFIXO_SETA)], cor, tamanho)
+        return _cache[chave]
     if chave not in _cache:
         svg = (
             f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" '

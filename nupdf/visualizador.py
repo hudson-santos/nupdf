@@ -34,6 +34,8 @@ class Visualizador(QScrollArea):
     retanguloDesenhado = Signal(int, object)  # página, pymupdf.Rect (espaço da página)
     posicionamentoCancelado = Signal()
     copiadoPeloBotao = Signal(str)
+    rotacaoMudou = Signal()
+    assinaturaClicada = Signal(str)  # nome do campo da assinatura visível clicada
 
     def __init__(self, documento: Documento, cores: dict, parent=None):
         super().__init__(parent)
@@ -42,7 +44,8 @@ class Visualizador(QScrollArea):
         self.doc = documento
         self.cores = cores
         self.zoom = 1.0
-        self.rotacao = 0
+        self.rotacao = 0                 # rotação de todas as páginas
+        self.rotacao_pagina: dict = {}   # rotação extra de páginas específicas
         self.modo = "texto"          # texto | mao | posicionar
         self.ajuste = ("largura", 1.5)  # (modo, zoom máximo) ou None
         self._cache: OrderedDict = OrderedDict()
@@ -82,8 +85,8 @@ class Visualizador(QScrollArea):
         s = self.zoom * PX_POR_PT
         geos, topos = [], []
         y, larg_max = MARGEM, 0
-        for r0, rotm in self._base:
-            m = rotm * pymupdf.Matrix(s, s).prerotate(self.rotacao)
+        for i, (r0, rotm) in enumerate(self._base):
+            m = rotm * pymupdf.Matrix(s, s).prerotate(self._rot(i))
             bb = (r0 * m).normalize()
             w, h = max(1, round(bb.width)), max(1, round(bb.height))
             geos.append([QRect(0, y, w, h), m, pymupdf.Point(bb.x0, bb.y0)])
@@ -136,14 +139,14 @@ class Visualizador(QScrollArea):
     # ------------------------------------------------------------------ render
     def _pixmap(self, i: int) -> QPixmap:
         dpr = self.devicePixelRatioF()
-        chave = (i, self.zoom, self.rotacao, dpr)
+        chave = (i, self.zoom, self._rot(i), dpr)
         pix = self._cache.get(chave)
         if pix is not None:
             self._cache.move_to_end(chave)
             return pix
         s = self.zoom * PX_POR_PT * dpr
         try:
-            pm = self.doc.doc[i].get_pixmap(matrix=pymupdf.Matrix(s, s).prerotate(self.rotacao), alpha=False)
+            pm = self.doc.doc[i].get_pixmap(matrix=pymupdf.Matrix(s, s).prerotate(self._rot(i)), alpha=False)
             img = QImage(pm.samples, pm.width, pm.height, pm.stride, QImage.Format_RGB888).copy()
             pix = QPixmap.fromImage(img)
         except Exception:
@@ -254,7 +257,11 @@ class Visualizador(QScrollArea):
         self.definir_zoom(min(self._zoom_de_ajuste(modo), maximo), manual=False)
         self.ir_para_pagina(i)
 
+    def _rot(self, i: int) -> int:
+        return (self.rotacao + self.rotacao_pagina.get(i, 0)) % 360
+
     def girar(self):
+        """Gira a visualização de todas as páginas em 90° (sentido horário)."""
         i = self._pagina_atual
         self.rotacao = (self.rotacao + 90) % 360
         self._limpar_cache()
@@ -262,6 +269,21 @@ class Visualizador(QScrollArea):
         if self.ajuste:
             self.ajustar(*self.ajuste)
         self.ir_para_pagina(i)
+        self.rotacaoMudou.emit()
+
+    def rotacoes(self) -> dict[int, int]:
+        """Rotação efetiva (geral + da página) de cada página girada na tela."""
+        return {i: self._rot(i) for i in range(len(self._base)) if self._rot(i)}
+
+    def girar_pagina(self, i: int | None = None):
+        """Gira só a visualização de uma página (a atual, por padrão) em 90°."""
+        i = self._pagina_atual if i is None else i
+        if not (0 <= i < len(self._base)):
+            return
+        self.rotacao_pagina[i] = (self.rotacao_pagina.get(i, 0) + 90) % 360
+        self._recalcular()
+        self.ir_para_pagina(i)
+        self.rotacaoMudou.emit()
 
     def wheelEvent(self, e):
         if e.modifiers() & Qt.ControlModifier:
@@ -499,14 +521,35 @@ class Visualizador(QScrollArea):
                 return ln
         return None
 
+    def _assinatura_em(self, pos: QPointF) -> str | None:
+        """Nome do campo da assinatura visível sob o ponto (None se não houver)."""
+        i = self._pagina_em(pos)
+        if i < 0 or not self._geo[i][0].contains(pos.toPoint()):
+            return None
+        p = self._para_pagina(i, pos)
+        for r, nome in self.doc.assinaturas_visiveis(i):
+            if r.contains(p):
+                return nome
+        return None
+
     def _abrir_link(self, ln):
         if ln.get("kind") == pymupdf.LINK_GOTO and ln.get("page", -1) >= 0:
             self.ir_para_pagina(ln["page"])
         elif ln.get("kind") == pymupdf.LINK_URI and ln.get("uri"):
             uri = ln["uri"]
-            r = QMessageBox.question(self, "Abrir link externo",
-                                     f"Este documento quer abrir o endereço:\n\n{uri}\n\nDeseja continuar?")
-            if r == QMessageBox.Yes:
+            caixa = QMessageBox(QMessageBox.NoIcon, "Abrir Link Externo",
+                                f"O Documento está Tentando Acessar :\n\n{uri}\n\nDeseja Continuar ?", parent=self)
+            sim = caixa.addButton("Sim", QMessageBox.YesRole)
+            nao = caixa.addButton("Não", QMessageBox.NoRole)
+            for botao, nome in ((sim, "primario"), (nao, "fechar")):  # laranja / cinza do "Fechar"
+                botao.setObjectName(nome)
+                botao.setCursor(Qt.PointingHandCursor)
+                botao.style().unpolish(botao)  # reaplica o QSS com o novo objectName
+                botao.style().polish(botao)
+            caixa.setDefaultButton(sim)
+            caixa.setEscapeButton(nao)
+            caixa.exec()
+            if caixa.clickedButton() is sim:
                 QDesktopServices.openUrl(QUrl(uri))
 
 
@@ -639,7 +682,8 @@ class _Paginas(QWidget):
                 ln = v._link_em(pos)
                 i = v._pagina_em(pos)
                 dentro = i >= 0 and v._geo[i][0].contains(pos.toPoint())
-                self.setCursor(Qt.PointingHandCursor if ln else (Qt.IBeamCursor if dentro else Qt.ArrowCursor))
+                clicavel = ln or v._assinatura_em(pos) is not None
+                self.setCursor(Qt.PointingHandCursor if clicavel else (Qt.IBeamCursor if dentro else Qt.ArrowCursor))
             return
 
         if not self._arrastou and (pos - self._press).manhattanLength() < 4:
@@ -700,6 +744,11 @@ class _Paginas(QWidget):
             v.limpar_selecao()
             if ln:
                 v._abrir_link(ln)
+            else:
+                # como no Adobe Reader: clicar numa assinatura visível abre o painel de assinaturas
+                campo = v._assinatura_em(pos)
+                if campo is not None:
+                    v.assinaturaClicada.emit(campo)
         else:
             v.selecaoMudou.emit(v.tem_selecao())
         self._press = None
@@ -739,9 +788,10 @@ class _Paginas(QWidget):
         a_tudo = m.addAction("Selecionar tudo")
         a_pag = m.addAction(f"Copiar texto da página {i + 1}") if i >= 0 else None
         m.addSeparator()
-        a_girar = m.addAction("Girar visualização")
-        a_larg = m.addAction("Ajustar à largura")
-        a_pagina = m.addAction("Página inteira")
+        a_girar_pag = m.addAction(f"Girar página {i + 1}") if i >= 0 else None
+        a_girar = m.addAction("Girar Todas as Páginas")
+        a_larg = m.addAction("Ajustar à Largura")
+        a_pagina = m.addAction("Página Inteira")
         esc = m.exec(e.globalPos())
         if esc is a_copiar:
             v.copiar()
@@ -749,6 +799,8 @@ class _Paginas(QWidget):
             v.selecionar_tudo()
         elif a_pag is not None and esc is a_pag:
             QGuiApplication.clipboard().setText(v.doc.texto_pagina(i))
+        elif a_girar_pag is not None and esc is a_girar_pag:
+            v.girar_pagina(i)
         elif esc is a_girar:
             v.girar()
         elif esc is a_larg:
