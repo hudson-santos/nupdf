@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.0.1] - 2026-09-26
+
+### Changed
+- Janela "Sobre": descrição "Leia PDFs, Copie Dados e Assine Digitalmente com Certificado
+  ICP-Brasil." em uma única linha (janela mais larga).
+- Painel "Assinaturas Digitais": texto "Documento sem Assinatura Digital." e sem o botão
+  "Assinar documento" no rodapé (a ação fica no botão "Assinar com Certificado Digital" da
+  barra de ferramentas).
+
 ## [1.0.0] - 2026-09-26
 
 ### Added

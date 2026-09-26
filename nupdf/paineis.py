@@ -248,7 +248,7 @@ class _CartaoAssinatura(QFrame):
 
 
 class PainelAssinaturas(QWidget):
-    assinar = Signal()
+    # sem botão "Assinar" aqui: a ação fica na barra de ferramentas
 
     def __init__(self, doc: Documento):
         super().__init__()
@@ -274,12 +274,6 @@ class PainelAssinaturas(QWidget):
         self.lista.addStretch(1)
         area.setWidget(self.conteudo)
         lay.addWidget(area, 1)
-        bt = QPushButton("  Assinar documento")
-        bt.setObjectName("primario")
-        bt.setIcon(icone("assinar", "#ffffff", 16))
-        bt.setCursor(Qt.PointingHandCursor)
-        bt.clicked.connect(self.assinar)
-        lay.addWidget(bt)
 
     def redesenhar(self):
         if self._resultados is not None:
@@ -304,7 +298,7 @@ class PainelAssinaturas(QWidget):
                 w.hide()
                 w.deleteLater()
         if not resultados:
-            self.status.setText("Este documento não possui assinaturas digitais.")
+            self.status.setText("Documento sem Assinatura Digital.")
             return
         n = len(resultados)
         self.status.setText(f"{n} assinatura{'s' if n > 1 else ''} encontrada{'s' if n > 1 else ''}.")

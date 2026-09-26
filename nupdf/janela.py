@@ -475,7 +475,6 @@ class JanelaPrincipal(QMainWindow):
 
         aba = AbaDocumento(doc)
         aba.painelMudou.connect(lambda _: self._atualizar_estado())
-        aba.assinaturas.assinar.connect(self.assinar)
         aba.visualizador.retanguloDesenhado.connect(lambda pg, r, a=aba: self._posicionado(a, pg, r))
         aba.visualizador.posicionamentoCancelado.connect(lambda a=aba: self._posicionamento_cancelado(a))
         self.abas.append(aba)
@@ -679,11 +678,15 @@ class JanelaPrincipal(QMainWindow):
         caixa = QMessageBox(self)
         caixa.setWindowTitle(f"Sobre o {NOME_APP}")
         caixa.setIconPixmap(pixmap_logo(64))
+        descricao = "Leia PDFs, Copie Dados e Assine Digitalmente com Certificado ICP-Brasil."
         caixa.setText(
             f"<h3>{NOME_APP} {VERSAO}</h3>"
-            "<p>Leitor de PDF leve para uso corporativo: leitura, cópia de dados e "
-            "assinatura digital PAdES com certificados ICP-Brasil instalados no Windows.</p>"
+            f'<p style="white-space:nowrap;">{descricao}</p>'
             "<p>Componentes: PySide6 (Qt), PyMuPDF, pyHanko.</p>")
+        # a caixa padrão limita a largura do texto; alarga para a descrição caber numa linha
+        rotulo = caixa.findChild(QLabel, "qt_msgbox_label")
+        if rotulo is not None:
+            rotulo.setMinimumWidth(rotulo.fontMetrics().horizontalAdvance(descricao) + 24)
         ok = caixa.addButton(QMessageBox.Ok)
         ok.setObjectName("primario")  # cor de destaque, como os demais botões principais
         ok.style().unpolish(ok)  # reaplica o QSS com o novo objectName
