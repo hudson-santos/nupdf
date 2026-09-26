@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.0] - 2026-09-26
+
+### Added
+- Botão "Verificar atualizações" na barra do topo (à esquerda do botão de tema): consulta
+  a última release no GitHub e, se houver versão mais nova, mostra a versão, o tamanho e
+  as novidades. "Atualizar" baixa o `Instalador.exe` para `C:\NuPDF` com barra de
+  progresso (cancelável), confere o arquivo, executa a instalação em modo silencioso e
+  fecha o NuPDF, que é reaberto automaticamente ao final.
+- Verificação discreta ao abrir o NuPDF: se existir versão nova, o ícone do botão fica
+  destacado, sem abrir janela.
+
+### Changed
+- Site de apresentação: removida a seção com a captura de tela do aplicativo.
+
 ## [0.2.1] - 2026-09-26
 
 ### Changed

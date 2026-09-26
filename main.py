@@ -113,7 +113,7 @@ def main() -> int:
     app.setStyle("Fusion")
     sys.excepthook = _erro_nao_tratado
 
-    janela = JanelaPrincipal()
+    janela = JanelaPrincipal(verificar_atualizacao=True)
     _iniciar_servidor(janela)
     janela.showMaximized()
     for arq in arquivos:

@@ -3,7 +3,7 @@
 from pathlib import Path
 
 import pymupdf
-from PySide6.QtCore import QSize, Qt
+from PySide6.QtCore import QSize, Qt, QTimer
 from PySide6.QtGui import QAction, QImage, QKeySequence, QPainter
 from PySide6.QtWidgets import (QApplication, QFileDialog, QFrame, QHBoxLayout, QInputDialog, QLabel,
                                QLineEdit, QMainWindow, QMenu, QMessageBox, QProgressDialog, QPushButton,
@@ -167,7 +167,7 @@ class TelaInicial(QWidget):
 
 
 class JanelaPrincipal(QMainWindow):
-    def __init__(self):
+    def __init__(self, verificar_atualizacao: bool = False):
         super().__init__()
         self.config = Config()
         self.escuro = bool(self.config.get("tema_escuro", True))
@@ -199,6 +199,9 @@ class JanelaPrincipal(QMainWindow):
         self._criar_atalhos()
         self.toast = ui.Toast(self)
         self._atualizar_estado()
+        if verificar_atualizacao:
+            # consulta discreta: só destaca o botão, não abre janela sozinha
+            QTimer.singleShot(4000, self._checar_atualizacao_em_segundo_plano)
 
     # ================================================================== montagem
     def _criar_topo(self) -> QWidget:
@@ -242,6 +245,9 @@ class JanelaPrincipal(QMainWindow):
         fm.addWidget(nova, 0, Qt.AlignCenter)
         lay.addWidget(self.faixa_mais, 0, Qt.AlignBottom)
         lay.addStretch(1)
+        self.b_atualizacao = ui.botao("atualizar", "Verificar atualizações")
+        self.b_atualizacao.clicked.connect(self.verificar_atualizacoes)
+        lay.addWidget(self.b_atualizacao)
         self.b_tema = ui.botao("sol" if self.escuro else "lua", "Alternar tema claro/escuro")
         self.b_tema.clicked.connect(self.alternar_tema)
         lay.addWidget(self.b_tema)
@@ -611,6 +617,27 @@ class JanelaPrincipal(QMainWindow):
             aba.atualizar_cores()
         for i in range(self.tabbar.count()):
             self.tabbar.setTabIcon(i, icone("arquivo", ui.cores()["texto2"], 14))
+
+    def verificar_atualizacoes(self):
+        from .dialogo_atualizacao import DialogoAtualizacao
+        DialogoAtualizacao(self).exec()
+
+    def _checar_atualizacao_em_segundo_plano(self):
+        from . import atualizacao
+
+        def verificar():
+            rel = atualizacao.ultima_release()
+            return rel if atualizacao.eh_mais_nova(rel.versao) else None
+
+        self._tarefa_atualizacao = ui.Tarefa(verificar)
+        self._tarefa_atualizacao.concluida.connect(self._atualizacao_disponivel)
+        self._tarefa_atualizacao.start()  # falha (sem internet etc.) é ignorada em silêncio
+
+    def _atualizacao_disponivel(self, release):
+        if release is None:
+            return
+        ui.aplicar_icone(self.b_atualizacao, "atualizar", chave_cor="destaque")
+        self.b_atualizacao.setToolTip(f"Nova versão {release.versao} disponível — clique para atualizar")
 
     def _tela_cheia(self):
         self.showNormal() if self.isFullScreen() else self.showFullScreen()

@@ -102,6 +102,11 @@ def main() -> int:
     checar("CPF inválido ignorado", not dados._dv_cpf_ok("12345678901"))
     checar("CNPJ alfanumérico", dados._dv_cnpj_ok("12ABC34501DE35"))
 
+    print("Atualização:")
+    from nupdf import atualizacao
+    checar("compara versões (semver)", atualizacao.eh_mais_nova("0.10.0", "0.9.9")
+           and not atualizacao.eh_mais_nova("0.2.1", "0.2.1") and not atualizacao.eh_mais_nova("0.2.0", "0.2.1"))
+
     print("Certificado / assinatura:")
     from nupdf.assinatura.certificado import ErroCertificado, carregar_pfx
     from nupdf.assinatura.assinador import ConfigAssinatura, assinar_pdf
