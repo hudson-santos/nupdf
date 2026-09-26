@@ -87,20 +87,15 @@ def main() -> int:
     pdf = gerar_pdf(pasta)
     pfx = gerar_pfx(pasta, "1234")
 
-    print("Documento / dados:")
+    print("Documento / propriedades:")
     from nupdf.documento import Documento
-    from nupdf import dados
+    from nupdf import paineis
     doc = Documento(str(pdf))
     checar("3 páginas", doc.n_paginas == 3)
     checar("texto em ordem visual", "Proprietário: FULANO DE TAL" in doc.texto_pagina(0), doc.texto_pagina(0))
-    ds = dados.extrair(doc)
-    pares = {(d.categoria, d.rotulo, d.valor) for d in ds}
-    checar("campo Proprietário", ("Campos", "Proprietário", "FULANO DE TAL") in pares, str(pares))
-    checar("CPF válido detectado", any(d.categoria == "CPF" and d.valor == "123.456.789-09" for d in ds))
-    checar("CNPJ válido detectado", any(d.categoria == "CNPJ" for d in ds))
-    checar("valor e data", any(d.categoria == "Valores" for d in ds) and any(d.categoria == "Datas" for d in ds))
-    checar("CPF inválido ignorado", not dados._dv_cpf_ok("12345678901"))
-    checar("CNPJ alfanumérico", dados._dv_cnpj_ok("12ABC34501DE35"))
+    checar("nome sem extensão", doc.nome == "teste")
+    checar("data do PDF formatada", paineis._data_pdf("D:20260928103000-03'00'") == "28/09/2026 10:30")
+    checar("tamanho da página A4", paineis._formato_pagina(595, 842).startswith("A4 (retrato)"))
 
     print("Atualização:")
     from nupdf import atualizacao
@@ -121,10 +116,18 @@ def main() -> int:
            info.resumo())
 
     try:
-        cfg = ConfigAssinatura("a1", info, pfx=str(pfx), senha="1234", motivo="Teste", local="Rio Verde - GO",
+        # o app assina com certificados do Windows; aqui o certificado de teste é
+        # passado direto ao pyHanko para não mexer no repositório do usuário
+        from pyhanko.sign import signers as hk_signers
+        teste = hk_signers.SimpleSigner.load_pkcs12(str(pfx), passphrase=b"1234")
+        from nupdf.assinatura import windows as win
+        win.assinante_pyhanko = lambda impressao, der: teste
+        certs_win = win.listar_certificados()
+        checar("leitura dos certificados do Windows", isinstance(certs_win, list))
+        cfg = ConfigAssinatura(info, impressao="TESTE", der=b"x", motivo="Teste", local="Rio Verde - GO",
                                visivel=True, pagina=0, caixa=(350, 650, 560, 720))
         assinado = assinar_pdf(doc.dados, cfg)
-        cfg2 = ConfigAssinatura("a1", info, pfx=str(pfx), senha="1234", visivel=False)
+        cfg2 = ConfigAssinatura(info, impressao="TESTE", der=b"x", visivel=False)
         duas = assinar_pdf(assinado, cfg2)
         (pasta / "assinado.pdf").write_bytes(duas)
         res = validar(duas)
@@ -212,7 +215,7 @@ def main() -> int:
             alvo = (visual * aba.doc.doc[pagina].derotation_matrix).normalize()
             destino = pasta / f"gui_{nome_pdf}"
             QFileDialog.getSaveFileName = staticmethod(lambda *a, **k: (str(destino), ""))
-            cfg = ConfigAssinatura("a1", info, pfx=str(pfx), senha="1234", visivel=True)
+            cfg = ConfigAssinatura(info, impressao="TESTE", der=b"x", visivel=True)
             aba.cfg_pendente = cfg
             aba.visualizador.iniciar_posicionamento()
             aba.visualizador.retanguloDesenhado.emit(pagina, alvo)

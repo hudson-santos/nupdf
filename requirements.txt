@@ -1,5 +1,5 @@
 PySide6-Essentials>=6.8
 pymupdf>=1.26
-pyHanko[pkcs11]>=0.29
+pyHanko>=0.29
 pyhanko-certvalidator>=0.27
 cryptography>=43

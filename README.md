@@ -9,14 +9,16 @@ Leitor de PDF leve para uso corporativo interno: **ler**, **copiar dados** e
   rotação, modo mão, busca (Ctrl+F), impressão, tema claro/escuro, recentes,
   arrastar e soltar. Instância única (PDFs do Explorer abrem em abas).
 - **Copiar dados**: seleção de texto em ordem visual (duplo clique = palavra,
-  triplo = linha, Alt+arrastar = retângulo). O painel *Dados do documento*
-  reconhece "Rótulo: valor", CPF, CNPJ (inclusive alfanumérico), datas,
-  valores, e-mails, telefones, CEP, chave de acesso NF-e e linha digitável —
-  um clique copia.
-- **Assinatura digital**: PAdES (ETSI.CAdES.detached, SHA-256) com certificado
-  **A1** (.pfx) ou **A3** (token/cartão via PKCS#11), visível (desenhada na
-  página) ou invisível, carimbo de tempo opcional. Assinaturas anteriores são
-  preservadas (atualização incremental).
+  triplo = linha, Alt+arrastar = retângulo), Ctrl+C e menu de contexto.
+- **Propriedades do documento**: painel com os metadados do PDF (título,
+  autor, assunto, palavras-chave, aplicativo de criação, datas, versão,
+  tamanho da página e proteção).
+- **Assinatura digital**: PAdES (ETSI.CAdES.detached, SHA-256) com um dos
+  **certificados ICP-Brasil instalados no Windows** (escolhido numa lista com
+  busca; a chave privada não sai do Windows, que pede a senha/PIN quando o
+  certificado é protegido), visível (desenhada na página) ou invisível,
+  carimbo de tempo opcional. Assinaturas anteriores são preservadas
+  (atualização incremental).
 - **Validação**: painel de assinaturas mostra integridade, cobertura e cadeia
   de confiança. Para reconhecer a cadeia ICP-Brasil, coloque os certificados
   das ACs (.cer/.crt) em `C:\NuPDF\cadeias` ou `%APPDATA%\NuPDF\cadeias`
@@ -38,6 +40,6 @@ venv\Scripts\python.exe main.py            # ou NuPDF.bat
 venv\Scripts\python.exe verificar.py       # verificação de integridade
 ```
 
-Tecnologias: PySide6 (Qt), PyMuPDF, pyHanko, python-pkcs11, cryptography.
+Tecnologias: PySide6 (Qt), PyMuPDF, pyHanko, cryptography.
 Release: ver `CLAUDE.md` (mesmo fluxo do Zeebs; o GitHub Actions compila o
 `Instalador.exe` com Inno Setup a cada commit `release - [X.Y.Z]`).

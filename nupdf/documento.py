@@ -61,7 +61,8 @@ class Documento:
 
     @property
     def nome(self) -> str:
-        return self.caminho.name
+        # sem a extensão: o NuPDF só abre PDF (aba, título, impressão...)
+        return self.caminho.stem
 
     @property
     def n_paginas(self) -> int:

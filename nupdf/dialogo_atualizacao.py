@@ -192,7 +192,21 @@ class DialogoAtualizacao(QDialog):
         doc = self.notas.document()
         doc.setTextWidth(self.notas.viewport().width())
         self.notas.setFixedHeight(min(int(doc.size().height()) + 8, limite))
-        QTimer.singleShot(0, lambda: self.resize(self.width(), self.sizeHint().height()))
+        QTimer.singleShot(0, self._redimensionar)
+
+    def _redimensionar(self):
+        """Ajusta a altura ao conteúdo e recentraliza sobre a janela do NuPDF
+        (ao crescer, o Qt só estende a janela para baixo)."""
+        self.resize(self.width(), self.sizeHint().height())
+        pai = self.parentWidget()
+        area = pai.window().frameGeometry() if pai else self.screen().availableGeometry()
+        tela = self.screen().availableGeometry() if self.screen() else area
+        quadro = self.frameGeometry()
+        quadro.moveCenter(area.center())
+        # nunca passar das bordas da tela
+        x = min(max(quadro.left(), tela.left()), tela.right() - quadro.width())
+        y = min(max(quadro.top(), tela.top()), tela.bottom() - quadro.height())
+        self.move(x, y)
 
     def _verificando(self):
         self._estado("Verificando atualizações…", f"Versão instalada: {VERSAO}", barra="indeterminada")

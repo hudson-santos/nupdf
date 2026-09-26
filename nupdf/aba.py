@@ -1,7 +1,5 @@
 """Aba de um documento: painel lateral + visualizador com barras flutuantes."""
 
-import re
-
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QAction, QIntValidator
 from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QLineEdit, QMenu, QStackedWidget,
@@ -9,11 +7,12 @@ from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QLineEdit, QMenu, QS
 
 from . import ui
 from .documento import Documento
-from .paineis import PainelAssinaturas, PainelDados, PainelMiniaturas
+from .paineis import PainelAssinaturas, PainelMiniaturas, PainelPropriedades
 from .visualizador import Visualizador
 
 PAINEIS = ("miniaturas", "dados", "assinaturas")
 LARGURA_PAINEL = 280
+LARGURA_MINIATURAS = 172  # só a coluna de miniaturas + rolagem, sem sobra à direita
 
 
 class BarraNavegacao(QFrame):
@@ -205,7 +204,7 @@ class AbaDocumento(QWidget):
         self.lateral.setFixedWidth(LARGURA_PAINEL)
         self.lateral.hide()
         self.miniaturas = PainelMiniaturas(documento)
-        self.dados = PainelDados(documento)
+        self.dados = PainelPropriedades(documento)  # chave "dados" mantida (preferência salva)
         self.assinaturas = PainelAssinaturas(documento)
         for p in (self.miniaturas, self.dados, self.assinaturas):
             self.lateral.addWidget(p)
@@ -219,8 +218,6 @@ class AbaDocumento(QWidget):
         v = self.visualizador
         self.miniaturas.paginaEscolhida.connect(v.ir_para_pagina)
         v.paginaMudou.connect(self._pagina_mudou)
-        self.dados.copiado.connect(lambda t: self.toast(f"Copiado: {t[:60]}"))
-        self.dados.localizar.connect(self._localizar)
 
     # ------------------------------------------------------------------ painéis
     @property
@@ -235,6 +232,7 @@ class AbaDocumento(QWidget):
             self._painel = nome
             w = {"miniaturas": self.miniaturas, "dados": self.dados, "assinaturas": self.assinaturas}[nome]
             self.lateral.setCurrentWidget(w)
+            self.lateral.setFixedWidth(LARGURA_MINIATURAS if nome == "miniaturas" else LARGURA_PAINEL)
             self.lateral.show()
             if nome == "miniaturas":
                 self.miniaturas.iniciar()
@@ -248,17 +246,6 @@ class AbaDocumento(QWidget):
     def _pagina_mudou(self, i: int):
         if self._painel == "miniaturas":
             self.miniaturas.marcar(i)
-
-    def _localizar(self, pagina: int, texto: str):
-        pg = self.doc.doc[pagina]
-        achados = pg.search_for(texto)
-        if not achados:
-            # valores com espaços/quebras (ex.: chave de acesso) - tenta o primeiro trecho
-            achados = pg.search_for(re.split(r"\s+", texto)[0])
-        if achados:
-            self.visualizador.mostrar_retangulo(pagina, achados[0], realcar=True)
-        else:
-            self.visualizador.ir_para_pagina(pagina)
 
     # ------------------------------------------------------------------ utilidades
     def toast(self, texto: str, ms: int = 1800):

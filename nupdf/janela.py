@@ -34,7 +34,7 @@ class _LinhaRecente(QFrame):
         lay.setSpacing(0)
         abrir = QPushButton()
         abrir.setObjectName("link")
-        nome = abrir.fontMetrics().elidedText(p.name, Qt.ElideMiddle, 400)
+        nome = abrir.fontMetrics().elidedText(p.stem, Qt.ElideMiddle, 400)
         abrir.setText(f"  {nome}")
         ui.aplicar_icone(abrir, "arquivo", 16)
         abrir.setCursor(Qt.PointingHandCursor)
@@ -145,7 +145,7 @@ class TelaInicial(QWidget):
         titulo_recentes.setObjectName("tituloPainel")
         cab.addWidget(titulo_recentes)
         cab.addStretch(1)
-        limpar = QPushButton("Limpar tudo")
+        limpar = QPushButton("Limpar Tudo")
         limpar.setObjectName("linkPequeno")
         limpar.setCursor(Qt.PointingHandCursor)
         limpar.setToolTip("Limpar a lista de arquivos recentes (os arquivos não são apagados)")
@@ -326,6 +326,7 @@ class JanelaPrincipal(QMainWindow):
 
     def _criar_trilho(self) -> QWidget:
         trilho = QFrame()
+        self.trilho = trilho  # só aparece com documento aberto (ver _atualizar_estado)
         trilho.setObjectName("trilhoLateral")
         trilho.setFixedWidth(52)
         lay = QVBoxLayout(trilho)
@@ -333,8 +334,8 @@ class JanelaPrincipal(QMainWindow):
         lay.setSpacing(6)
         self.b_paineis = {}
         for nome, ic, dica in (("miniaturas", "miniaturas", "Páginas"),
-                               ("dados", "dados", "Dados do documento (copiar CPF, CNPJ, valores…)"),
-                               ("assinaturas", "escudo", "Assinaturas digitais")):
+                               ("dados", "propriedades", "Propriedades do Documento"),
+                               ("assinaturas", "escudo", "Assinaturas Digitais")):
             b = ui.botao(ic, dica, checavel=True, tamanho=20, obj="trilho")
             b.clicked.connect(lambda _=False, n=nome: self._alternar_painel(n))
             lay.addWidget(b, 0, Qt.AlignHCenter)
@@ -408,6 +409,7 @@ class JanelaPrincipal(QMainWindow):
             w.setVisible(tem)
         self.barra_ferramentas.setVisible(tem)
         self.faixa_mais.setVisible(tem)  # "+" só com documento aberto (sem documento, usa o botão central)
+        self.trilho.setVisible(tem)
         painel = aba.painel if aba else None
         for nome, b in self.b_paineis.items():
             b.setChecked(nome == painel)
@@ -415,7 +417,7 @@ class JanelaPrincipal(QMainWindow):
             modo = aba.visualizador.modo
             self.b_cursor.setChecked(modo != "mao")
             self.b_mao.setChecked(modo == "mao")
-            self.setWindowTitle(f"{aba.doc.nome} — {NOME_APP} - Versão: {VERSAO}")
+            self.setWindowTitle(f"{NOME_APP} - Versão: {VERSAO} - {aba.doc.nome}")
         else:
             self.setWindowTitle(f"{NOME_APP} - Versão: {VERSAO}")
             self.inicio.atualizar(self.config.recentes())
@@ -463,7 +465,7 @@ class JanelaPrincipal(QMainWindow):
             except SenhaNecessaria:
                 senha, ok = QInputDialog.getText(
                     self, "Documento protegido",
-                    f"{p.name} está protegido por senha.\n{'Senha incorreta. ' if senha else ''}Digite a senha:",
+                    f"{p.stem} está protegido por senha.\n{'Senha incorreta. ' if senha else ''}Digite a senha:",
                     QLineEdit.Password)
                 if not ok:
                     return None
@@ -479,10 +481,16 @@ class JanelaPrincipal(QMainWindow):
         self.abas.append(aba)
         self.pilha.addWidget(aba)
         idx = self.tabbar.addTab(icone("arquivo", ui.cores()["texto2"], 14), doc.nome)
-        self.tabbar.setTabToolTip(idx, str(doc.caminho))
+        self.tabbar.setTabToolTip(idx, doc.nome)
         fechar = ui.botao("fechar", "Fechar (Ctrl+W)", tamanho=12, obj="abaFechar")
         fechar.clicked.connect(lambda _=False, a=aba: self.fechar_aba(self.abas.index(a)) if a in self.abas else None)
-        self.tabbar.setTabButton(idx, QTabBar.RightSide, fechar)
+        # Margens só na horizontal: afasta o X da borda direita da aba e do nome
+        # (sem margem vertical, o Qt continua centralizando na altura da aba).
+        caixa_fechar = QWidget()
+        cf = QHBoxLayout(caixa_fechar)
+        cf.setContentsMargins(4, 0, 8, 0)
+        cf.addWidget(fechar)
+        self.tabbar.setTabButton(idx, QTabBar.RightSide, caixa_fechar)
         self.faixa_mais.setFixedHeight(self.tabbar.tabRect(idx).height())
         self.tabbar.setCurrentIndex(idx)
         self._aba_trocada(idx)
@@ -668,12 +676,21 @@ class JanelaPrincipal(QMainWindow):
         self.showNormal() if self.isFullScreen() else self.showFullScreen()
 
     def _sobre(self):
-        QMessageBox.about(
-            self, f"Sobre o {NOME_APP}",
+        caixa = QMessageBox(self)
+        caixa.setWindowTitle(f"Sobre o {NOME_APP}")
+        caixa.setIconPixmap(pixmap_logo(64))
+        caixa.setText(
             f"<h3>{NOME_APP} {VERSAO}</h3>"
             "<p>Leitor de PDF leve para uso corporativo: leitura, cópia de dados e "
-            "assinatura digital PAdES com certificados ICP-Brasil (A1 e A3).</p>"
+            "assinatura digital PAdES com certificados ICP-Brasil instalados no Windows.</p>"
             "<p>Componentes: PySide6 (Qt), PyMuPDF, pyHanko.</p>")
+        ok = caixa.addButton(QMessageBox.Ok)
+        ok.setObjectName("primario")  # cor de destaque, como os demais botões principais
+        ok.style().unpolish(ok)  # reaplica o QSS com o novo objectName
+        ok.style().polish(ok)
+        ok.setMinimumWidth(90)
+        ok.setCursor(Qt.PointingHandCursor)
+        caixa.exec()
 
     # ================================================================== arrastar e soltar
     def dragEnterEvent(self, e):

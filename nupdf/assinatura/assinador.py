@@ -1,8 +1,9 @@
 """Assinatura digital PAdES (ETSI.CAdES.detached, SHA-256) com pyHanko.
 
-Gera assinaturas PAdES-B-B (ou B-T quando há carimbo de tempo), no formato
-aceito pelo Verificador de Conformidade do ITI (validar.iti.gov.br) quando
-feitas com certificado ICP-Brasil.
+Gera assinaturas PAdES-B-B (ou B-T quando há carimbo de tempo) com um
+certificado ICP-Brasil instalado no Windows (a chave privada não sai do
+sistema - ver windows.py), no formato aceito pelo Verificador de
+Conformidade do ITI (validar.iti.gov.br).
 """
 
 import os
@@ -25,16 +26,10 @@ class ErroAssinatura(Exception):
 
 @dataclass
 class ConfigAssinatura:
-    origem: str                     # "a1" | "a3"
     info: InfoCertificado
-    # A1
-    pfx: str = ""
-    senha: str = ""
-    # A3
-    biblioteca: str = ""
-    token: str = ""
-    cert_id: bytes = b""
-    pin: str = ""
+    # certificado do repositório do Windows
+    impressao: str = ""             # SHA-1 (hex) do certificado
+    der: bytes = b""
     # aparência / metadados
     motivo: str = ""
     local: str = ""
@@ -107,27 +102,17 @@ def _nome_campo(reader: PdfFileReader) -> str:
 
 
 def _assinante(cfg: ConfigAssinatura):
-    if cfg.origem == "a1":
-        signer = signers.SimpleSigner.load_pkcs12(
-            cfg.pfx, passphrase=cfg.senha.encode("utf-8") if cfg.senha else None)
-        if signer is None:
-            raise ErroAssinatura("Não foi possível carregar o certificado A1 (senha incorreta?).")
-        return signer, None
-    from pyhanko.config.pkcs11 import TokenCriteria
-    from pyhanko.sign import pkcs11 as hk11
-    try:
-        sessao = hk11.open_pkcs11_session(
-            cfg.biblioteca, token_criteria=TokenCriteria(label=cfg.token) if cfg.token else None,
-            user_pin=cfg.pin or None)
-    except Exception as e:
-        raise ErroAssinatura(f"Não foi possível abrir o token:\n{e}") from e
-    signer = hk11.PKCS11Signer(sessao, cert_id=cfg.cert_id, key_id=cfg.cert_id)
-    return signer, sessao
+    from .windows import assinante_pyhanko
+    if not cfg.impressao or not cfg.der:
+        raise ErroAssinatura("Nenhum certificado digital selecionado.")
+    return assinante_pyhanko(cfg.impressao, cfg.der)
 
 
-def assinar_pdf(dados: bytes, cfg: ConfigAssinatura, senha_pdf: str | None = None) -> bytes:
-    """Assina os bytes de um PDF e devolve os bytes do PDF assinado (atualização incremental)."""
-    signer, sessao = _assinante(cfg)
+def assinar_pdf(dados: bytes, cfg: ConfigAssinatura, senha_pdf: str | None = None,
+                assinante=None) -> bytes:
+    """Assina os bytes de um PDF e devolve os bytes do PDF assinado (atualização incremental).
+    `assinante` permite injetar outro Signer do pyHanko (usado nos testes)."""
+    signer = assinante or _assinante(cfg)
     carimbo = None
     try:
         entrada = BytesIO(dados)
@@ -169,9 +154,4 @@ def assinar_pdf(dados: bytes, cfg: ConfigAssinatura, senha_pdf: str | None = Non
             try:
                 os.remove(carimbo)
             except OSError:
-                pass
-        if sessao is not None:
-            try:
-                sessao.close()
-            except Exception:
                 pass

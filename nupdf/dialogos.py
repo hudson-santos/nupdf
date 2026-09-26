@@ -1,16 +1,14 @@
-"""Diálogo de configuração da assinatura digital."""
-
-from pathlib import Path
+"""Diálogo de configuração da assinatura digital (certificados instalados no Windows)."""
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QGuiApplication
-from PySide6.QtWidgets import (QCheckBox, QComboBox, QDialog, QFileDialog, QFormLayout, QFrame,
-                               QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QPushButton,
-                               QRadioButton, QTabWidget, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QCheckBox, QComboBox, QCompleter, QDialog, QFormLayout, QFrame, QGroupBox,
+                               QHBoxLayout, QLabel, QLineEdit, QPushButton, QRadioButton, QVBoxLayout)
 
-from .assinatura import token as mod_token
+from . import ui
 from .assinatura.assinador import ConfigAssinatura
-from .assinatura.certificado import ErroCertificado, InfoCertificado, carregar_pfx
+from .assinatura.certificado import InfoCertificado
+from .assinatura.windows import CertificadoWindows, listar_certificados
 from .config import Config
 
 TSA_PADRAO = "http://timestamp.digicert.com"
@@ -64,9 +62,7 @@ class DialogoAssinatura(QDialog):
         super().__init__(parent)
         self.config = config
         self.setWindowTitle("Assinar documento")
-        self.setMinimumWidth(520)
-        self._info_a1: InfoCertificado | None = None
-        self._certs_a3: list = []
+        self.setMinimumWidth(600)
 
         lay = QVBoxLayout(self)
         lay.setContentsMargins(20, 18, 20, 18)
@@ -78,12 +74,30 @@ class DialogoAssinatura(QDialog):
         sub.setObjectName("sub")
         lay.addWidget(sub)
 
-        self.abas = QTabWidget()
-        self.abas.addTab(self._aba_a1(), "Certificado A1 (arquivo)")
-        self.abas.addTab(self._aba_a3(), "Token / Cartão A3")
-        self.abas.setCurrentIndex(1 if config.get("assinatura/origem", "a1") == "a3" else 0)
-        self.abas.currentChanged.connect(self._validar)
-        lay.addWidget(self.abas)
+        # certificado: lista dos instalados no Windows (repositório Pessoal)
+        grupo = QGroupBox("Certificado digital")
+        gl = QVBoxLayout(grupo)
+        gl.setSpacing(8)
+        linha = QHBoxLayout()
+        self.lista = QComboBox()
+        self.lista.setEditable(True)  # digitar filtra por nome ou CPF/CNPJ
+        self.lista.setInsertPolicy(QComboBox.NoInsert)
+        self.lista.lineEdit().setPlaceholderText("Selecione ou digite para buscar…")
+        self.lista.setMinimumContentsLength(40)
+        self.lista.currentIndexChanged.connect(self._escolhido)
+        atualizar = ui.botao("girar", "Atualizar a lista de certificados", tamanho=16)
+        atualizar.clicked.connect(self._carregar_lista)
+        linha.addWidget(self.lista, 1)
+        linha.addWidget(atualizar)
+        gl.addLayout(linha)
+        self.aviso = QLabel()
+        self.aviso.setObjectName("sub3")
+        self.aviso.setWordWrap(True)
+        gl.addWidget(self.aviso)
+        self.cartao = _CartaoCertificado()
+        gl.addWidget(self.cartao)
+        lay.addWidget(grupo)
+        self._certs: list[CertificadoWindows] = []
 
         # aparência e metadados
         form = QFormLayout()
@@ -127,161 +141,63 @@ class DialogoAssinatura(QDialog):
         botoes.addWidget(cancelar)
         botoes.addWidget(self.ok)
         lay.addLayout(botoes)
-        self._validar()
+        self._carregar_lista()
 
-    # ------------------------------------------------------------------ A1
-    def _aba_a1(self) -> QWidget:
-        w = QWidget()
-        lay = QVBoxLayout(w)
-        lay.setContentsMargins(14, 14, 14, 14)
-        lay.setSpacing(8)
-        linha = QHBoxLayout()
-        self.pfx = QLineEdit(self.config.get("assinatura/pfx", ""))
-        self.pfx.setPlaceholderText("Arquivo .pfx ou .p12")
-        self.pfx.textChanged.connect(self._a1_alterado)
-        procurar = QPushButton("Procurar…")
-        procurar.clicked.connect(self._procurar_pfx)
-        linha.addWidget(self.pfx, 1)
-        linha.addWidget(procurar)
-        lay.addLayout(linha)
-        linha2 = QHBoxLayout()
-        self.senha = QLineEdit()
-        self.senha.setEchoMode(QLineEdit.Password)
-        self.senha.setPlaceholderText("Senha do certificado")
-        self.senha.textChanged.connect(self._a1_alterado)
-        self.senha.returnPressed.connect(self._carregar_a1)
-        carregar = QPushButton("Carregar")
-        carregar.clicked.connect(self._carregar_a1)
-        linha2.addWidget(self.senha, 1)
-        linha2.addWidget(carregar)
-        lay.addLayout(linha2)
-        self.cartao_a1 = _CartaoCertificado()
-        lay.addWidget(self.cartao_a1)
-        lay.addStretch(1)
-        return w
-
-    def _procurar_pfx(self):
-        inicial = self.pfx.text() or str(Path.home())
-        arq, _ = QFileDialog.getOpenFileName(self, "Selecionar certificado A1", inicial,
-                                             "Certificado digital (*.pfx *.p12);;Todos os arquivos (*)")
-        if arq:
-            self.pfx.setText(arq)
-            self.senha.setFocus()
-
-    def _a1_alterado(self):
-        self._info_a1 = None
-        self.cartao_a1.hide()
-        self._validar()
-
-    def _carregar_a1(self):
-        try:
-            self._info_a1 = carregar_pfx(self.pfx.text().strip(), self.senha.text())
-            self.cartao_a1.mostrar(self._info_a1)
-        except ErroCertificado as e:
-            self._info_a1 = None
-            self.cartao_a1.mostrar(None, str(e))
-        self._validar()
-
-    # ------------------------------------------------------------------ A3
-    def _aba_a3(self) -> QWidget:
-        w = QWidget()
-        lay = QVBoxLayout(w)
-        lay.setContentsMargins(14, 14, 14, 14)
-        lay.setSpacing(8)
-        linha = QHBoxLayout()
-        self.lib = QComboBox()
-        self.lib.setEditable(True)
-        self.lib.lineEdit().setPlaceholderText("Biblioteca PKCS#11 do token (.dll)")
-        for nome, caminho in mod_token.bibliotecas_encontradas():
-            self.lib.addItem(f"{nome}", caminho)
-        salvo = self.config.get("assinatura/pkcs11", "")
-        if salvo:
-            idx = self.lib.findData(salvo)
-            if idx >= 0:
-                self.lib.setCurrentIndex(idx)
-            else:
-                self.lib.insertItem(0, salvo, salvo)
-                self.lib.setCurrentIndex(0)
-        procurar = QPushButton("Procurar…")
-        procurar.clicked.connect(self._procurar_lib)
-        linha.addWidget(self.lib, 1)
-        linha.addWidget(procurar)
-        lay.addLayout(linha)
-        if self.lib.count() == 0:
-            aviso = QLabel("Nenhum driver de token conhecido foi encontrado. Instale o software do "
-                           "fabricante do token ou aponte a DLL PKCS#11 manualmente.")
-            aviso.setObjectName("sub3")
-            aviso.setWordWrap(True)
-            lay.addWidget(aviso)
-        linha2 = QHBoxLayout()
-        self.pin = QLineEdit()
-        self.pin.setEchoMode(QLineEdit.Password)
-        self.pin.setPlaceholderText("PIN do token")
-        self.pin.returnPressed.connect(self._ler_token)
-        ler = QPushButton("Ler token")
-        ler.clicked.connect(self._ler_token)
-        linha2.addWidget(self.pin, 1)
-        linha2.addWidget(ler)
-        lay.addLayout(linha2)
-        self.lista_a3 = QListWidget()
-        self.lista_a3.setMinimumHeight(90)
-        self.lista_a3.currentRowChanged.connect(self._a3_escolhido)
-        lay.addWidget(self.lista_a3)
-        self.cartao_a3 = _CartaoCertificado()
-        lay.addWidget(self.cartao_a3)
-        return w
-
-    def _caminho_lib(self) -> str:
-        texto = self.lib.currentText().strip()
-        dado = self.lib.currentData()
-        return dado if dado and self.lib.itemText(self.lib.currentIndex()) == texto else texto
-
-    def _procurar_lib(self):
-        arq, _ = QFileDialog.getOpenFileName(self, "Biblioteca PKCS#11", r"C:\Windows\System32",
-                                             "Biblioteca (*.dll);;Todos os arquivos (*)")
-        if arq:
-            self.lib.insertItem(0, arq, arq)
-            self.lib.setCurrentIndex(0)
-
-    def _ler_token(self):
-        self.lista_a3.clear()
-        self._certs_a3 = []
+    # ------------------------------------------------------------------ certificado
+    def _carregar_lista(self):
         QGuiApplication.setOverrideCursor(Qt.WaitCursor)
         try:
-            self._certs_a3 = mod_token.listar_certificados(self._caminho_lib(), self.pin.text())
-        except ErroCertificado as e:
-            self.cartao_a3.mostrar(None, str(e))
+            todos = listar_certificados()
         finally:
             QGuiApplication.restoreOverrideCursor()
-        for c in self._certs_a3:
-            QListWidgetItem(f"{c.info.resumo()}  —  válido até {c.info.valido_ate:%d/%m/%Y}", self.lista_a3)
-        if self._certs_a3:
-            self.lista_a3.setCurrentRow(0)
-        elif not self.cartao_a3.isVisible():
-            self.cartao_a3.mostrar(None, "Nenhum certificado com chave privada encontrado no token.")
-        self._validar()
+        self._certs = [c for c in todos if not c.info.expirado]
+        vencidos = len(todos) - len(self._certs)
+        self.lista.blockSignals(True)
+        self.lista.clear()
+        for c in self._certs:
+            self.lista.addItem(c.rotulo(), c.impressao)
+        completar = QCompleter([c.rotulo() for c in self._certs], self.lista)
+        completar.setFilterMode(Qt.MatchContains)
+        completar.setCaseSensitivity(Qt.CaseInsensitive)
+        self.lista.setCompleter(completar)
+        salvo = self.config.get("assinatura/certificado", "")
+        idx = self.lista.findData(salvo) if salvo else -1
+        self.lista.setCurrentIndex(idx if idx >= 0 else (0 if self._certs else -1))
+        self.lista.blockSignals(False)
+        if not self._certs:
+            self.aviso.setText("Nenhum certificado digital válido instalado no Windows. Para instalar um "
+                               "certificado A1, dê duplo clique no arquivo .pfx e siga o assistente; "
+                               "depois clique em atualizar.")
+        elif vencidos:
+            self.aviso.setText(f"{len(self._certs)} certificado(s) disponível(is) · {vencidos} vencido(s) "
+                               "não exibido(s).")
+        else:
+            self.aviso.setText(f"{len(self._certs)} certificado(s) disponível(is).")
+        self._escolhido(self.lista.currentIndex())
 
-    def _a3_escolhido(self, i: int):
-        if 0 <= i < len(self._certs_a3):
-            self.cartao_a3.mostrar(self._certs_a3[i].info)
+    def _atual(self) -> CertificadoWindows | None:
+        i = self.lista.currentIndex()
+        if 0 <= i < len(self._certs) and self.lista.currentText() == self.lista.itemText(i):
+            return self._certs[i]
+        return None
+
+    def _escolhido(self, _i: int = -1):
+        c = self._atual()
+        if c:
+            self.lista.lineEdit().setCursorPosition(0)  # mostra o início (nome), não o fim
+            self.cartao.mostrar(c.info)
+        else:
+            self.cartao.hide()
         self._validar()
 
     # ------------------------------------------------------------------ resultado
-    def _info_atual(self) -> InfoCertificado | None:
-        if self.abas.currentIndex() == 0:
-            return self._info_a1
-        i = self.lista_a3.currentRow()
-        return self._certs_a3[i].info if 0 <= i < len(self._certs_a3) else None
-
     def _validar(self):
-        info = self._info_atual()
-        self.ok.setEnabled(info is not None and not info.expirado)
+        c = self._atual()
+        self.ok.setEnabled(c is not None and not c.info.expirado)
 
     def _aceitar(self):
         c = self.config
-        c.set("assinatura/origem", "a1" if self.abas.currentIndex() == 0 else "a3")
-        c.set("assinatura/pfx", self.pfx.text().strip())
-        c.set("assinatura/pkcs11", self._caminho_lib())
+        c.set("assinatura/certificado", self._atual().impressao)
         c.set("assinatura/visivel", self.rb_visivel.isChecked())
         c.set("assinatura/motivo", self.motivo.text().strip())
         c.set("assinatura/local", self.local.text().strip())
@@ -290,15 +206,13 @@ class DialogoAssinatura(QDialog):
         self.accept()
 
     def config_assinatura(self) -> ConfigAssinatura:
-        comum = dict(
+        cert = self._atual()
+        return ConfigAssinatura(
+            cert.info,
+            impressao=cert.impressao,
+            der=cert.der,
             motivo=self.motivo.text().strip(),
             local=self.local.text().strip(),
             tsa_url=self.tsa.text().strip() if self.cb_tsa.isChecked() else "",
             visivel=self.rb_visivel.isChecked(),
         )
-        if self.abas.currentIndex() == 0:
-            return ConfigAssinatura("a1", self._info_a1, pfx=self.pfx.text().strip(),
-                                    senha=self.senha.text(), **comum)
-        cert = self._certs_a3[self.lista_a3.currentRow()]
-        return ConfigAssinatura("a3", cert.info, biblioteca=self._caminho_lib(), token=cert.token,
-                                cert_id=cert.id, pin=self.pin.text(), **comum)

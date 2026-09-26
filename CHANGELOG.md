@@ -1,5 +1,39 @@
 # Changelog
 
+## [1.0.0] - 2026-09-26
+
+### Added
+- Assinatura com os certificados digitais instalados no Windows (repositório Pessoal): o
+  formulário mostra uma lista com busca por nome ou CPF/CNPJ (vencidos ocultos) e lembra o
+  último certificado usado. A chave privada não sai do Windows, que pede a senha/PIN quando
+  o certificado é protegido; a cadeia de certificação é embutida na assinatura.
+- Painel "Propriedades do Documento": metadados do PDF (nome, tamanho, páginas, tamanho da
+  página, versão, título, autor, assunto, palavras-chave, aplicativo de criação, gerador,
+  datas de criação e modificação e proteção).
+
+### Changed
+- Menu lateral (Páginas, Propriedades e Assinaturas) só aparece com documento aberto.
+- Nome do documento sem a extensão ".pdf" no título da janela, na aba, nos recentes, no
+  pedido de senha e na fila de impressão; título da janela no formato
+  "NuPDF - Versão: X.Y.Z - nome do documento".
+- Painel de páginas: título "Páginas" sem caixa-alta e centralizado sobre as miniaturas,
+  painel mais estreito e sem barra de rolagem horizontal.
+- Títulos e dicas "Propriedades do Documento" e "Assinaturas Digitais" no mesmo padrão.
+- "Limpar tudo" passa a "Limpar Tudo"; botão OK da janela "Sobre" na cor de destaque.
+- Site de apresentação com os textos atualizados (cópia de texto e assinatura com
+  certificado do Windows).
+
+### Removed
+- Assinatura por arquivo de certificado (.pfx/.p12) com senha, substituída pela lista de
+  certificados do Windows.
+- Assinatura com token/cartão A3 via PKCS#11 (biblioteca `python-pkcs11`).
+- Detecção automática de dados para copiar (CPF, CNPJ, datas, valores e campos
+  "Rótulo: valor"), substituída pelo painel de propriedades.
+
+### Fixed
+- Janela "Verificar Atualizações" recentralizada sobre o NuPDF ao crescer.
+- Botão de fechar da aba afastado da borda direita.
+
 ## [0.3.2] - 2026-09-26
 
 ### Changed

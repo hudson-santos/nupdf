@@ -202,13 +202,6 @@ function Etapa5-InstalarDependencias {
         exit 1
     }
 
-    # Suporte a token/cartão A3 (PKCS#11) à parte: se falhar, o NuPDF
-    # continua funcionando (leitura e assinatura com A1), só sem A3.
-    & $pythonVenv -m pip install -q --disable-pip-version-check "python-pkcs11>=0.7"
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "[AVISO] Nao foi possivel instalar o suporte a token A3 (python-pkcs11)."
-        Write-Host "        Leitura e assinatura com certificado A1 continuam funcionando."
-    }
     Write-Host "      Dependencias instaladas."
 }
 

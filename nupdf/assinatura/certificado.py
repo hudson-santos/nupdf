@@ -1,4 +1,4 @@
-"""Leitura de certificados ICP-Brasil (A1 em arquivo .pfx/.p12)."""
+"""Leitura dos dados de certificados ICP-Brasil (titular, CPF/CNPJ, emissor, validade)."""
 
 import re
 from dataclasses import dataclass

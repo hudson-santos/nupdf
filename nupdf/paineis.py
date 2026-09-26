@@ -1,4 +1,6 @@
-"""Painéis laterais: miniaturas, dados copiáveis e assinaturas digitais."""
+"""Painéis laterais: miniaturas, propriedades do documento e assinaturas digitais."""
+
+import re
 
 import pymupdf
 from PySide6.QtCore import QSize, Qt, QTimer, Signal
@@ -7,14 +9,13 @@ from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QLineEdit, QListView
                                QListWidgetItem, QPushButton, QScrollArea, QTreeWidget, QTreeWidgetItem,
                                QVBoxLayout, QWidget)
 
-from . import dados as mod_dados
 from . import ui
 from .documento import Documento
 from .icones import icone
 
 
-def _cabecalho(titulo: str) -> QLabel:
-    lb = QLabel(titulo.upper())
+def _cabecalho(titulo: str, maiusculas: bool = True) -> QLabel:
+    lb = QLabel(titulo.upper() if maiusculas else titulo)
     lb.setObjectName("tituloPainel")
     return lb
 
@@ -27,8 +28,13 @@ class PainelMiniaturas(QWidget):
         super().__init__()
         self.doc = doc
         lay = QVBoxLayout(self)
-        lay.setContentsMargins(12, 14, 8, 8)
-        lay.addWidget(_cabecalho("Páginas"))
+        lay.setContentsMargins(8, 14, 8, 8)
+        # título centralizado sobre as miniaturas (a margem direita compensa a
+        # barra de rolagem, que fica à direita da coluna de miniaturas)
+        titulo = _cabecalho("Páginas", maiusculas=False)
+        titulo.setAlignment(Qt.AlignHCenter)
+        titulo.setContentsMargins(0, 0, 8, 0)
+        lay.addWidget(titulo)
         self.lista = QListWidget()
         self.lista.setViewMode(QListView.IconMode)
         self.lista.setFlow(QListView.TopToBottom)
@@ -38,6 +44,7 @@ class PainelMiniaturas(QWidget):
         self.lista.setIconSize(QSize(self.LARGURA, int(self.LARGURA * 1.42)))
         self.lista.setSpacing(4)
         self.lista.setVerticalScrollMode(QListWidget.ScrollPerPixel)
+        self.lista.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)  # só rolagem vertical
         lay.addWidget(self.lista, 1)
         branco = QPixmap(self.LARGURA, int(self.LARGURA * 1.414))
         branco.fill(QColor("#ffffff"))
@@ -84,9 +91,38 @@ class PainelMiniaturas(QWidget):
         self._bloquear = False
 
 
-class PainelDados(QWidget):
-    copiado = Signal(str)
-    localizar = Signal(int, str)  # página, texto
+def _data_pdf(valor: str) -> str:
+    """'D:20260928103000-03'00'' -> '28/09/2026 10:30'."""
+    m = re.match(r"^(?:D:)?(\d{4})(\d{2})?(\d{2})?(\d{2})?(\d{2})?", valor or "")
+    if not m:
+        return valor or ""
+    ano, mes, dia, hora, minuto = (g or "" for g in m.groups())
+    texto = "/".join(x for x in (dia, mes, ano) if x)
+    if hora:
+        texto += f" {hora}:{minuto or '00'}"
+    return texto
+
+
+def _tamanho_arquivo(n: int) -> str:
+    for unidade in ("bytes", "KB", "MB", "GB"):
+        if n < 1024 or unidade == "GB":
+            return f"{n} bytes" if unidade == "bytes" else f"{n:.1f} {unidade}".replace(".", ",")
+        n /= 1024
+
+
+def _formato_pagina(larg_pt: float, alt_pt: float) -> str:
+    mm = lambda pt: pt * 25.4 / 72
+    w, h = sorted((mm(larg_pt), mm(alt_pt)))
+    nomes = {"A4": (210, 297), "A3": (297, 420), "A5": (148, 210), "Carta": (215.9, 279.4),
+             "Ofício": (215.9, 355.6)}
+    nome = next((n for n, (a, b) in nomes.items() if abs(w - a) < 3 and abs(h - b) < 3), "")
+    orient = "paisagem" if larg_pt > alt_pt else "retrato"
+    medida = f"{mm(larg_pt):.0f} × {mm(alt_pt):.0f} mm"
+    return f"{nome} ({orient}) · {medida}" if nome else f"{medida} ({orient})"
+
+
+class PainelPropriedades(QWidget):
+    """Propriedades (metadados) do PDF: arquivo, descrição, origem e segurança."""
 
     def __init__(self, doc: Documento):
         super().__init__()
@@ -95,85 +131,69 @@ class PainelDados(QWidget):
         lay = QVBoxLayout(self)
         lay.setContentsMargins(12, 14, 12, 12)
         lay.setSpacing(8)
-        lay.addWidget(_cabecalho("Dados do documento"))
-        dica = QLabel("Clique em um item para copiar.")
-        dica.setObjectName("sub3")
-        lay.addWidget(dica)
-        self.filtro = QLineEdit(placeholderText="Filtrar…", clearButtonEnabled=True)
-        self.filtro.textChanged.connect(self._filtrar)
-        lay.addWidget(self.filtro)
-        self.arvore = QTreeWidget()
-        self.arvore.setHeaderHidden(True)
-        self.arvore.setIndentation(12)
-        self.arvore.setWordWrap(True)
-        self.arvore.itemClicked.connect(self._clicado)
-        lay.addWidget(self.arvore, 1)
-        self.vazio = QLabel("Nenhum dado reconhecido.\nO PDF pode ser digitalizado (imagem).")
-        self.vazio.setObjectName("sub")
-        self.vazio.setAlignment(Qt.AlignCenter)
-        self.vazio.setWordWrap(True)
-        self.vazio.hide()
-        lay.addWidget(self.vazio)
-        bt = QPushButton("Copiar todo o texto")
-        ui.aplicar_icone(bt, "copiar", 16)
-        bt.clicked.connect(self._copiar_tudo)
-        lay.addWidget(bt)
+        lay.addWidget(_cabecalho("Propriedades do Documento", maiusculas=False))
+        area = QScrollArea()
+        area.setWidgetResizable(True)
+        area.setFrameShape(QFrame.NoFrame)
+        area.setStyleSheet("QScrollArea { background: transparent; }")
+        self.conteudo = QWidget()
+        self.conteudo.setStyleSheet("background: transparent;")
+        self.lista = QVBoxLayout(self.conteudo)
+        self.lista.setContentsMargins(0, 4, 4, 0)
+        self.lista.setSpacing(10)
+        area.setWidget(self.conteudo)
+        lay.addWidget(area, 1)
+
+    def _secao(self, titulo: str, itens: list[tuple[str, str]]):
+        itens = [(r, v) for r, v in itens if v]
+        if not itens:
+            return
+        cab = QLabel(titulo)
+        cab.setStyleSheet("font-weight: 700;")
+        self.lista.addWidget(cab)
+        for rotulo, valor in itens:
+            r = QLabel(rotulo)
+            r.setObjectName("sub3")
+            v = QLabel(valor)
+            v.setWordWrap(True)
+            v.setTextInteractionFlags(Qt.TextSelectableByMouse)  # dá para selecionar e copiar
+            bloco = QVBoxLayout()
+            bloco.setSpacing(1)
+            bloco.addWidget(r)
+            bloco.addWidget(v)
+            self.lista.addLayout(bloco)
+        self.lista.addSpacing(6)
 
     def carregar(self):
         if self._carregado:
             return
         self._carregado = True
-        QGuiApplication.setOverrideCursor(Qt.WaitCursor)
-        try:
-            itens = mod_dados.extrair(self.doc)
-        finally:
-            QGuiApplication.restoreOverrideCursor()
-        grupos: dict[str, QTreeWidgetItem] = {}
-        for cat in mod_dados.ORDEM_CATEGORIAS:
-            doscat = [d for d in itens if d.categoria == cat]
-            if not doscat:
-                continue
-            g = QTreeWidgetItem([f"{cat}  ({len(doscat)})"])
-            f = g.font(0)
-            f.setBold(True)
-            g.setFont(0, f)
-            g.setFlags(Qt.ItemIsEnabled)
-            self.arvore.addTopLevelItem(g)
-            grupos[cat] = g
-            for d in doscat:
-                texto = f"{d.rotulo}: {d.valor}" if d.rotulo != d.valor else d.valor
-                it = QTreeWidgetItem([texto])
-                it.setToolTip(0, f"{texto}\nPágina {d.pagina + 1} — clique para copiar")
-                it.setData(0, Qt.UserRole, (d.valor, d.pagina))
-                g.addChild(it)
-            g.setExpanded(True)
-        self.vazio.setVisible(not grupos)
-        self.arvore.setVisible(bool(grupos))
-
-    def _filtrar(self, termo: str):
-        termo = termo.lower().strip()
-        for gi in range(self.arvore.topLevelItemCount()):
-            g = self.arvore.topLevelItem(gi)
-            visiveis = 0
-            for ci in range(g.childCount()):
-                c = g.child(ci)
-                ok = not termo or termo in c.text(0).lower()
-                c.setHidden(not ok)
-                visiveis += ok
-            g.setHidden(visiveis == 0)
-
-    def _clicado(self, it: QTreeWidgetItem):
-        dado = it.data(0, Qt.UserRole)
-        if not dado:
-            return
-        valor, pagina = dado
-        QGuiApplication.clipboard().setText(valor)
-        self.copiado.emit(valor)
-        self.localizar.emit(pagina, valor)
-
-    def _copiar_tudo(self):
-        QGuiApplication.clipboard().setText(self.doc.texto_completo())
-        self.copiado.emit("todo o texto do documento")
+        d, m = self.doc, self.doc.doc.metadata or {}
+        pg = d.doc[0].rect if d.n_paginas else None
+        cript = m.get("encryption")
+        self._secao("Arquivo", [
+            ("Nome", d.nome),
+            ("Tamanho", _tamanho_arquivo(len(d.dados))),
+            ("Páginas", str(d.n_paginas)),
+            ("Tamanho da página", _formato_pagina(pg.width, pg.height) if pg else ""),
+            ("Versão do PDF", (m.get("format") or "").replace("PDF ", "")),
+        ])
+        self._secao("Descrição", [
+            ("Título", m.get("title", "")),
+            ("Autor", m.get("author", "")),
+            ("Assunto", m.get("subject", "")),
+            ("Palavras-chave", m.get("keywords", "")),
+        ])
+        self._secao("Origem", [
+            ("Aplicativo de criação", m.get("creator", "")),
+            ("Gerador do PDF", m.get("producer", "")),
+            ("Criado em", _data_pdf(m.get("creationDate", ""))),
+            ("Modificado em", _data_pdf(m.get("modDate", ""))),
+        ])
+        self._secao("Segurança", [
+            ("Proteção", f"Protegido ({cript})" if cript else "Sem proteção"),
+        ])
+        self.lista.addStretch(1)
 
 
 class _CartaoAssinatura(QFrame):
@@ -238,7 +258,7 @@ class PainelAssinaturas(QWidget):
         lay = QVBoxLayout(self)
         lay.setContentsMargins(12, 14, 12, 12)
         lay.setSpacing(8)
-        lay.addWidget(_cabecalho("Assinaturas digitais"))
+        lay.addWidget(_cabecalho("Assinaturas Digitais", maiusculas=False))
         self.status = QLabel("")
         self.status.setObjectName("sub")
         self.status.setWordWrap(True)
