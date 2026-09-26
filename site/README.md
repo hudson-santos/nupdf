@@ -33,5 +33,5 @@ Quem faz o trabalho é o `wrangler.jsonc` da raiz do repositório:
    ele existe porque, com um `main`, o wrangler sempre executa o build
    customizado.
 
-O campo `name` do `wrangler.jsonc` precisa ser igual ao nome do projeto no
+O campo `name` do `wrangler.jsonc` (`pages-nupdf`) precisa ser igual ao nome do projeto no
 painel. Os cabeçalhos de `public/_headers` são aplicados pelo Cloudflare.
