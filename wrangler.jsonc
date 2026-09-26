@@ -1,0 +1,18 @@
+// Deploy do site de apresentação (pasta site/) no Cloudflare Workers Builds.
+// Fica na RAIZ do repositório porque é daí que o Cloudflare roda
+// "npx wrangler deploy" - assim não depende de configurar "Root directory"
+// nem "Build command" no painel. O wrangler executa o build abaixo (Astro,
+// gera site/dist) e publica o resultado como arquivos estáticos.
+// "name" precisa ser igual ao nome do projeto no painel do Cloudflare.
+{
+  "name": "nupdf",
+  "compatibility_date": "2026-09-01",
+  "main": "site/worker/index.js",
+  "build": {
+    "command": "npm --prefix site install --no-audit --no-fund && npm --prefix site run build"
+  },
+  "assets": {
+    "directory": "./site/dist",
+    "binding": "ASSETS"
+  }
+}

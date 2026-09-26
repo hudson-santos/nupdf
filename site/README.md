@@ -19,20 +19,19 @@ npm run build      # gera dist/
 
 ## Cloudflare (Workers Builds)
 
-Ao conectar o repositório `hudson-santos/nupdf` no Cloudflare (*Workers &
-Pages → Create → Import a repository*), configure em *Settings → Build*:
+O projeto do Cloudflare aponta para a **raiz** do repositório
+`hudson-santos/nupdf`, com o *Deploy command* padrão `npx wrangler deploy`.
+Não é preciso configurar *Root directory* nem *Build command* no painel.
 
-| Campo            | Valor               |
-|------------------|---------------------|
-| Root directory   | `site`              |
-| Build command    | `npm run build`     |
-| Deploy command   | `npx wrangler deploy` |
+Quem faz o trabalho é o `wrangler.jsonc` da raiz do repositório:
 
-O `wrangler.jsonc` desta pasta publica o conteúdo de `dist/` como arquivos
-estáticos (sem código de servidor). O campo `name` dele precisa ser igual ao
-nome do projeto no painel. A versão do Node vem de `.node-version` (22), e os
-cabeçalhos de cache e segurança de `public/_headers` são aplicados pelo
-Cloudflare.
+1. `build.command` instala as dependências e roda o build do Astro
+   (`npm --prefix site install && npm --prefix site run build`), gerando
+   `site/dist`;
+2. `assets.directory` publica `site/dist` como arquivos estáticos;
+3. `site/worker/index.js` é um Worker mínimo (só devolve o 404 dos assets);
+   ele existe porque, com um `main`, o wrangler sempre executa o build
+   customizado.
 
-Sem o *Root directory* `site`, o Cloudflare trabalha na raiz do repositório:
-instala as dependências Python do app e não encontra o site para publicar.
+O campo `name` do `wrangler.jsonc` precisa ser igual ao nome do projeto no
+painel. Os cabeçalhos de `public/_headers` são aplicados pelo Cloudflare.
