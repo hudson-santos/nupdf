@@ -115,6 +115,12 @@ def main() -> int:
     checar("compara versões (semver)", atualizacao.eh_mais_nova("0.10.0", "0.9.9")
            and not atualizacao.eh_mais_nova("0.2.1", "0.2.1") and not atualizacao.eh_mais_nova("0.2.0", "0.2.1"))
 
+    print("Leitor de PDF padrão:")
+    from nupdf import leitor_padrao
+    padrao = leitor_padrao.e_padrao()
+    checar("consulta a associação efetiva de .pdf", padrao in (True, False) if sys.platform == "win32" else padrao is None,
+           f"{padrao} ({leitor_padrao.leitor_atual() or 'nenhum'})")
+
     print("Certificado / assinatura:")
     from nupdf.assinatura.certificado import ErroCertificado, carregar_pfx
     from nupdf.assinatura.assinador import ConfigAssinatura, assinar_pdf

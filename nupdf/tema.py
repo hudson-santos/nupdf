@@ -99,6 +99,9 @@ QPushButton#fechar:hover { background: #5b5d64; }
 QPushButton#primario { background: $destaque; border: 1px solid $destaque; color: #ffffff; font-weight: 600; }
 QPushButton#primario:hover { background: $destaque_hover; }
 QPushButton#primario:disabled { background: $superficie2; border-color: $borda; color: $texto3; }
+QPushButton#avisoPadrao { background: $destaque_suave; border: none; border-radius: 12px; color: $destaque;
+    font-size: 12px; font-weight: 600; padding: 4px 12px; margin-right: 6px; min-height: 16px; }
+QPushButton#avisoPadrao:hover { background: $destaque; color: #ffffff; }
 QPushButton#link { background: transparent; border: none; color: $texto2; text-align: left; padding: 6px 8px; }
 QPushButton#link:hover { background: $hover; color: $texto; }
 #linhaRecente { border-radius: 8px; }

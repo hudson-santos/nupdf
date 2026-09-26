@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.4.0] - 2026-09-26
+
+### Added
+- Aviso "O NuPDF não é o Leitor de PDF Padrão" no topo da janela (ao lado de Verificar
+  Atualizações) quando os PDFs abrem em outro programa. Ao clicar, a janela "Tornar o NuPDF
+  o Leitor de PDF Padrão" mostra o leitor atual e o botão "Definir como Padrão", que abre a
+  página do NuPDF em Configurações > Aplicativos > Aplicativos padrão do Windows (onde se
+  clica em "Definir padrão" - o Windows não permite que um programa se torne padrão
+  sozinho). O aviso some assim que o NuPDF passa a ser o padrão.
+- Instalador registra o NuPDF em "Aplicativos padrão" das Configurações do Windows
+  (removido na desinstalação).
+
 ## [1.3.0] - 2026-09-26
 
 ### Added

@@ -4,13 +4,13 @@ import subprocess
 from pathlib import Path
 
 import pymupdf
-from PySide6.QtCore import QSize, Qt, QTimer
+from PySide6.QtCore import QEvent, QSize, Qt, QTimer
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import (QApplication, QDialog, QFileDialog, QFrame, QHBoxLayout, QInputDialog, QLabel,
                                QLineEdit, QMainWindow, QMenu, QMessageBox, QProgressDialog, QPushButton,
                                QStackedWidget, QTabBar, QToolButton, QVBoxLayout, QWidget)
 
-from . import tema, ui
+from . import leitor_padrao, tema, ui
 from .aba import AbaDocumento
 from .config import Config
 from .documento import Documento, SenhaNecessaria
@@ -214,6 +214,7 @@ class JanelaPrincipal(QMainWindow):
         self._criar_atalhos()
         self.toast = ui.Toast(self)
         self._atualizar_estado()
+        self._conferir_leitor_padrao()
         if verificar_atualizacao:
             # consulta discreta: só destaca o botão, não abre janela sozinha
             QTimer.singleShot(4000, self._checar_atualizacao_em_segundo_plano)
@@ -260,6 +261,14 @@ class JanelaPrincipal(QMainWindow):
         fm.addWidget(nova, 0, Qt.AlignCenter)
         lay.addWidget(self.faixa_mais, 0, Qt.AlignBottom)
         lay.addStretch(1)
+        # aviso quando o NuPDF não é o leitor de PDF padrão (conferido ao ativar a janela)
+        self.b_padrao = QPushButton("O NuPDF não é o Leitor de PDF Padrão")
+        self.b_padrao.setObjectName("avisoPadrao")
+        self.b_padrao.setCursor(Qt.PointingHandCursor)
+        self.b_padrao.setToolTip("Tornar o NuPDF o Leitor de PDF Padrão")
+        self.b_padrao.clicked.connect(self.definir_leitor_padrao)
+        self.b_padrao.hide()
+        lay.addWidget(self.b_padrao)
         self.b_atualizacao = ui.botao("atualizar", "Verificar Atualizações")
         self.b_atualizacao.clicked.connect(self.verificar_atualizacoes)
         lay.addWidget(self.b_atualizacao)
@@ -678,6 +687,20 @@ class JanelaPrincipal(QMainWindow):
     def verificar_atualizacoes(self):
         from .dialogo_atualizacao import DialogoAtualizacao
         DialogoAtualizacao(self).exec()
+
+    # ------------------------------------------------------------------ leitor padrão
+    def _conferir_leitor_padrao(self):
+        self.b_padrao.setVisible(leitor_padrao.e_padrao() is False)
+
+    def definir_leitor_padrao(self):
+        leitor_padrao.DialogoLeitorPadrao(self).exec()
+        self._conferir_leitor_padrao()
+
+    def changeEvent(self, e):
+        # a escolha pode mudar fora do NuPDF (Configurações, "Abrir com"): confere ao voltar
+        if e.type() == QEvent.ActivationChange and self.isActiveWindow():
+            self._conferir_leitor_padrao()
+        super().changeEvent(e)
 
     def _checar_atualizacao_em_segundo_plano(self):
         from . import atualizacao

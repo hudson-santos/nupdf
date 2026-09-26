@@ -271,6 +271,17 @@ function Registrar-AbrirCom([string]$exe, [string]$icone) {
     Set-ItemProperty -Path "$app\shell\open\command" -Name "(default)" -Value $exe
     New-ItemProperty -Path "$app\SupportedTypes" -Name ".pdf" -Value "" -PropertyType String -Force | Out-Null
 
+    # "Aplicativos padrão" das Configurações: o NuPDF ganha página própria
+    # (ms-settings:defaultapps?registeredAppUser=NuPDF), usada pelo app para
+    # ajudar o usuário a torná-lo o leitor de PDF padrão.
+    $cap = "HKCU:\Software\NuPDF\Capabilities"
+    New-Item -Path "$cap\FileAssociations" -Force | Out-Null
+    Set-ItemProperty -Path $cap -Name "ApplicationName" -Value "NuPDF"
+    Set-ItemProperty -Path $cap -Name "ApplicationDescription" -Value "Leitor de PDF com assinatura digital ICP-Brasil"
+    Set-ItemProperty -Path "$cap\FileAssociations" -Name ".pdf" -Value $progId
+    New-Item -Path "HKCU:\Software\RegisteredApplications" -Force | Out-Null
+    Set-ItemProperty -Path "HKCU:\Software\RegisteredApplications" -Name "NuPDF" -Value "Software\NuPDF\Capabilities"
+
     # avisa o Explorer que as associações mudaram
     Add-Type -Namespace NuPDF -Name Shell -MemberDefinition '[DllImport("shell32.dll")] public static extern void SHChangeNotify(int e, int f, IntPtr a, IntPtr b);' -ErrorAction SilentlyContinue
     try { [NuPDF.Shell]::SHChangeNotify(0x08000000, 0, [IntPtr]::Zero, [IntPtr]::Zero) } catch { }

@@ -31,4 +31,7 @@ $classes = "HKCU:\Software\Classes"
 Remove-Item "$classes\NuPDF.Documento" -Recurse -Force
 Remove-Item "$classes\Applications\NuPDF.exe" -Recurse -Force
 Remove-ItemProperty -Path "$classes\.pdf\OpenWithProgids" -Name "NuPDF.Documento" -Force
+# página do NuPDF em "Aplicativos padrão" das Configurações
+Remove-Item "HKCU:\Software\NuPDF" -Recurse -Force
+Remove-ItemProperty -Path "HKCU:\Software\RegisteredApplications" -Name "NuPDF" -Force
 exit 0
