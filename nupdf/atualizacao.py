@@ -121,7 +121,7 @@ def baixar_instalador(release: Release, progresso=None, cancelado=lambda: False)
 def executar_instalador(caminho: Path):
     """Roda o instalador em modo silencioso (só a janelinha de progresso do
     Inno Setup), igual à auto-atualização do Zeebs. O instalador encerra o
-    NuPDF aberto (etapa 1) e reabre ao final ([Run] sem skipifsilent)."""
+    NuPDF aberto (etapa 1) e reabre ao final (AbrirNuPDF, depois da etapa 7)."""
     flags = 0
     if sys.platform == "win32":
         flags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP

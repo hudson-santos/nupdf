@@ -48,7 +48,7 @@ OutputBaseFilename=Instalador
 SetupIconFile=assets\nupdf.ico
 WizardStyle=modern
 ; sem a página "Completando o Assistente": ao terminar, o instalador fecha
-; sozinho e o NuPDF é aberto ([Run])
+; sozinho e o NuPDF é aberto (AbrirNuPDF, no fim da etapa 7 em [Code])
 DisableFinishedPage=yes
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
@@ -83,22 +83,24 @@ Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile
 ; Instalador.exe baixado pela atualização, cadeias, __pycache__...)
 Type: filesandordirs; Name: "{app}"
 
-[Run]
-; Abre o NuPDF automaticamente ao final, sem pedir confirmação (sem
-; "postinstall", não vira caixa de seleção na página final - que também foi
-; desativada, ver DisableFinishedPage). Vale para instalação, atualização
-; pelo botão do app (/SILENT) e atualização manual.
-Filename: "{app}\NuPDF.exe"; WorkingDir: "{app}"; Flags: nowait; Check: LauncherExiste
-Filename: "{app}\venv\Scripts\pythonw.exe"; Parameters: """{app}\main.py"""; WorkingDir: "{app}"; Flags: nowait; Check: not LauncherExiste
-
 [Code]
 var
   PaginaProgresso: TOutputProgressWizardPage;
   CaminhoInstalarPs1: String;
 
-function LauncherExiste: Boolean;
+// Abre o NuPDF ao final, sem pedir confirmação (instalação, atualização pelo
+// botão do app com /SILENT e atualização manual). Fica aqui e não em [Run]:
+// entradas de [Run] sem "postinstall" rodam logo depois da cópia dos arquivos,
+// ANTES das etapas 4 a 7 (CurStepChanged) - o NuPDF abria no meio da atualização.
+procedure AbrirNuPDF;
+var
+  ResultCode: Integer;
 begin
-  Result := FileExists(ExpandConstant('{app}\NuPDF.exe'));
+  if FileExists(ExpandConstant('{app}\NuPDF.exe')) then
+    Exec(ExpandConstant('{app}\NuPDF.exe'), '', ExpandConstant('{app}'), SW_SHOW, ewNoWait, ResultCode)
+  else
+    Exec(ExpandConstant('{app}\venv\Scripts\pythonw.exe'), '"' + ExpandConstant('{app}\main.py') + '"',
+      ExpandConstant('{app}'), SW_SHOW, ewNoWait, ResultCode);
 end;
 
 // Roda uma etapa de instalar.ps1 (1-7) com a janela ESCONDIDA e espera terminar.
@@ -181,4 +183,6 @@ begin
   finally
     PaginaProgresso.Hide;
   end;
+  // só agora, com ambiente, dependências, NuPDF.exe e atalhos prontos
+  AbrirNuPDF;
 end;

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.1] - 2026-09-26
+
+### Fixed
+- Instalação/atualização: o NuPDF só é aberto depois de o instalador concluir todas as
+  etapas (ambiente, dependências, NuPDF.exe e atalhos); antes ele abria logo após a cópia
+  dos arquivos, no meio da atualização.
+
 ## [1.4.0] - 2026-09-26
 
 ### Added
