@@ -970,25 +970,23 @@ class _Paginas(QWidget):
         m = QMenu(self)
         a_copiar = m.addAction("Copiar")
         a_copiar.setEnabled(v.tem_selecao())
-        m_destacar = m.addMenu("Destacar")
-        v.preencher_menu_cores(m_destacar, "destacar", v.cor_destaque)
-        m_destacar.setEnabled(v.tem_selecao())
+        if v.tem_selecao():  # "Destacar" só aparece com texto selecionado
+            m_destacar = m.addMenu("Destacar")
+            v.preencher_menu_cores(m_destacar, "destacar", v.cor_destaque)
         alvo = v._destaque_em(QPointF(e.pos()))  # clicou sobre um texto destacado?
         a_remover = None
         if alvo:
             m_cor = m.addMenu("Alterar Cor do Destaque")
             v.preencher_menu_cores(m_cor, "cor", v.doc.cor_do_destaque(*alvo))
             a_remover = m.addAction("Remover Destaque")
-        a_tudo = m.addAction("Selecionar tudo")
-        a_pag = m.addAction(f"Copiar texto da página {i + 1}") if i >= 0 else None
         m.addSeparator()
-        a_girar_pag = m.addAction(f"Girar página {i + 1}") if i >= 0 else None
+        a_girar_pag = m.addAction(f"Girar Página {i + 1}") if i >= 0 else None
         a_girar = m.addAction("Girar Todas as Páginas")
         a_larg = m.addAction("Ajustar à Largura")
         a_pagina = m.addAction("Página Inteira")
         esc = m.exec(e.globalPos())
         if esc is a_copiar:
-            v.copiar()
+            v._copiar_pelo_botao()  # mesmo aviso "Texto Copiado" do botão flutuante
         elif esc is not None and isinstance(esc.data(), (tuple, list)):  # cores dos submenus
             acao, cor = esc.data()
             if acao == "destacar":
@@ -997,10 +995,6 @@ class _Paginas(QWidget):
                 v.mudar_cor_destaque(cor, alvo)
         elif a_remover is not None and esc is a_remover:
             v.remover_destaque(alvo)
-        elif esc is a_tudo:
-            v.selecionar_tudo()
-        elif a_pag is not None and esc is a_pag:
-            QGuiApplication.clipboard().setText(v.doc.texto_pagina(i))
         elif a_girar_pag is not None and esc is a_girar_pag:
             v.girar_pagina(i)
         elif esc is a_girar:

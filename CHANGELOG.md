@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.1] - 2026-09-28
+
+### Changed
+- Menu do botão direito: removidos "Selecionar tudo" (o Ctrl+A continua) e "Copiar texto
+  da página N"; "Destacar" só aparece quando há texto selecionado; "Copiar" mostra o
+  aviso "Texto Copiado", como o botão flutuante; "Girar página N" passou a "Girar Página N".
+
 ## [1.7.0] - 2026-09-28
 
 ### Added
