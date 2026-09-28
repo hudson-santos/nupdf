@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.7.0] - 2026-09-28
+
+### Added
+- Cores do destaque por prioridade: Azul - Prioridade Baixa, Amarelo - Prioridade Média,
+  Vermelho - Prioridade Alta e Verde - Resolvido. O "Destacar" usa a última cor escolhida
+  (lembrada entre as sessões) e a seta ao lado abre as quatro cores; no botão direito,
+  "Destacar" virou um submenu com as cores. A prioridade também fica gravada no PDF e
+  aparece ao passar o mouse sobre o destaque em outros leitores (Adobe etc.).
+- Clicar sobre um texto destacado mostra "Alterar Cor" e "Remover Destaque" (também no
+  botão direito: "Alterar Cor do Destaque" e "Remover Destaque"). Vale para os destaques
+  feitos no NuPDF e para os que já vinham no PDF; o "Salvar" grava a mudança.
+- Confirmação ao fechar uma aba (ou o NuPDF) com destaques não salvos: "Salvar", "Não
+  Salvar" ou "Cancelar". Em documentos assinados, onde os destaques não podem ser salvos,
+  a escolha é "Fechar sem Salvar" ou "Cancelar".
+
 ## [1.6.0] - 2026-09-28
 
 ### Added

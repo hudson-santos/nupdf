@@ -108,7 +108,39 @@ def main() -> int:
     anots = [a.rect for a in pg_salva.annots() if a.type[1] == "Highlight"]
     checar("salvar com texto destacado", len(anots) == 1 and
            " ".join(w[4] for w in linha) in pg_salva.get_textbox(anots[0]).replace("\n", " "), str(anots))
+    meio = _pm.Point((linha[0][0] + linha[0][2]) / 2, (linha[0][1] + linha[0][3]) / 2)
+    xref = doc_d.destaque_em(0, meio)
+    doc_d.remover_destaque(0, xref)
+    checar("remover destaque da sessão", xref is not None and doc_d.destaque_em(0, meio) is None
+           and not doc_d.destaques_pendentes and doc_d.bytes_editados({}) is doc_d.dados)
     doc_d.fechar()
+    # destaque que já vinha no arquivo: reabre o PDF salvo e remove
+    com_destaque = pasta / "com_destaque.pdf"
+    com_destaque.write_bytes(salvo.tobytes())
+    from nupdf.documento import CORES_DESTAQUE
+    doc_c = Documento(str(com_destaque))
+    xref_c = doc_c.destaque_em(0, meio)
+    cor_antes = doc_c.cor_do_destaque(0, xref_c)
+    doc_c.mudar_cor_destaque(0, xref_c, "vermelho")
+    recolorido = _pm.open(stream=doc_c.bytes_editados({}), filetype="pdf")
+    pg_rec = recolorido[0]
+    an = pg_rec.load_annot(xref_c)
+    checar("alterar cor de destaque salvo (Prioridade Alta)", cor_antes == "amarelo" and doc_c.destaques_pendentes
+           and all(abs(a - b) < 0.01 for a, b in zip(an.colors["stroke"], CORES_DESTAQUE["vermelho"][1]))
+           and an.info["content"] == "Prioridade Alta", f"{cor_antes} {an.colors} {an.info.get('content')}")
+    doc_c.mudar_cor_destaque(0, xref_c, "amarelo")
+    doc_c.destacar(0, [_pm.Rect(linha[0][:4])], "verde")
+    novo = max(doc_c._destaques_novos)
+    checar("destacar em verde (Resolvido)", doc_c.cor_do_destaque(0, novo) == "verde")
+    doc_c.fechar()
+    doc_r = Documento(str(com_destaque))
+    xref = doc_r.destaque_em(0, meio)
+    doc_r.remover_destaque(0, xref)
+    sem = _pm.open(stream=doc_r.bytes_editados({}), filetype="pdf")
+    pg_sem = sem[0]
+    checar("remover destaque salvo no arquivo", xref is not None and doc_r.destaques_pendentes
+           and not list(pg_sem.annots(types=[_pm.PDF_ANNOT_HIGHLIGHT])))
+    doc_r.fechar()
 
     print("Impressão:")
     from nupdf import impressao

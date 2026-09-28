@@ -339,7 +339,7 @@ class JanelaPrincipal(QMainWindow):
         lay.addWidget(self.b_assinar)
         self._acoes_documento.append(self.b_assinar)
 
-        self.b_salvar.clicked.connect(self.salvar_copia)
+        self.b_salvar.clicked.connect(lambda: self.salvar_copia())
         self.b_imprimir.clicked.connect(self.imprimir)
         self.b_largura.clicked.connect(lambda: self._no_visualizador(lambda v: v.ajustar("largura")))
         self.b_pagina.clicked.connect(lambda: self._no_visualizador(lambda v: v.ajustar("pagina")))
@@ -414,15 +414,63 @@ class JanelaPrincipal(QMainWindow):
         if n:
             self.tabbar.setCurrentIndex((self.tabbar.currentIndex() + d) % n)
 
-    def fechar_aba(self, i: int):
+    def fechar_aba(self, i: int, confirmar: bool = True) -> bool:
+        """Fecha a aba i. Com `confirmar`, pergunta antes de descartar destaques não
+        salvos (as recargas internas - depois de salvar/assinar - não perguntam).
+        Devolve False se o usuário desistiu."""
         if not (0 <= i < len(self.abas)):
-            return
+            return True
+        if confirmar and self.abas[i].doc.destaques_pendentes:
+            aba = self.abas[i]
+            resposta = self._perguntar_destaques(aba)
+            if resposta == "cancelar":
+                return False
+            if resposta == "salvar":
+                aba = self.salvar_copia(aba)
+                if aba is None:  # desistiu na janela de salvar
+                    return False
+                i = self.abas.index(aba)  # salvar no próprio arquivo recarrega a aba
         aba = self.abas.pop(i)
         self.tabbar.removeTab(i)
         self.pilha.removeWidget(aba)
         aba.doc.fechar()
         aba.deleteLater()
         self._aba_trocada(self.tabbar.currentIndex())
+        return True
+
+    def _perguntar_destaques(self, aba) -> str:
+        """'salvar', 'descartar' ou 'cancelar' para uma aba com destaques não salvos."""
+        self.tabbar.setCurrentIndex(self.abas.index(aba))
+        caixa = QMessageBox(self)
+        caixa.setWindowTitle("Destaques Não Salvos")
+        caixa.setIcon(QMessageBox.NoIcon)
+        if not self._salvar_bloqueado(aba):
+            caixa.setText(f"O documento <b>{aba.doc.nome}</b> tem texto destacado que ainda não foi "
+                          "salvo.<br><br>Deseja Salvar antes de Fechar ?")
+            salvar = caixa.addButton("Salvar", QMessageBox.AcceptRole)
+            descartar = caixa.addButton("Não Salvar", QMessageBox.DestructiveRole)
+            estilos = ((salvar, "primario"), (descartar, ""))
+        else:
+            # assinado: salvar invalidaria as assinaturas, então só dá para descartar
+            caixa.setText(f"O documento <b>{aba.doc.nome}</b> tem texto destacado que não foi salvo."
+                          "<br><br>Por ter assinatura digital, os destaques não podem ser salvos "
+                          "(as assinaturas seriam invalidadas).<br><br>Deseja Fechar mesmo assim ?")
+            salvar = None
+            descartar = caixa.addButton("Fechar sem Salvar", QMessageBox.AcceptRole)
+            estilos = ((descartar, "primario"),)
+        cancelar = caixa.addButton("Cancelar", QMessageBox.RejectRole)
+        for botao, nome in (*estilos, (cancelar, "fechar")):  # "fechar" = cinza escuro
+            botao.setObjectName(nome)
+            botao.setCursor(Qt.PointingHandCursor)
+            botao.style().unpolish(botao)  # reaplica o QSS com o novo objectName
+            botao.style().polish(botao)
+        caixa.setDefaultButton(salvar or descartar)
+        caixa.setEscapeButton(cancelar)
+        caixa.exec()
+        clicado = caixa.clickedButton()
+        if salvar is not None and clicado is salvar:
+            return "salvar"
+        return "descartar" if clicado is descartar else "cancelar"
 
     def _atualizar_estado(self):
         aba = self.aba_atual()
@@ -498,6 +546,11 @@ class JanelaPrincipal(QMainWindow):
         aba.painelMudou.connect(lambda _: self._atualizar_estado())
         aba.visualizador.rotacaoMudou.connect(self._atualizar_estado)
         aba.visualizador.destaqueFeito.connect(self._atualizar_estado)
+        aba.visualizador.destaqueRemovido.connect(self._atualizar_estado)
+        aba.visualizador.corDestaqueAlterada.connect(self._atualizar_estado)
+        # última cor do "Destacar": vale para todas as abas e fica nas preferências
+        aba.visualizador.definir_cor_destaque(self.config.get("destaque/cor", "amarelo"))
+        aba.visualizador.corDestaqueEscolhida.connect(self._cor_destaque_escolhida)
         aba.visualizador.retanguloDesenhado.connect(lambda pg, r, a=aba: self._posicionado(a, pg, r))
         aba.visualizador.posicionamentoCancelado.connect(lambda a=aba: self._posicionamento_cancelado(a))
         self.abas.append(aba)
@@ -525,37 +578,46 @@ class JanelaPrincipal(QMainWindow):
         aba.visualizador._pag.setFocus()
         return aba
 
+    def _cor_destaque_escolhida(self, cor: str):
+        self.config.set("destaque/cor", cor)
+        for aba in self.abas:
+            aba.visualizador.definir_cor_destaque(cor)
+
     @staticmethod
     def _salvar_bloqueado(aba) -> bool:
-        return bool(aba and aba.doc.tem_assinaturas and (aba.visualizador.rotacoes() or aba.doc.destaques))
+        return bool(aba and aba.doc.tem_assinaturas and (aba.visualizador.rotacoes() or aba.doc.destaques_editados))
 
-    def salvar_copia(self):
-        aba = self.aba_atual()
+    def salvar_copia(self, aba=None):
+        """Salva a aba (a atual, por padrão). Devolve a aba com o documento salvo -
+        uma nova, quando salvar no próprio arquivo recarrega - ou None se não salvou."""
+        aba = aba or self.aba_atual()
         if not aba:
-            return
+            return None
         if self._salvar_bloqueado(aba):  # também pelo Ctrl+S
             aba.toast("Documento assinado: não é possível salvar com páginas giradas ou texto destacado", 3000)
-            return
+            return None
         destino, _ = QFileDialog.getSaveFileName(self, "Salvar uma Cópia", str(aba.doc.caminho),
                                                  "Documentos PDF (*.pdf)")
         if not destino:
-            return
+            return None
         # grava o documento como está na tela (páginas giradas e destaques incluídos)
         rotacoes = aba.visualizador.rotacoes()
-        editado = bool(rotacoes or aba.doc.destaques)
+        editado = bool(rotacoes or aba.doc.destaques_editados)
         try:
             Path(destino).write_bytes(aba.doc.bytes_editados(rotacoes))
         except Exception as e:
             QMessageBox.critical(self, NOME_APP, f"Não foi possível salvar:\n{e}")
-            return
+            return None
+        aba.doc.marcar_salvo()
         mesmo_arquivo = Path(destino).resolve() == aba.doc.caminho.resolve()
         if mesmo_arquivo and editado:
             # recarrega: o que está na tela passa a ser exatamente o arquivo salvo
             painel = aba.painel
-            self.fechar_aba(self.abas.index(aba))
+            self.fechar_aba(self.abas.index(aba), confirmar=False)
             aba = self.abrir_arquivo(destino, painel=painel or "")
         if aba:
             aba.toast("Documento salvo" if mesmo_arquivo else "Cópia salva")
+        return aba
 
     # ================================================================== busca / impressão
     def buscar(self):
@@ -674,7 +736,7 @@ class JanelaPrincipal(QMainWindow):
                 return
             # se sobrescreveu o próprio arquivo aberto, recarrega a aba
             if aba in self.abas and aba.doc.caminho.resolve() == destino.resolve():
-                self.fechar_aba(self.abas.index(aba))
+                self.fechar_aba(self.abas.index(aba), confirmar=False)
             nova = self.abrir_arquivo(str(destino), painel="assinaturas")
             if nova:
                 nova.toast("Documento assinado com sucesso", 2500)
@@ -799,6 +861,12 @@ class JanelaPrincipal(QMainWindow):
                 self.abrir_arquivo(c)
 
     def closeEvent(self, e):
+        # destaques não salvos: pergunta aba por aba (Cancelar mantém o NuPDF aberto)
+        for aba in [a for a in self.abas if a.doc.destaques_pendentes]:
+            resposta = self._perguntar_destaques(aba)
+            if resposta == "cancelar" or (resposta == "salvar" and self.salvar_copia(aba) is None):
+                e.ignore()
+                return
         for aba in self.abas:
             aba.doc.fechar()
         super().closeEvent(e)

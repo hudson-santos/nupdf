@@ -14,10 +14,10 @@ from collections import OrderedDict
 
 import pymupdf
 from PySide6.QtCore import QPoint, QPointF, QRect, QRectF, Qt, QTimer, QUrl, Signal
-from PySide6.QtGui import QColor, QDesktopServices, QGuiApplication, QImage, QPainter, QPen, QPixmap
+from PySide6.QtGui import QColor, QDesktopServices, QGuiApplication, QIcon, QImage, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QMenu, QMessageBox, QPushButton, QScrollArea, QWidget
 
-from .documento import Documento
+from .documento import COR_PADRAO, CORES_DESTAQUE, Documento
 from .icones import icone
 
 MARGEM = 24
@@ -36,6 +36,9 @@ class Visualizador(QScrollArea):
     copiadoPeloBotao = Signal(str)
     rotacaoMudou = Signal()
     destaqueFeito = Signal()
+    destaqueRemovido = Signal()
+    corDestaqueAlterada = Signal()
+    corDestaqueEscolhida = Signal(str)  # nova cor padrão do "Destacar" (a janela salva)
     assinaturaClicada = Signal(str)  # nome do campo da assinatura visível clicada
 
     def __init__(self, documento: Documento, cores: dict, parent=None):
@@ -80,14 +83,42 @@ class Visualizador(QScrollArea):
         self._bt_copiar.setIcon(icone("copiar", "#ffffff", 15))
         self._bt_copiar.setCursor(Qt.PointingHandCursor)
         self._bt_copiar.clicked.connect(self._copiar_pelo_botao)
+        # "Destacar" usa a última cor escolhida; a seta ao lado abre as cores
+        self.cor_destaque = COR_PADRAO  # a janela restaura a escolha salva nas preferências
         self._bt_destacar = QPushButton("  Destacar")
         self._bt_destacar.setObjectName("botaoCopiar")  # mesmo visual do "Copiar"
-        self._bt_destacar.setIcon(icone("destacar", "#ffe93b", 15))
         self._bt_destacar.setCursor(Qt.PointingHandCursor)
-        self._bt_destacar.clicked.connect(self._destacar_selecao)
+        self._bt_destacar.clicked.connect(lambda: self._destacar_selecao())
+        self._bt_cor = QPushButton()
+        self._bt_cor.setObjectName("botaoCopiar")
+        self._bt_cor.setIcon(icone("seta_menu", "#ffffff", 14))
+        self._bt_cor.setToolTip("Escolher a Cor do Destaque")
+        self._bt_cor.setCursor(Qt.PointingHandCursor)
+        self._bt_cor.clicked.connect(self._escolher_cor_e_destacar)
         acoes.addWidget(self._bt_copiar)
         acoes.addWidget(self._bt_destacar)
+        acoes.addSpacing(-4)  # seta colada ao "Destacar"
+        acoes.addWidget(self._bt_cor)
         self._acoes_sel.hide()
+        self._atualizar_icone_destacar()
+        # "Alterar Cor" e "Remover Destaque": aparecem ao clicar sobre um texto destacado
+        self._acoes_destaque = QWidget(self._pag)
+        acoes_d = QHBoxLayout(self._acoes_destaque)
+        acoes_d.setContentsMargins(0, 0, 0, 0)
+        acoes_d.setSpacing(6)
+        self._bt_alterar_cor = QPushButton("  Alterar Cor")
+        self._bt_alterar_cor.setObjectName("botaoCopiar")
+        self._bt_alterar_cor.setCursor(Qt.PointingHandCursor)
+        self._bt_alterar_cor.clicked.connect(self._escolher_nova_cor)
+        self._bt_remover = QPushButton("  Remover Destaque")
+        self._bt_remover.setObjectName("botaoCopiar")
+        self._bt_remover.setIcon(icone("lixeira", "#ffffff", 15))
+        self._bt_remover.setCursor(Qt.PointingHandCursor)
+        self._bt_remover.clicked.connect(lambda: self.remover_destaque())
+        acoes_d.addWidget(self._bt_alterar_cor)
+        acoes_d.addWidget(self._bt_remover)
+        self._acoes_destaque.hide()
+        self._destaque_alvo = None
         self._sem_botao_copiar = False
         self.selecaoMudou.connect(self._posicionar_botao_copiar)
         self.verticalScrollBar().valueChanged.connect(self._ao_rolar)
@@ -113,6 +144,7 @@ class Visualizador(QScrollArea):
         self._geo, self._topos = geos, topos
         self._pag.resize(larg, alt)
         self._pag.update()
+        self._acoes_destaque.hide()  # zoom/rotação: a posição do clique deixa de valer
         if self._acoes_sel.isVisible():  # zoom/rotação: acompanha o texto selecionado
             self._posicionar_botao_copiar(True)
 
@@ -509,18 +541,128 @@ class Visualizador(QScrollArea):
                 saida[i] = [por_linha[n] for n in sorted(por_linha)]
         return saida
 
-    def _destacar_selecao(self):
+    def _redesenhar_pagina(self, i: int):
+        for chave in [c for c in self._cache if c[0] == i]:
+            pix = self._cache.pop(chave)
+            self._cache_bytes -= pix.width() * pix.height() * 4
+        self._pag.update()
+
+    # ------------------------------------------------------------------ cores do destaque
+    @staticmethod
+    def _hex(rgb) -> str:
+        return "#%02x%02x%02x" % tuple(round(c * 255) for c in rgb)
+
+    @staticmethod
+    def icone_cor(rgb) -> QIcon:
+        """Bolinha na cor do destaque (menus de cores)."""
+        pm = QPixmap(14, 14)
+        pm.fill(Qt.transparent)
+        p = QPainter(pm)
+        p.setRenderHint(QPainter.Antialiasing)
+        p.setBrush(QColor.fromRgbF(*rgb))
+        p.setPen(QPen(QColor(0, 0, 0, 70)))
+        p.drawEllipse(1, 1, 12, 12)
+        p.end()
+        return QIcon(pm)
+
+    def preencher_menu_cores(self, m: QMenu, acao: str, atual: str | None = None):
+        """Uma opção por cor ("Azul - Prioridade Baixa"...); data = (acao, chave da cor)."""
+        for chave, (rotulo, rgb) in CORES_DESTAQUE.items():
+            a = m.addAction(self.icone_cor(rgb), rotulo)
+            a.setData((acao, chave))
+            if chave == atual:
+                a.setCheckable(True)
+                a.setChecked(True)
+
+    def _escolher_cor(self, botao: QPushButton, acao: str, atual: str | None) -> str | None:
+        m = QMenu(self)
+        self.preencher_menu_cores(m, acao, atual)
+        esc = m.exec(botao.mapToGlobal(QPoint(0, botao.height() + 2)))
+        return esc.data()[1] if esc is not None and esc.data() else None
+
+    def _atualizar_icone_destacar(self):
+        self._bt_destacar.setIcon(icone("destacar", self._hex(CORES_DESTAQUE[self.cor_destaque][1]), 15))
+        self._bt_destacar.setToolTip(f"Destacar em {CORES_DESTAQUE[self.cor_destaque][0]}")
+
+    def definir_cor_destaque(self, cor: str):
+        if cor in CORES_DESTAQUE:
+            self.cor_destaque = cor
+            self._atualizar_icone_destacar()
+
+    # ------------------------------------------------------------------ destacar
+    def _destacar_selecao(self, cor: str | None = None):
+        if cor and cor != self.cor_destaque:  # a cor escolhida vira a padrão do "Destacar"
+            self.definir_cor_destaque(cor)
+            self.corDestaqueEscolhida.emit(cor)
         linhas = self.linhas_selecionadas()
         for i, rets in linhas.items():
-            self.doc.destacar(i, rets)
-            for chave in [c for c in self._cache if c[0] == i]:  # redesenha com o destaque
-                pix = self._cache.pop(chave)
-                self._cache_bytes -= pix.width() * pix.height() * 4
+            self.doc.destacar(i, rets, self.cor_destaque)
+            self._redesenhar_pagina(i)
         self._acoes_sel.hide()
         self.limpar_selecao()
         self._pag.setFocus()
         if linhas:
             self.destaqueFeito.emit()
+
+    def _escolher_cor_e_destacar(self):
+        cor = self._escolher_cor(self._bt_cor, "destacar", self.cor_destaque)
+        if cor:
+            self._destacar_selecao(cor)
+
+    # ------------------------------------------------------------------ destaque existente
+    def _destaque_em(self, pos: QPointF) -> tuple[int, int] | None:
+        """(página, xref) do destaque sob o ponto da tela, se houver."""
+        i = self._pagina_em(pos)
+        if i < 0 or not self._geo[i][0].contains(pos.toPoint()):
+            return None
+        xref = self.doc.destaque_em(i, self._para_pagina(i, pos))
+        return None if xref is None else (i, xref)
+
+    def _mostrar_acoes_destaque(self, alvo: tuple[int, int], pos: QPointF):
+        """ "Alterar Cor" e "Remover Destaque" logo abaixo do ponto clicado sobre o destaque."""
+        self._destaque_alvo = alvo
+        cor = self.doc.cor_do_destaque(*alvo)
+        rgb = CORES_DESTAQUE[cor][1] if cor else (1, 1, 1)
+        self._bt_alterar_cor.setIcon(icone("destacar", self._hex(rgb), 15))
+        bt = self._acoes_destaque
+        bt.adjustSize()
+        pag = self._geo[alvo[0]][0]
+        x = int(min(max(pos.x() - bt.width() / 2, pag.left() + 4), pag.right() - bt.width() - 4))
+        y = int(pos.y() + 14)
+        if y + bt.height() > pag.bottom():
+            y = int(pos.y() - bt.height() - 14)
+        bt.move(x, y)
+        bt.raise_()
+        bt.show()
+
+    def _escolher_nova_cor(self):
+        alvo = self._destaque_alvo
+        if alvo:
+            cor = self._escolher_cor(self._bt_alterar_cor, "cor", self.doc.cor_do_destaque(*alvo))
+            if cor:
+                self.mudar_cor_destaque(cor, alvo)
+
+    def mudar_cor_destaque(self, cor: str, alvo: tuple[int, int] | None = None):
+        alvo = alvo or self._destaque_alvo
+        self._acoes_destaque.hide()
+        self._destaque_alvo = None
+        if not alvo or cor == self.doc.cor_do_destaque(*alvo):
+            return
+        self.doc.mudar_cor_destaque(*alvo, cor)
+        self._redesenhar_pagina(alvo[0])
+        self._pag.setFocus()
+        self.corDestaqueAlterada.emit()
+
+    def remover_destaque(self, alvo: tuple[int, int] | None = None):
+        alvo = alvo or self._destaque_alvo
+        self._acoes_destaque.hide()
+        self._destaque_alvo = None
+        if not alvo:
+            return
+        self.doc.remover_destaque(*alvo)
+        self._redesenhar_pagina(alvo[0])
+        self._pag.setFocus()
+        self.destaqueRemovido.emit()
 
     def _posicionar_botao_copiar(self, tem: bool):
         """Mostra "Copiar" e "Destacar" logo abaixo da última palavra selecionada
@@ -670,6 +812,7 @@ class _Paginas(QWidget):
         self.setFocus()
         v = self.v
         v._acoes_sel.hide()
+        v._acoes_destaque.hide()
         if e.button() == Qt.MiddleButton or (e.button() == Qt.LeftButton and v.modo == "mao"):
             self._pan = (e.globalPosition(), v.horizontalScrollBar().value(), v.verticalScrollBar().value())
             self.setCursor(Qt.ClosedHandCursor)
@@ -789,6 +932,8 @@ class _Paginas(QWidget):
                 campo = v._assinatura_em(pos)
                 if campo is not None:
                     v.assinaturaClicada.emit(campo)
+                elif v.modo == "texto" and (alvo := v._destaque_em(pos)):
+                    v._mostrar_acoes_destaque(alvo, pos)
         else:
             v.selecaoMudou.emit(v.tem_selecao())
         self._press = None
@@ -825,8 +970,15 @@ class _Paginas(QWidget):
         m = QMenu(self)
         a_copiar = m.addAction("Copiar")
         a_copiar.setEnabled(v.tem_selecao())
-        a_destacar = m.addAction("Destacar")
-        a_destacar.setEnabled(v.tem_selecao())
+        m_destacar = m.addMenu("Destacar")
+        v.preencher_menu_cores(m_destacar, "destacar", v.cor_destaque)
+        m_destacar.setEnabled(v.tem_selecao())
+        alvo = v._destaque_em(QPointF(e.pos()))  # clicou sobre um texto destacado?
+        a_remover = None
+        if alvo:
+            m_cor = m.addMenu("Alterar Cor do Destaque")
+            v.preencher_menu_cores(m_cor, "cor", v.doc.cor_do_destaque(*alvo))
+            a_remover = m.addAction("Remover Destaque")
         a_tudo = m.addAction("Selecionar tudo")
         a_pag = m.addAction(f"Copiar texto da página {i + 1}") if i >= 0 else None
         m.addSeparator()
@@ -837,8 +989,14 @@ class _Paginas(QWidget):
         esc = m.exec(e.globalPos())
         if esc is a_copiar:
             v.copiar()
-        elif esc is a_destacar:
-            v._destacar_selecao()
+        elif esc is not None and isinstance(esc.data(), (tuple, list)):  # cores dos submenus
+            acao, cor = esc.data()
+            if acao == "destacar":
+                v._destacar_selecao(cor)
+            else:
+                v.mudar_cor_destaque(cor, alvo)
+        elif a_remover is not None and esc is a_remover:
+            v.remover_destaque(alvo)
         elif esc is a_tudo:
             v.selecionar_tudo()
         elif a_pag is not None and esc is a_pag:
