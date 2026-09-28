@@ -295,7 +295,7 @@ function Etapa7-CriarAtalhos {
     $pythonw = Join-Path $APP_DIR "venv\Scripts\pythonw.exe"
     $mainPy = Join-Path $APP_DIR "main.py"
     $criarAtalho = Join-Path $PSScriptRoot "criar_atalho.ps1"
-    $definirAppId = Join-Path $PSScriptRoot "criar_atalho_definir_appid.ps1"
+    $definirAppId = Join-Path $PSScriptRoot "criar_atalho_appid.ps1"
 
     if (Test-Path $launcher) {
         $alvo, $argumentos = $launcher, ""

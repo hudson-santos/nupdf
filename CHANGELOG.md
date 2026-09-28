@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.6.0] - 2026-09-28
+
+### Added
+- Botão "Destacar" ao lado do "Copiar" quando há texto selecionado (e também no menu do
+  botão direito, abaixo de "Copiar"): pinta o texto selecionado de amarelo, uma faixa por
+  linha, inclusive em seleções de várias páginas, e mostra "Texto Destacado". O "Salvar"
+  grava os destaques no PDF (anotações de marca-texto padrão, visíveis em qualquer leitor)
+  e a impressão os inclui. Em documentos assinados dá para destacar, mas o "Salvar" fica
+  desabilitado (salvar invalidaria as assinaturas).
+
+### Changed
+- Script do instalador renomeado para `criar_atalho_appid.ps1`.
+
 ## [1.5.0] - 2026-09-26
 
 ### Added

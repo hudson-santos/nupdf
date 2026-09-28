@@ -68,7 +68,7 @@ Source: "desinstalar.ps1"; DestDir: "{app}"; Flags: ignoreversion
 ; (ExtractTemporaryFile em [Code]) e executados de uma pasta temporária.
 Source: "instalar.ps1"; DestDir: "{tmp}"; Flags: dontcopy
 Source: "criar_atalho.ps1"; DestDir: "{tmp}"; Flags: dontcopy
-Source: "criar_atalho_definir_appid.ps1"; DestDir: "{tmp}"; Flags: dontcopy
+Source: "criar_atalho_appid.ps1"; DestDir: "{tmp}"; Flags: dontcopy
 
 [Dirs]
 ; Cadeias de certificados confiáveis (ICP-Brasil) para validar assinaturas.
@@ -121,7 +121,7 @@ begin
   Result := '';
   ExtractTemporaryFile('instalar.ps1');
   ExtractTemporaryFile('criar_atalho.ps1');
-  ExtractTemporaryFile('criar_atalho_definir_appid.ps1');
+  ExtractTemporaryFile('criar_atalho_appid.ps1');
   CaminhoInstalarPs1 := ExpandConstant('{tmp}\instalar.ps1');
 
   PaginaProgresso := CreateOutputProgressPage('Instalando o NuPDF',

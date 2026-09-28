@@ -26,7 +26,7 @@ SERVIDOR = f"NuPDF-{getpass.getuser()}"
 
 def _definir_app_id():
     """Mesmo AppUserModelID gravado nos atalhos pelo instalador
-    (criar_atalho_definir_appid.ps1) - sem ele, "Fixar na barra de tarefas"
+    (criar_atalho_appid.ps1) - sem ele, "Fixar na barra de tarefas"
     a partir da janela aberta mostraria o ícone do pythonw.exe."""
     try:
         import ctypes

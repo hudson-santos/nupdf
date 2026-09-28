@@ -15,7 +15,7 @@ from collections import OrderedDict
 import pymupdf
 from PySide6.QtCore import QPoint, QPointF, QRect, QRectF, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QColor, QDesktopServices, QGuiApplication, QImage, QPainter, QPen, QPixmap
-from PySide6.QtWidgets import QFrame, QMenu, QMessageBox, QPushButton, QScrollArea, QWidget
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QMenu, QMessageBox, QPushButton, QScrollArea, QWidget
 
 from .documento import Documento
 from .icones import icone
@@ -35,6 +35,7 @@ class Visualizador(QScrollArea):
     posicionamentoCancelado = Signal()
     copiadoPeloBotao = Signal(str)
     rotacaoMudou = Signal()
+    destaqueFeito = Signal()
     assinaturaClicada = Signal(str)  # nome do campo da assinatura visível clicada
 
     def __init__(self, documento: Documento, cores: dict, parent=None):
@@ -68,13 +69,25 @@ class Visualizador(QScrollArea):
 
         self._pag = _Paginas(self)
         self.setWidget(self._pag)
-        # botão "Copiar" que aparece junto do texto selecionado (rola com as páginas)
-        self._bt_copiar = QPushButton("  Copiar", self._pag)
+        # botões "Copiar" e "Destacar" que aparecem junto do texto selecionado
+        # (rolam com as páginas)
+        self._acoes_sel = QWidget(self._pag)
+        acoes = QHBoxLayout(self._acoes_sel)
+        acoes.setContentsMargins(0, 0, 0, 0)
+        acoes.setSpacing(6)
+        self._bt_copiar = QPushButton("  Copiar")
         self._bt_copiar.setObjectName("botaoCopiar")
         self._bt_copiar.setIcon(icone("copiar", "#ffffff", 15))
         self._bt_copiar.setCursor(Qt.PointingHandCursor)
-        self._bt_copiar.hide()
         self._bt_copiar.clicked.connect(self._copiar_pelo_botao)
+        self._bt_destacar = QPushButton("  Destacar")
+        self._bt_destacar.setObjectName("botaoCopiar")  # mesmo visual do "Copiar"
+        self._bt_destacar.setIcon(icone("destacar", "#ffe93b", 15))
+        self._bt_destacar.setCursor(Qt.PointingHandCursor)
+        self._bt_destacar.clicked.connect(self._destacar_selecao)
+        acoes.addWidget(self._bt_copiar)
+        acoes.addWidget(self._bt_destacar)
+        self._acoes_sel.hide()
         self._sem_botao_copiar = False
         self.selecaoMudou.connect(self._posicionar_botao_copiar)
         self.verticalScrollBar().valueChanged.connect(self._ao_rolar)
@@ -100,7 +113,7 @@ class Visualizador(QScrollArea):
         self._geo, self._topos = geos, topos
         self._pag.resize(larg, alt)
         self._pag.update()
-        if self._bt_copiar.isVisible():  # zoom/rotação: acompanha o texto selecionado
+        if self._acoes_sel.isVisible():  # zoom/rotação: acompanha o texto selecionado
             self._posicionar_botao_copiar(True)
 
     def _pagina_em(self, pos: QPointF) -> int:
@@ -477,15 +490,42 @@ class Visualizador(QScrollArea):
 
     def _copiar_pelo_botao(self):
         texto = self.copiar()
-        self._bt_copiar.hide()
+        self._acoes_sel.hide()
         self._pag.setFocus()
         if texto:
             self.copiadoPeloBotao.emit(texto)
 
+    def linhas_selecionadas(self) -> dict[int, list[pymupdf.Rect]]:
+        """Seleção atual como retângulos, um por linha visual, agrupados por página."""
+        saida: dict[int, list[pymupdf.Rect]] = {}
+        for i in self._paginas_selecionadas():
+            ws = self.doc.palavras(i)
+            por_linha: dict[int, pymupdf.Rect] = {}
+            for k in self._selecao_na_pagina(i):
+                w = ws[k]
+                r = pymupdf.Rect(w[:4])
+                por_linha[w[5]] = por_linha[w[5]] | r if w[5] in por_linha else r
+            if por_linha:
+                saida[i] = [por_linha[n] for n in sorted(por_linha)]
+        return saida
+
+    def _destacar_selecao(self):
+        linhas = self.linhas_selecionadas()
+        for i, rets in linhas.items():
+            self.doc.destacar(i, rets)
+            for chave in [c for c in self._cache if c[0] == i]:  # redesenha com o destaque
+                pix = self._cache.pop(chave)
+                self._cache_bytes -= pix.width() * pix.height() * 4
+        self._acoes_sel.hide()
+        self.limpar_selecao()
+        self._pag.setFocus()
+        if linhas:
+            self.destaqueFeito.emit()
+
     def _posicionar_botao_copiar(self, tem: bool):
-        """Mostra o "Copiar" logo abaixo da última palavra selecionada (ou acima,
-        se não couber na página)."""
-        bt = self._bt_copiar
+        """Mostra "Copiar" e "Destacar" logo abaixo da última palavra selecionada
+        (ou acima, se não couber na página)."""
+        bt = self._acoes_sel
         if not tem or self._sem_botao_copiar or self.modo != "texto":
             bt.hide()
             return
@@ -629,7 +669,7 @@ class _Paginas(QWidget):
     def mousePressEvent(self, e):
         self.setFocus()
         v = self.v
-        v._bt_copiar.hide()
+        v._acoes_sel.hide()
         if e.button() == Qt.MiddleButton or (e.button() == Qt.LeftButton and v.modo == "mao"):
             self._pan = (e.globalPosition(), v.horizontalScrollBar().value(), v.verticalScrollBar().value())
             self.setCursor(Qt.ClosedHandCursor)
@@ -785,6 +825,8 @@ class _Paginas(QWidget):
         m = QMenu(self)
         a_copiar = m.addAction("Copiar")
         a_copiar.setEnabled(v.tem_selecao())
+        a_destacar = m.addAction("Destacar")
+        a_destacar.setEnabled(v.tem_selecao())
         a_tudo = m.addAction("Selecionar tudo")
         a_pag = m.addAction(f"Copiar texto da página {i + 1}") if i >= 0 else None
         m.addSeparator()
@@ -795,6 +837,8 @@ class _Paginas(QWidget):
         esc = m.exec(e.globalPos())
         if esc is a_copiar:
             v.copiar()
+        elif esc is a_destacar:
+            v._destacar_selecao()
         elif esc is a_tudo:
             v.selecionar_tudo()
         elif a_pag is not None and esc is a_pag:

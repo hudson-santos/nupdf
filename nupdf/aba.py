@@ -222,6 +222,7 @@ class AbaDocumento(QWidget):
         self.miniaturas.paginaEscolhida.connect(v.ir_para_pagina)
         v.paginaMudou.connect(self._pagina_mudou)
         v.copiadoPeloBotao.connect(lambda _t: self.toast("Texto Copiado"))
+        v.destaqueFeito.connect(lambda: self.toast("Texto Destacado"))
         v.assinaturaClicada.connect(self._assinatura_clicada)
 
     # ------------------------------------------------------------------ painéis

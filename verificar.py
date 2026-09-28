@@ -97,9 +97,18 @@ def main() -> int:
     checar("data do PDF formatada", paineis._data_pdf("D:20260928103000-03'00'") == "28/09/2026 10:30")
     checar("tamanho da página A4", paineis._formato_pagina(595, 842).startswith("A4 (retrato)"))
     import pymupdf as _pm
-    girado = _pm.open(stream=doc.bytes_com_rotacao({1: 90, 2: 270}), filetype="pdf")
+    girado = _pm.open(stream=doc.bytes_editados({1: 90, 2: 270}), filetype="pdf")
     checar("salvar com páginas giradas", [pg.rotation for pg in girado] == [0, 90, 270]
-           and doc.bytes_com_rotacao({}) is doc.dados)
+           and doc.bytes_editados({}) is doc.dados)
+    doc_d = Documento(str(pdf))
+    linha = doc_d.linhas(0)[0]
+    doc_d.destacar(0, [_pm.Rect(linha[0][:4]) | _pm.Rect(linha[-1][:4])])
+    salvo = _pm.open(stream=doc_d.bytes_editados({}), filetype="pdf")
+    pg_salva = salvo[0]  # a página precisa continuar referenciada enquanto as anotações são lidas
+    anots = [a.rect for a in pg_salva.annots() if a.type[1] == "Highlight"]
+    checar("salvar com texto destacado", len(anots) == 1 and
+           " ".join(w[4] for w in linha) in pg_salva.get_textbox(anots[0]).replace("\n", " "), str(anots))
+    doc_d.fechar()
 
     print("Impressão:")
     from nupdf import impressao

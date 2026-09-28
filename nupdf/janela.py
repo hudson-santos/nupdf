@@ -435,8 +435,8 @@ class JanelaPrincipal(QMainWindow):
         bloqueado = self._salvar_bloqueado(aba)
         self.b_salvar.setEnabled(not bloqueado)
         self.b_salvar.setToolTip(
-            "Documento com assinatura digital: não é possível salvar com páginas giradas "
-            "(as assinaturas seriam invalidadas)" if bloqueado else "Salvar uma Cópia (Ctrl+S)")
+            "Documento com assinatura digital: não é possível salvar com páginas giradas ou texto "
+            "destacado (as assinaturas seriam invalidadas)" if bloqueado else "Salvar uma Cópia (Ctrl+S)")
         self.barra_ferramentas.setVisible(tem)
         self.faixa_mais.setVisible(tem)  # "+" só com documento aberto (sem documento, usa o botão central)
         self.trilho.setVisible(tem)
@@ -497,6 +497,7 @@ class JanelaPrincipal(QMainWindow):
         aba = AbaDocumento(doc)
         aba.painelMudou.connect(lambda _: self._atualizar_estado())
         aba.visualizador.rotacaoMudou.connect(self._atualizar_estado)
+        aba.visualizador.destaqueFeito.connect(self._atualizar_estado)
         aba.visualizador.retanguloDesenhado.connect(lambda pg, r, a=aba: self._posicionado(a, pg, r))
         aba.visualizador.posicionamentoCancelado.connect(lambda a=aba: self._posicionamento_cancelado(a))
         self.abas.append(aba)
@@ -526,28 +527,29 @@ class JanelaPrincipal(QMainWindow):
 
     @staticmethod
     def _salvar_bloqueado(aba) -> bool:
-        return bool(aba and aba.doc.tem_assinaturas and aba.visualizador.rotacoes())
+        return bool(aba and aba.doc.tem_assinaturas and (aba.visualizador.rotacoes() or aba.doc.destaques))
 
     def salvar_copia(self):
         aba = self.aba_atual()
         if not aba:
             return
         if self._salvar_bloqueado(aba):  # também pelo Ctrl+S
-            aba.toast("Documento assinado: não é possível salvar com páginas giradas", 2800)
+            aba.toast("Documento assinado: não é possível salvar com páginas giradas ou texto destacado", 3000)
             return
         destino, _ = QFileDialog.getSaveFileName(self, "Salvar uma Cópia", str(aba.doc.caminho),
                                                  "Documentos PDF (*.pdf)")
         if not destino:
             return
-        # grava o documento como está na tela (páginas giradas incluídas)
+        # grava o documento como está na tela (páginas giradas e destaques incluídos)
         rotacoes = aba.visualizador.rotacoes()
+        editado = bool(rotacoes or aba.doc.destaques)
         try:
-            Path(destino).write_bytes(aba.doc.bytes_com_rotacao(rotacoes))
+            Path(destino).write_bytes(aba.doc.bytes_editados(rotacoes))
         except Exception as e:
             QMessageBox.critical(self, NOME_APP, f"Não foi possível salvar:\n{e}")
             return
         mesmo_arquivo = Path(destino).resolve() == aba.doc.caminho.resolve()
-        if mesmo_arquivo and rotacoes:
+        if mesmo_arquivo and editado:
             # recarrega: o que está na tela passa a ser exatamente o arquivo salvo
             painel = aba.painel
             self.fechar_aba(self.abas.index(aba))
@@ -575,7 +577,7 @@ class JanelaPrincipal(QMainWindow):
             return
         self.config.set("impressao/impressora", dlg.nome_impressora)
         trabalho = TrabalhoImpressao(
-            aba.doc.bytes_com_rotacao(v.rotacoes()),  # imprime como está na tela
+            aba.doc.bytes_editados(v.rotacoes()),  # imprime como está na tela
             aba.doc.senha, dlg.paginas, dlg.nome_impressora, dlg.copias.value(), aba.doc.nome)
         prog = QProgressDialog(f"Conectando à impressora {dlg.nome_impressora}…", "Cancelar",
                                0, len(dlg.paginas), self)

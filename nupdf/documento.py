@@ -19,6 +19,8 @@ class SenhaNecessaria(Exception):
 # (x0, y0, x1, y1, texto, linha) - coordenadas no espaço NÃO rotacionado da página
 Palavra = tuple
 
+COR_DESTAQUE = (1.0, 0.92, 0.23)  # amarelo marca-texto
+
 
 def _ordenar_visual(palavras) -> list[Palavra]:
     """Agrupa palavras em linhas visuais (sobreposição vertical) e ordena
@@ -59,6 +61,9 @@ class Documento:
         self._palavras: dict[int, list[Palavra]] = {}
         self._links: dict[int, list] = {}
         self._assinaturas_pag: dict[int, list] = {}
+        # destaques (marca-texto) feitos nesta sessão: página -> retângulos das linhas.
+        # Ficam no documento exibido e são regravados numa cópia só ao salvar/imprimir.
+        self.destaques: dict[int, list[pymupdf.Rect]] = {}
 
     @property
     def nome(self) -> str:
@@ -118,16 +123,33 @@ class Documento:
         except Exception:
             return False
 
-    def bytes_com_rotacao(self, rotacoes: dict[int, int]) -> bytes:
-        """PDF com a rotação da visualização gravada nas páginas (/Rotate).
-        Sem rotação, devolve os bytes originais intactos (preserva assinaturas)."""
+    @staticmethod
+    def _aplicar_destaque(pg: pymupdf.Page, rets: list[pymupdf.Rect]):
+        # mesmo sistema de coordenadas das palavras (vale também em página com /Rotate)
+        annot = pg.add_highlight_annot(quads=[pymupdf.Rect(r).quad for r in rets])
+        annot.set_colors(stroke=COR_DESTAQUE)
+        annot.update()
+
+    def destacar(self, i: int, rets: list[pymupdf.Rect]):
+        """Marca-texto amarelo sobre os retângulos (um por linha) da página i."""
+        if not rets:
+            return
+        self._aplicar_destaque(self.doc[i], rets)
+        self.destaques.setdefault(i, []).extend(pymupdf.Rect(r) for r in rets)
+
+    def bytes_editados(self, rotacoes: dict[int, int]) -> bytes:
+        """PDF como está na tela: rotação da visualização gravada nas páginas
+        (/Rotate) e destaques feitos nesta sessão. Sem nenhuma alteração, devolve
+        os bytes originais intactos (preserva assinaturas)."""
         rotacoes = {i: r % 360 for i, r in rotacoes.items() if r % 360}
-        if not rotacoes:
+        if not rotacoes and not self.destaques:
             return self.dados
         copia = pymupdf.open(stream=self.dados, filetype="pdf")
         try:
             if copia.needs_pass:
                 copia.authenticate(self.senha or "")
+            for i, rets in self.destaques.items():
+                self._aplicar_destaque(copia[i], rets)
             for i, r in rotacoes.items():
                 pg = copia[i]
                 pg.set_rotation((pg.rotation + r) % 360)
