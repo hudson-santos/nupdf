@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.9.1] - 2026-09-29
+
+### Changed
+- Instalador pronto para instalação/desinstalação silenciosa (ex.: Microsoft Store):
+  com /VERYSILENT /SUPPRESSMSGBOXES /NORESTART instala em segundo plano sem abrir o NuPDF
+  no fim (o /SILENT da atualização pelo botão do app continua reabrindo o programa), e a
+  desinstalação com /VERYSILENT remove tudo sem perguntas. O instalador passa a gravar um
+  log em %TEMP% (Setup Log) para diagnóstico.
+
 ## [1.9.0] - 2026-09-29
 
 ### Added

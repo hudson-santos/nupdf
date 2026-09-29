@@ -40,7 +40,12 @@ UninstallDisplayIcon={app}\assets\nupdf.ico
 AppPublisherURL=https://nupdf.com.br
 AppSupportURL=https://github.com/hudson-santos/nupdf
 AppUpdatesURL=https://nupdf.com.br
+; Por usuário, sem UAC/administrador (também o recomendado para a Microsoft Store).
+; Sem PrivilegesRequiredOverridesAllowed: o modo "todos os usuários" gravaria a
+; desinstalação em HKLM, enquanto o "Abrir com" e os atalhos (instalar.ps1) são por usuário.
 PrivilegesRequired=lowest
+; Log em %TEMP%\Setup Log *.txt - diagnóstico de instalações silenciosas (Store)
+SetupLogging=yes
 Compression=lzma2/ultra64
 SolidCompression=yes
 OutputDir=.
@@ -92,10 +97,25 @@ var
 // botão do app com /SILENT e atualização manual). Fica aqui e não em [Run]:
 // entradas de [Run] sem "postinstall" rodam logo depois da cópia dos arquivos,
 // ANTES das etapas 4 a 7 (CurStepChanged) - o NuPDF abria no meio da atualização.
+// /VERYSILENT (Microsoft Store e implantações automatizadas): instalação em segundo
+// plano, sem abrir o NuPDF no fim. O /SILENT da atualização pelo botão do app continua
+// reabrindo o programa.
+function MuitoSilencioso: Boolean;
+var
+  i: Integer;
+begin
+  Result := False;
+  for i := 1 to ParamCount do
+    if CompareText(ParamStr(i), '/VERYSILENT') = 0 then
+      Result := True;
+end;
+
 procedure AbrirNuPDF;
 var
   ResultCode: Integer;
 begin
+  if MuitoSilencioso then
+    Exit;
   if FileExists(ExpandConstant('{app}\NuPDF.exe')) then
     Exec(ExpandConstant('{app}\NuPDF.exe'), '', ExpandConstant('{app}'), SW_SHOW, ewNoWait, ResultCode)
   else
