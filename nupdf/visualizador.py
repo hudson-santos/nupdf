@@ -36,6 +36,7 @@ class Visualizador(QScrollArea):
     copiadoPeloBotao = Signal(str)
     rotacaoMudou = Signal()
     destaqueFeito = Signal()
+    vaiAlterar = Signal()  # logo ANTES de girar/destacar/remover/recolorir (a aba guarda o Ctrl+Z)
     destaqueRemovido = Signal()
     corDestaqueAlterada = Signal()
     excluirPagina = Signal(int)  # menu do botão direito (a janela executa)
@@ -310,6 +311,7 @@ class Visualizador(QScrollArea):
     def girar(self):
         """Gira a visualização de todas as páginas em 90° (sentido horário)."""
         i = self._pagina_atual
+        self.vaiAlterar.emit()
         self.rotacao = (self.rotacao + 90) % 360
         self._limpar_cache()
         self._recalcular()
@@ -330,11 +332,32 @@ class Visualizador(QScrollArea):
     def marcar_rotacoes_salvas(self):
         self._rotacoes_salvas = self.rotacoes()
 
+    def estado_rotacao(self) -> tuple:
+        return self.rotacao, dict(self.rotacao_pagina)
+
+    def restaurar_edicao(self, rotacao: tuple | None = None):
+        """Depois do Ctrl+Z: volta a rotação (se informada) e redesenha tudo (os
+        destaques do documento exibido podem ter mudado)."""
+        self._acoes_sel.hide()
+        self._acoes_destaque.hide()
+        self._destaque_alvo = None
+        i = self._pagina_atual
+        if rotacao is not None:
+            self.rotacao, self.rotacao_pagina = rotacao[0], dict(rotacao[1])
+        self._limpar_cache()
+        self._recalcular()
+        if rotacao is not None:
+            if self.ajuste:
+                self.ajustar(*self.ajuste)
+            self.ir_para_pagina(i)
+            self.rotacaoMudou.emit()
+
     def girar_pagina(self, i: int | None = None):
         """Gira só a visualização de uma página (a atual, por padrão) em 90°."""
         i = self._pagina_atual if i is None else i
         if not (0 <= i < len(self._base)):
             return
+        self.vaiAlterar.emit()
         self.rotacao_pagina[i] = (self.rotacao_pagina.get(i, 0) + 90) % 360
         self._recalcular()
         self.ir_para_pagina(i)
@@ -605,6 +628,8 @@ class Visualizador(QScrollArea):
             self.definir_cor_destaque(cor)
             self.corDestaqueEscolhida.emit(cor)
         linhas = self.linhas_selecionadas()
+        if linhas:
+            self.vaiAlterar.emit()
         for i, rets in linhas.items():
             self.doc.destacar(i, rets, self.cor_destaque)
             self._redesenhar_pagina(i)
@@ -658,6 +683,7 @@ class Visualizador(QScrollArea):
         self._destaque_alvo = None
         if not alvo or cor == self.doc.cor_do_destaque(*alvo):
             return
+        self.vaiAlterar.emit()
         self.doc.mudar_cor_destaque(*alvo, cor)
         self._redesenhar_pagina(alvo[0])
         self._pag.setFocus()
@@ -669,6 +695,7 @@ class Visualizador(QScrollArea):
         self._destaque_alvo = None
         if not alvo:
             return
+        self.vaiAlterar.emit()
         self.doc.remover_destaque(*alvo)
         self._redesenhar_pagina(alvo[0])
         self._pag.setFocus()

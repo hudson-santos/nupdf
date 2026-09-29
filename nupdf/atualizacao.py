@@ -125,5 +125,5 @@ def executar_instalador(caminho: Path):
     flags = 0
     if sys.platform == "win32":
         flags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
-    subprocess.Popen([str(caminho), "/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART"],
+    subprocess.Popen([str(caminho), "/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-"],
                      cwd=str(caminho.parent), creationflags=flags, close_fds=True)

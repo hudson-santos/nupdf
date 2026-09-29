@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.10.0] - 2026-09-29
+
+### Added
+- Desfazer (Ctrl+Z): volta, passo a passo, destaques (incluir, remover - inclusive os que já
+  vinham no PDF - e mudar a cor), giros de página (uma ou todas) e exclusão de página, que
+  volta ao lugar com os destaques e giros que tinha. Histórico por aba (até 50 passos),
+  mantendo página, zoom e painel; desfazer tudo zera as alterações pendentes. Sem nada a
+  desfazer, aparece "Nada para Desfazer".
+
+### Changed
+- Instalador sem a pergunta inicial "Isto instalará... Deseja continuar?" (equivale ao
+  /SP-). Instalação silenciosa na Microsoft Store: /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-.
+  A atualização pelo botão do app também passa /SP-.
+
 ## [1.9.1] - 2026-09-29
 
 ### Changed

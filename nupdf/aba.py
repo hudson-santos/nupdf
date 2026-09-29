@@ -199,6 +199,8 @@ class AbaDocumento(QWidget):
         super().__init__()
         self.doc = documento
         self.cfg_pendente = None  # assinatura aguardando posicionamento
+        # Ctrl+Z: retratos do documento antes de cada alteração (o mais recente no fim)
+        self.historico: list[dict] = []
         lay = QHBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(0)
@@ -228,10 +230,24 @@ class AbaDocumento(QWidget):
         v.rotacaoMudou.connect(self.miniaturas.rotacao_mudou)
         v.paginaMudou.connect(self._pagina_mudou)
         v.copiadoPeloBotao.connect(lambda _t: self.toast("Texto Copiado"))
+        v.vaiAlterar.connect(self.registrar)
         v.destaqueFeito.connect(lambda: self.toast("Texto Destacado"))
         v.destaqueRemovido.connect(lambda: self.toast("Destaque Removido"))
         v.corDestaqueAlterada.connect(lambda: self.toast("Cor do Destaque Alterada"))
         v.assinaturaClicada.connect(self._assinatura_clicada)
+
+    # ------------------------------------------------------------------ desfazer
+    LIMITE_HISTORICO = 50
+
+    def retrato(self) -> dict:
+        """Estado atual do documento na tela: conteúdo (muda ao excluir página),
+        pendências herdadas, destaques e rotação."""
+        return {"dados": self.doc.dados, "pendencias": list(self.doc.pendencias_herdadas),
+                "edicao": self.doc.estado_edicao(), "rotacao": self.visualizador.estado_rotacao()}
+
+    def registrar(self):
+        self.historico.append(self.retrato())
+        del self.historico[:-self.LIMITE_HISTORICO]
 
     # ------------------------------------------------------------------ painéis
     @property

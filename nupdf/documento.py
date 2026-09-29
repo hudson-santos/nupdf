@@ -207,8 +207,37 @@ class Documento:
             self._destaques_removidos.add((i, xref))
 
     def _estado_destaques(self):
-        return (frozenset((x, v[2]) for x, v in self._destaques_novos.items()),
-                frozenset(self._destaques_removidos), frozenset(self._cores_alteradas.items()))
+        # sem os xrefs dos destaques novos: eles mudam quando o desfazer (Ctrl+Z) os recria
+        novos = frozenset((i, tuple(tuple(round(v, 2) for v in r) for r in rets), cor)
+                          for i, rets, cor in self._destaques_novos.values())
+        return novos, frozenset(self._destaques_removidos), frozenset(self._cores_alteradas.items())
+
+    # ------------------------------------------------------------------ desfazer (Ctrl+Z)
+    def estado_edicao(self) -> tuple:
+        """Retrato das edições de destaque (para o Ctrl+Z voltar a ele)."""
+        return ([(i, list(rets), cor) for i, rets, cor in self._destaques_novos.values()],
+                set(self._destaques_removidos), dict(self._cores_alteradas))
+
+    def restaurar_edicao(self, estado: tuple):
+        """Volta os destaques a um retrato de estado_edicao(): reabre o documento exibido
+        a partir de `dados` e reaplica remoções, cores e destaques novos."""
+        novos, removidos, cores = estado
+        self.doc.close()
+        self.doc = pymupdf.open(stream=self.dados, filetype="pdf")
+        if self.doc.needs_pass:
+            self.doc.authenticate(self.senha or "")
+        for i, xref in removidos:
+            pg = self.doc[i]
+            pg.delete_annot(pg.load_annot(xref))
+        for (i, xref), cor in cores.items():
+            pg = self.doc[i]
+            self._pintar(pg.load_annot(xref), cor)
+        self._destaques_novos = {}
+        for i, rets, cor in novos:
+            xref = self._aplicar_destaque(self.doc[i], rets, cor)
+            self._destaques_novos[xref] = (i, list(rets), cor)
+        self._destaques_removidos = set(removidos)
+        self._cores_alteradas = dict(cores)
 
     @property
     def destaques_editados(self) -> bool:

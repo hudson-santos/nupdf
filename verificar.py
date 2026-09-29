@@ -133,6 +133,15 @@ def main() -> int:
     novo = max(doc_c._destaques_novos)
     checar("destacar em verde (Resolvido)", doc_c.cor_do_destaque(0, novo) == "verde")
     doc_c.fechar()
+    # Ctrl+Z: remover um destaque que já vinha no arquivo e desfazer
+    doc_u = Documento(str(com_destaque))
+    antes = doc_u.estado_edicao()
+    doc_u.remover_destaque(0, doc_u.destaque_em(0, meio))
+    removido = doc_u.destaque_em(0, meio) is None and doc_u.destaques_pendentes
+    doc_u.restaurar_edicao(antes)
+    checar("desfazer remoção de destaque do arquivo", removido and doc_u.destaque_em(0, meio) is not None
+           and not doc_u.destaques_pendentes and doc_u.bytes_editados({}) is doc_u.dados)
+    doc_u.fechar()
     doc_r = Documento(str(com_destaque))
     xref = doc_r.destaque_em(0, meio)
     doc_r.remover_destaque(0, xref)

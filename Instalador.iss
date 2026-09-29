@@ -46,6 +46,10 @@ AppUpdatesURL=https://nupdf.com.br
 PrivilegesRequired=lowest
 ; Log em %TEMP%\Setup Log *.txt - diagnóstico de instalações silenciosas (Store)
 SetupLogging=yes
+; Sem a pergunta "Isto instalará... Deseja continuar?" ao abrir (o mesmo que /SP-).
+; Instalação silenciosa na Microsoft Store (Partner Center):
+;   /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-
+DisableStartupPrompt=yes
 Compression=lzma2/ultra64
 SolidCompression=yes
 OutputDir=.

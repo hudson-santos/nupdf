@@ -376,6 +376,7 @@ class JanelaPrincipal(QMainWindow):
         atalho("Ctrl+O", self.abrir_dialogo)
         atalho(["Ctrl+W", "Ctrl+F4"], lambda: self.fechar_aba(self.tabbar.currentIndex()))
         atalho(["Ctrl+S", "Ctrl+Shift+S"], self.salvar_copia)
+        atalho("Ctrl+Z", self.desfazer)
         atalho("Ctrl+P", self.imprimir)
         atalho("Ctrl+F", self.buscar)
         atalho(["Ctrl++", "Ctrl+="], lambda: self._no_visualizador(lambda v: v.aproximar()))
@@ -636,6 +637,7 @@ class JanelaPrincipal(QMainWindow):
         if not self._confirmar_exclusao(i):
             return
         v = aba.visualizador
+        antes = aba.retrato()  # para o Ctrl+Z
         try:
             dados = aba.doc.sem_pagina(i, v.rotacoes())
             pendencias = [p for p in self._pendencias(aba) if p != "páginas excluídas"] + ["páginas excluídas"]
@@ -643,22 +645,61 @@ class JanelaPrincipal(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, NOME_APP, f"Não foi possível excluir a página:\n{e}")
             return
-        # a nova aba continua de onde estava: mesmo painel, zoom e página
-        painel, ajuste, zoom = aba.painel, v.ajuste, v.zoom
         atual = v.pagina_atual
         atual = min(atual - 1 if i < atual else atual, n - 2)
+        nova = self._substituir_aba(aba, doc, aba.historico + [antes], atual)
+        nova.toast(f"Página {i + 1} Excluída")
+        self._atualizar_estado()
+
+    def _substituir_aba(self, aba: AbaDocumento, doc: Documento, historico: list, pagina: int,
+                        rotacao: tuple | None = None) -> AbaDocumento:
+        """Refaz a aba, no mesmo lugar, com outro conteúdo (excluir página / desfazer):
+        continua de onde estava - mesmo painel, zoom, página e histórico do Ctrl+Z."""
+        v = aba.visualizador
+        painel, ajuste, zoom = aba.painel, v.ajuste, v.zoom
         indice = self.abas.index(aba)
         self.fechar_aba(indice, confirmar=False)
         nova = self._criar_aba(doc, indice)
+        nova.historico = historico
         if painel:
             nova.mostrar_painel(painel)
         nv = nova.visualizador
+        if rotacao is not None:
+            QTimer.singleShot(0, lambda: nv.restaurar_edicao(rotacao))
         if ajuste:
             QTimer.singleShot(0, lambda: nv.ajustar(*ajuste))
         else:
             QTimer.singleShot(0, lambda: nv.definir_zoom(zoom, manual=True))
-        QTimer.singleShot(0, lambda: nv.ir_para_pagina(atual))
-        nova.toast(f"Página {i + 1} Excluída")
+        QTimer.singleShot(0, lambda: nv.ir_para_pagina(min(pagina, doc.n_paginas - 1)))
+        return nova
+
+    def desfazer(self):
+        """Ctrl+Z: volta o documento ao estado anterior à última alteração (destaque,
+        cor, remoção de destaque, giro ou exclusão de página)."""
+        aba = self.aba_atual()
+        if not aba or aba.visualizador.modo == "posicionar":
+            return
+        if not aba.historico:
+            aba.toast("Nada para Desfazer")
+            return
+        antes = aba.historico.pop()
+        if antes["dados"] is aba.doc.dados:
+            # mesmo conteúdo: só destaques e rotação mudaram - restaura na própria aba
+            aba.doc.pendencias_herdadas = list(antes["pendencias"])
+            aba.doc.restaurar_edicao(antes["edicao"])
+            aba.visualizador.restaurar_edicao(antes["rotacao"])
+        else:
+            # desfaz uma exclusão de página: reabre o conteúdo de antes
+            try:
+                doc = Documento(str(aba.doc.caminho), aba.doc.senha, dados=antes["dados"],
+                                pendencias=antes["pendencias"])
+                doc.restaurar_edicao(antes["edicao"])
+            except Exception as e:
+                QMessageBox.critical(self, NOME_APP, f"Não foi possível desfazer:\n{e}")
+                return
+            aba = self._substituir_aba(aba, doc, aba.historico, aba.visualizador.pagina_atual,
+                                       antes["rotacao"])
+        aba.toast("Alteração Desfeita")
         self._atualizar_estado()
 
     def _cor_destaque_escolhida(self, cor: str):
