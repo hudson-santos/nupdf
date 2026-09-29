@@ -323,10 +323,11 @@ class JanelaPrincipal(QMainWindow):
         menu_girar.addAction("Girar Todas as Páginas	Ctrl+R",
                              lambda: self._no_visualizador(lambda v: v.girar()))
         self.b_girar.setMenu(menu_girar)
+        self.b_desfazer = ui.botao("desfazer", "Desfazer (Ctrl+Z)")  # habilitado só com algo a desfazer
         self.b_buscar = ui.botao("buscar", "Buscar (Ctrl+F)")
         # Ações de documento: só visíveis quando há um PDF aberto (ver _atualizar_estado)
-        self._acoes_documento = [self.b_largura,
-                                 self.b_pagina, self.b_girar, ui.separador_vertical(), self.b_buscar]
+        self._acoes_documento = [self.b_largura, self.b_pagina, self.b_girar, self.b_desfazer,
+                                 ui.separador_vertical(), self.b_buscar]
         for w in self._acoes_documento:
             lay.addWidget(w)
         lay.addStretch(1)
@@ -344,6 +345,7 @@ class JanelaPrincipal(QMainWindow):
         self.b_largura.clicked.connect(lambda: self._no_visualizador(lambda v: v.ajustar("largura")))
         self.b_pagina.clicked.connect(lambda: self._no_visualizador(lambda v: v.ajustar("pagina")))
         self.b_buscar.clicked.connect(self.buscar)
+        self.b_desfazer.clicked.connect(self.desfazer)
         self.b_assinar.clicked.connect(self.assinar)
         return barra
 
@@ -500,6 +502,7 @@ class JanelaPrincipal(QMainWindow):
         for w in (self.b_salvar, self.b_imprimir, *self._acoes_documento):
             w.setVisible(tem)
         # PDF assinado: pode girar, mas não salvar girado (invalidaria as assinaturas)
+        self.b_desfazer.setEnabled(bool(aba and aba.historico))
         bloqueado = self._salvar_bloqueado(aba)
         self.b_salvar.setEnabled(not bloqueado)
         self.b_salvar.setToolTip(

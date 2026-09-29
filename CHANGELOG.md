@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.10.1] - 2026-09-29
+
+### Changed
+- Botão "Desfazer" na barra de ações do documento (ao lado de Girar), além do Ctrl+Z;
+  fica desabilitado quando não há nada para desfazer.
+
 ## [1.10.0] - 2026-09-29
 
 ### Added
