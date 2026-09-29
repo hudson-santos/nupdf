@@ -113,6 +113,8 @@ QPushButton#link:hover { background: $hover; color: $texto; }
 #linhaRecente { border-radius: 8px; }
 #linhaRecente:hover { background: $hover; }
 #linhaRecente QPushButton#link:hover { background: transparent; }
+QPushButton#linkCartao { background: transparent; border: none; color: $destaque; font-weight: 600; padding: 4px 0; }
+QPushButton#linkCartao:hover { text-decoration: underline; }
 QPushButton#linkPequeno { background: transparent; border: none; color: $texto3; font-size: 12px; padding: 2px 6px; }
 QPushButton#linkPequeno:hover { color: $destaque; }
 

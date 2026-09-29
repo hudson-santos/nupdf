@@ -203,6 +203,17 @@ function Etapa5-InstalarDependencias {
     }
 
     Write-Host "      Dependencias instaladas."
+
+    # Cadeia oficial ICP-Brasil (raízes + ACs, pacote do ITI) para validar assinaturas.
+    # Falha aqui (sem internet) não interrompe a instalação: dá para baixar depois no
+    # painel de assinaturas ("Atualizar Cadeia ICP-Brasil").
+    Push-Location $APP_DIR
+    & $pythonVenv -m nupdf.assinatura.cadeia_icp (Join-Path $APP_DIR "cadeias\icp-brasil")
+    Pop-Location
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[AVISO] Cadeia ICP-Brasil nao baixada - atualize depois pelo painel de assinaturas."
+    }
+    $global:LASTEXITCODE = 0
 }
 
 

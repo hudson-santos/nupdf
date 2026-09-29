@@ -1,11 +1,18 @@
 """Validação das assinaturas digitais existentes em um PDF.
 
-Confiança da cadeia: usa o repositório de certificados do Windows e, além
-dele, os certificados raiz/intermediários (.cer/.crt/.pem/.der) colocados em
-%APPDATA%\\NuPDF\\cadeias e na pasta 'cadeias' ao lado do programa - é ali que
-se instala a cadeia ICP-Brasil (https://www.gov.br/iti/pt-br/assuntos/repositorio).
+Confiança da cadeia, além do repositório de certificados do Windows:
+- cadeia ICP-Brasil oficial (pasta 'icp-brasil', baixada do ITI pelo instalador ou
+  pelo botão "Atualizar Cadeia ICP-Brasil" - ver cadeia_icp.py): as raízes viram
+  âncoras de confiança e as ACs intermediárias só ajudam a montar o caminho;
+- certificados em que o usuário mandou confiar ("Confiar nesta Cadeia"), na pasta
+  'confiaveis' de %APPDATA%\\NuPDF\\cadeias;
+- certificados colocados à mão em %APPDATA%\\NuPDF\\cadeias ou na pasta 'cadeias'
+  ao lado do programa (todos tratados como confiáveis, como antes).
+Se mesmo assim faltar alguma AC intermediária, uma segunda tentativa busca o
+certificado no endereço indicado nele próprio (AIA), pela internet.
 """
 
+import hashlib
 import sys
 from dataclasses import dataclass
 from datetime import datetime
@@ -16,7 +23,11 @@ from asn1crypto import pem, x509 as asn1x509
 from cryptography import x509
 
 from ..config import pasta_dados
+from .cadeia_icp import NOME_PASTA as PASTA_ICP
 from .certificado import info_de_certificado
+
+PASTA_CONFIAVEIS = "confiaveis"
+TEMPO_BUSCA = 8  # segundos por requisição ao buscar ACs intermediárias pela internet
 
 
 @dataclass
@@ -28,11 +39,14 @@ class ResultadoAssinatura:
     data: datetime | None
     integra: bool          # o conteúdo assinado não foi alterado e a criptografia confere
     confiavel: bool        # cadeia até uma raiz confiável
-    cobre_documento: bool  # nenhuma alteração não permitida depois da assinatura
+    cobre_documento: bool  # nenhuma alteração NÃO permitida depois da assinatura
     carimbo_tempo: bool
     motivo: str
     local: str
     observacao: str
+    # topo da cadeia que acompanha a assinatura: o que "Confiar nesta Cadeia" grava
+    topo_cadeia_der: bytes | None = None
+    topo_cadeia_nome: str = ""
 
     @property
     def nivel(self) -> str:
@@ -50,39 +64,92 @@ def pastas_cadeias() -> list[Path]:
     return pastas
 
 
-def _carregar_cadeias() -> list:
-    certs = []
+def _ler(arq: Path) -> list:
+    try:
+        dados = arq.read_bytes()
+        if pem.detect(dados):
+            return [asn1x509.Certificate.load(der) for _, _, der in pem.unarmor(dados, multiple=True)]
+        return [asn1x509.Certificate.load(dados)]
+    except Exception:
+        return []
+
+
+def _carregar_cadeias() -> tuple[list, list]:
+    """(âncoras de confiança, intermediárias), sem repetidos."""
+    raizes, intermediarias, vistos = [], [], set()
     for pasta in pastas_cadeias():
         if not pasta.is_dir():
             continue
-        for arq in pasta.iterdir():
-            if arq.suffix.lower() not in (".cer", ".crt", ".pem", ".der"):
+        for arq in pasta.rglob("*"):
+            if arq.suffix.lower() not in (".cer", ".crt", ".pem", ".der") or not arq.is_file():
                 continue
-            try:
-                dados = arq.read_bytes()
-                if pem.detect(dados):
-                    for _, _, der in pem.unarmor(dados, multiple=True):
-                        certs.append(asn1x509.Certificate.load(der))
+            icp = PASTA_ICP in arq.relative_to(pasta).parts
+            for cert in _ler(arq):
+                chave = cert.sha256
+                if chave in vistos:
+                    continue
+                vistos.add(chave)
+                # do pacote ICP-Brasil só as raízes (autoassinadas) são âncoras; o
+                # resto (confiáveis do usuário e colocados à mão) é confiável
+                if icp and cert.self_signed == "no":
+                    intermediarias.append(cert)
                 else:
-                    certs.append(asn1x509.Certificate.load(dados))
-            except Exception:
-                continue
-    return certs
+                    raizes.append(cert)
+    return raizes, intermediarias
 
 
-def validar(dados: bytes) -> list[ResultadoAssinatura]:
-    from pyhanko.pdf_utils.reader import PdfFileReader
+def confiar(der: bytes) -> Path:
+    """Passa a confiar no certificado (topo de uma cadeia) - "Confiar nesta Cadeia"."""
+    pasta = pasta_dados() / "cadeias" / PASTA_CONFIAVEIS
+    pasta.mkdir(parents=True, exist_ok=True)
+    arq = pasta / f"{hashlib.sha1(der).hexdigest()}.cer"
+    arq.write_bytes(der)
+    return arq
+
+
+def _topo_da_cadeia(sig, conhecidos: list):
+    """Sobe de emissor em emissor a partir do certificado do assinante, usando os
+    certificados que vêm na assinatura e os conhecidos; devolve o último achado."""
+    try:
+        embutidos = [c.chosen for c in sig.signed_data["certificates"]
+                     if isinstance(c.chosen, asn1x509.Certificate)]
+    except Exception:
+        embutidos = []
+    por_nome = {}
+    for c in embutidos + conhecidos:
+        por_nome.setdefault(c.subject.dump(), c)
+    atual, passos = sig.signer_cert, 0
+    while atual.self_signed == "no" and passos < 10:
+        emissor = por_nome.get(atual.issuer.dump())
+        if emissor is None or emissor.dump() == atual.dump():
+            break
+        atual, passos = emissor, passos + 1
+    return atual
+
+
+def _status(sig, raizes, intermediarias, buscar: bool):
     from pyhanko.sign.validation import validate_pdf_signature
     from pyhanko_certvalidator import ValidationContext
+    extras = {}
+    if buscar:
+        from pyhanko_certvalidator.fetchers.aiohttp_fetchers import AIOHttpFetcherBackend
+        extras = dict(allow_fetching=True, revocation_mode="soft-fail",
+                      fetcher_backend=AIOHttpFetcherBackend(per_request_timeout=TEMPO_BUSCA))
+    vc = ValidationContext(extra_trust_roots=raizes, other_certs=intermediarias, **extras)
+    return validate_pdf_signature(sig, vc)
+
+
+def validar(dados: bytes, buscar_na_internet: bool = True) -> list[ResultadoAssinatura]:
+    from pyhanko.pdf_utils.reader import PdfFileReader
+    from pyhanko.sign.diff_analysis import ModificationLevel
 
     reader = PdfFileReader(BytesIO(dados), strict=False)
     assinaturas = reader.embedded_signatures
     if not assinaturas:
         return []
-    extras = _carregar_cadeias()
+    raizes, intermediarias = _carregar_cadeias()
     resultados = []
     for sig in assinaturas:
-        vc = ValidationContext(extra_trust_roots=extras, other_certs=extras, allow_fetching=False)
         cert = sig.signer_cert
         try:
             info = info_de_certificado(x509.load_der_x509_certificate(cert.dump()))
@@ -93,22 +160,35 @@ def validar(dados: bytes) -> list[ResultadoAssinatura]:
         motivo = str(sd.get("/Reason", "") or "")
         local = str(sd.get("/Location", "") or "")
         try:
-            st = validate_pdf_signature(sig, vc)
-            from pyhanko.sign.diff_analysis import ModificationLevel
+            st = _status(sig, raizes, intermediarias, buscar=False)
+            if not st.trusted and buscar_na_internet:
+                # falta alguma AC intermediária? busca pelo endereço do próprio certificado
+                try:
+                    st2 = _status(sig, raizes, intermediarias, buscar=True)
+                    if st2.trusted:
+                        st = st2
+                except Exception:
+                    pass
             integra = bool(st.intact and st.valid)
             confiavel = bool(st.trusted)
-            cobre = st.modification_level in (None, ModificationLevel.NONE, ModificationLevel.LTA_UPDATES,
-                                              ModificationLevel.FORM_FILLING) and bool(st.docmdp_ok)
+            # como no Adobe: alterações permitidas depois da assinatura (outras
+            # assinaturas, carimbos, preenchimento) não a invalidam
+            nivel_mod = st.modification_level
+            cobre = bool(st.docmdp_ok) or nivel_mod is None
             data = st.timestamp_validity.timestamp if st.timestamp_validity else st.signer_reported_dt
             obs = []
             if not confiavel:
-                obs.append("Cadeia de certificação não reconhecida neste computador "
-                           "(instale a cadeia ICP-Brasil para validar a confiança).")
+                obs.append("Cadeia de certificação não reconhecida neste computador.")
             if not cobre:
                 obs.append("O documento foi modificado depois desta assinatura.")
+            elif nivel_mod not in (None, ModificationLevel.NONE):
+                obs.append("Houve alterações permitidas depois desta assinatura (ex.: outra assinatura).")
+            topo = _topo_da_cadeia(sig, intermediarias + raizes) if not confiavel else None
             resultados.append(ResultadoAssinatura(
                 sig.field_name, titular, documento, emissor, data, integra, confiavel, cobre,
-                st.timestamp_validity is not None, motivo, local, " ".join(obs)))
+                st.timestamp_validity is not None, motivo, local, " ".join(obs),
+                topo.dump() if topo is not None else None,
+                topo.subject.human_friendly if topo is not None else ""))
         except Exception as e:
             resultados.append(ResultadoAssinatura(
                 sig.field_name, titular, documento, emissor, None, False, False, False, False,

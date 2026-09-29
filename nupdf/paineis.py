@@ -5,7 +5,7 @@ import re
 import pymupdf
 from PySide6.QtCore import QEvent, QPoint, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QGuiApplication, QIcon, QImage, QPainter, QPixmap
-from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QLineEdit, QListView, QListWidget, QMenu,
+from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QLineEdit, QListView, QListWidget, QMenu, QMessageBox,
                                QListWidgetItem, QPushButton, QScrollArea, QToolButton, QTreeWidget, QTreeWidgetItem,
                                QVBoxLayout, QWidget)
 
@@ -297,7 +297,7 @@ class PainelPropriedades(QWidget):
 
 
 class _CartaoAssinatura(QFrame):
-    def __init__(self, r):
+    def __init__(self, r, ao_confiar=None):
         super().__init__()
         self.setObjectName("cartao")
         self.campo = r.campo
@@ -343,6 +343,14 @@ class _CartaoAssinatura(QFrame):
             obs.setObjectName("sub3")
             obs.setWordWrap(True)
             lay.addWidget(obs)
+        if not r.confiavel and r.topo_cadeia_der and ao_confiar:
+            # como o "Adicionar a certificados confiáveis" do Adobe
+            confiar = QPushButton("Confiar nesta Cadeia")
+            confiar.setObjectName("linkCartao")
+            confiar.setCursor(Qt.PointingHandCursor)
+            confiar.setToolTip(f"Passar a confiar em: {r.topo_cadeia_nome}")
+            confiar.clicked.connect(lambda: ao_confiar(r))
+            lay.addWidget(confiar, 0, Qt.AlignLeft)
 
 
 class PainelAssinaturas(QWidget):
@@ -373,6 +381,54 @@ class PainelAssinaturas(QWidget):
         self.lista.addStretch(1)
         area.setWidget(self.conteudo)
         lay.addWidget(area, 1)
+        # cadeia oficial do ITI (o instalador já baixa; aqui atualiza quando surgem ACs novas)
+        self.b_cadeia = QPushButton("Atualizar Cadeia ICP-Brasil")
+        self.b_cadeia.setObjectName("linkPequeno")
+        self.b_cadeia.setCursor(Qt.PointingHandCursor)
+        self.b_cadeia.setToolTip("Baixar novamente a cadeia de certificados oficial da ICP-Brasil (ITI)")
+        self.b_cadeia.clicked.connect(self._atualizar_cadeia)
+        lay.addWidget(self.b_cadeia, 0, Qt.AlignHCenter)
+
+    def _atualizar_cadeia(self):
+        from .assinatura import cadeia_icp
+        self.b_cadeia.setEnabled(False)
+        self.b_cadeia.setText("Baixando a Cadeia ICP-Brasil…")
+        self._tarefa_cadeia = ui.Tarefa(cadeia_icp.atualizar)
+
+        def fim(texto: str):
+            self.b_cadeia.setEnabled(True)
+            self.b_cadeia.setText("Atualizar Cadeia ICP-Brasil")
+            self.status.setText(texto)
+
+        def ok(n):
+            fim(f"Cadeia ICP-Brasil atualizada ({n} certificados).")
+            QTimer.singleShot(1500, lambda: self.carregar(forcar=True))
+
+        self._tarefa_cadeia.concluida.connect(ok)
+        self._tarefa_cadeia.falhou.connect(lambda e: fim(f"Não foi possível atualizar a cadeia: {e}"))
+        self._tarefa_cadeia.start()
+
+    def _confiar(self, r):
+        caixa = QMessageBox(self)
+        caixa.setWindowTitle("Confiar nesta Cadeia")
+        caixa.setIcon(QMessageBox.NoIcon)
+        caixa.setText(f"Passar a confiar nas assinaturas cuja cadeia chega a:<br><br><b>{r.topo_cadeia_nome}</b>"
+                      "<br><br>Vale para todos os documentos, neste computador. Só confirme se você "
+                      "conhece e confia nessa autoridade certificadora.")
+        sim = caixa.addButton("Confiar", QMessageBox.AcceptRole)
+        nao = caixa.addButton("Cancelar", QMessageBox.RejectRole)
+        for botao, nome in ((sim, "primario"), (nao, "fechar")):
+            botao.setObjectName(nome)
+            botao.setCursor(Qt.PointingHandCursor)
+            botao.style().unpolish(botao)
+            botao.style().polish(botao)
+        caixa.setDefaultButton(nao)
+        caixa.setEscapeButton(nao)
+        caixa.exec()
+        if caixa.clickedButton() is sim:
+            from .assinatura.validador import confiar
+            confiar(r.topo_cadeia_der)
+            self.carregar(forcar=True)
 
     def redesenhar(self):
         if self._resultados is not None:
@@ -402,7 +458,7 @@ class PainelAssinaturas(QWidget):
         n = len(resultados)
         self.status.setText(f"{n} Assinatura{'s' if n > 1 else ''} Encontrada{'s' if n > 1 else ''}.")
         for r in resultados:
-            self.lista.insertWidget(self.lista.count() - 1, _CartaoAssinatura(r))
+            self.lista.insertWidget(self.lista.count() - 1, _CartaoAssinatura(r, self._confiar))
         self._aplicar_destaque()
 
     def destacar(self, campo: str):

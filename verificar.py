@@ -199,12 +199,43 @@ def main() -> int:
         cfg2 = ConfigAssinatura(info, impressao="TESTE", der=b"x", visivel=False)
         duas = assinar_pdf(assinado, cfg2)
         (pasta / "assinado.pdf").write_bytes(duas)
-        res = validar(duas)
+        res = validar(duas, buscar_na_internet=False)
         checar("2 assinaturas encontradas", len(res) == 2, str(len(res)))
         checar("assinaturas íntegras", all(r.integra for r in res), str([r.observacao for r in res]))
         checar("titular na validação", res[0].titular == "FULANO DE TESTE")
         checar("1ª assinatura continua cobrindo (incremental)", res[0].cobre_documento, res[0].observacao)
         checar("autoassinado não confiável", not res[0].confiavel)
+        # "Confiar nesta Cadeia": grava o topo da cadeia e a assinatura passa a ser confiável
+        from nupdf.assinatura import validador as _val
+        checar("oferece 'Confiar nesta Cadeia'", res[0].topo_cadeia_der is not None, res[0].topo_cadeia_nome)
+        _val.confiar(res[0].topo_cadeia_der)
+        res_t = validar(duas, buscar_na_internet=False)
+        checar("confiar na cadeia torna a assinatura confiável", all(r.confiavel for r in res_t),
+               str([r.observacao for r in res_t]))
+        # pacote ICP-Brasil: raiz (autoassinada) vira âncora, AC intermediária não
+        import datetime as _dt
+        from cryptography.hazmat.primitives import hashes as _h
+        from cryptography.hazmat.primitives.asymmetric import ec as _ec
+        from cryptography.hazmat.primitives.serialization import Encoding as _Enc
+
+        def _cert(cn, emissor_cn, chave_emissor, chave):
+            agora = _dt.datetime.now(_dt.timezone.utc)
+            nome = lambda n: x509.Name([x509.NameAttribute(x509.NameOID.COMMON_NAME, n)])
+            return (x509.CertificateBuilder().subject_name(nome(cn)).issuer_name(nome(emissor_cn))
+                    .public_key(chave.public_key()).serial_number(x509.random_serial_number())
+                    .not_valid_before(agora).not_valid_after(agora + _dt.timedelta(days=30))
+                    .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+                    .sign(chave_emissor, _h.SHA256()))
+        from cryptography import x509
+        k_raiz, k_ac = _ec.generate_private_key(_ec.SECP256R1()), _ec.generate_private_key(_ec.SECP256R1())
+        pasta_icp = _val.pastas_cadeias()[0] / "icp-brasil"
+        pasta_icp.mkdir(parents=True, exist_ok=True)
+        (pasta_icp / "raiz.crt").write_bytes(_cert("Raiz Teste", "Raiz Teste", k_raiz, k_raiz).public_bytes(_Enc.DER))
+        (pasta_icp / "ac.crt").write_bytes(_cert("AC Teste", "Raiz Teste", k_raiz, k_ac).public_bytes(_Enc.PEM))
+        raizes, inter = _val._carregar_cadeias()
+        nomes = lambda cs: {c.subject.native.get("common_name") for c in cs}
+        checar("cadeia ICP: raiz é âncora e AC é intermediária",
+               "Raiz Teste" in nomes(raizes) and "AC Teste" in nomes(inter) and "AC Teste" not in nomes(raizes))
         import pymupdf
         d2 = pymupdf.open(stream=duas, filetype="pdf")
         widgets = [w for w in d2[0].widgets() if w.field_type == pymupdf.PDF_WIDGET_TYPE_SIGNATURE]
@@ -220,7 +251,7 @@ def main() -> int:
         k = duas.find(b"stream") + 20
         corrompido[k] = (corrompido[k] + 1) % 256
         try:
-            res_c = validar(bytes(corrompido))
+            res_c = validar(bytes(corrompido), buscar_na_internet=False)
             detectou = not res_c or not all(r.integra for r in res_c)
         except Exception:
             detectou = True

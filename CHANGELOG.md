@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.9.0] - 2026-09-29
+
+### Added
+- Cadeia oficial ICP-Brasil: o instalador baixa o pacote do ITI (raízes v5, v6, v10, v11 e
+  v12 e todas as ACs credenciadas) para C:\NuPDF\cadeias\icp-brasil, e o painel de
+  assinaturas ganhou "Atualizar Cadeia ICP-Brasil" para baixar de novo quando surgirem ACs
+  novas. Sem internet na instalação, ela continua normalmente.
+- AC intermediária que ainda faltar é buscada automaticamente pelo endereço indicado no
+  próprio certificado (só para as assinaturas não reconhecidas).
+- "Confiar nesta Cadeia" no cartão de uma assinatura não reconhecida (como o "Adicionar a
+  certificados confiáveis" do Adobe), com confirmação.
+
+### Changed
+- Assinatura seguida de alterações permitidas pelo documento (outra assinatura, carimbo)
+  continua válida, com a observação "Houve alterações permitidas depois desta assinatura",
+  como no Adobe; só alterações não permitidas geram ressalva.
+- Só as raízes do pacote ICP-Brasil são âncoras de confiança (as ACs servem apenas para
+  montar o caminho).
+
 ## [1.8.0] - 2026-09-29
 
 ### Added

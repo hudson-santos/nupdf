@@ -20,9 +20,11 @@ Leitor de PDF leve para uso corporativo interno: **ler**, **copiar dados** e
   carimbo de tempo opcional. Assinaturas anteriores são preservadas
   (atualização incremental).
 - **Validação**: painel de assinaturas mostra integridade, cobertura e cadeia
-  de confiança. Para reconhecer a cadeia ICP-Brasil, coloque os certificados
-  das ACs (.cer/.crt) em `C:\NuPDF\cadeias` ou `%APPDATA%\NuPDF\cadeias`
-  (além do repositório de certificados do Windows).
+  de confiança. A cadeia oficial ICP-Brasil (pacote do ITI) é baixada na
+  instalação e pode ser atualizada no painel ("Atualizar Cadeia ICP-Brasil");
+  ACs intermediárias que faltarem são buscadas pela internet. Para outras
+  cadeias, "Confiar nesta Cadeia" no cartão da assinatura (como no Adobe), ou
+  coloque os certificados (.cer/.crt) em `%APPDATA%\NuPDF\cadeias`.
 
 ## Instalação (usuários)
 
