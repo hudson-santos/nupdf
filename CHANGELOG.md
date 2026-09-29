@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.8.0] - 2026-09-29
+
+### Added
+- Excluir página: pelo botão direito na página ("Excluir Página N") ou pela miniatura
+  (botão vermelho de lixeira ao passar o mouse, ou botão direito), sempre com confirmação
+  ("Excluir" / "Cancelar"). A exclusão fica só em memória até o "Salvar" (o arquivo não
+  muda antes disso) e mantém giros e destaques já feitos. Bloqueada em documentos assinados
+  e na última página.
+- Girar página pela miniatura: botão cinza de girar ao passar o mouse (centralizado ao lado
+  do de excluir) ou botão direito ("Girar Página N"). As miniaturas passam a mostrar a
+  página girada como na tela.
+- Confirmação ao fechar também quando há páginas giradas ou excluídas não salvas: a janela
+  "Alterações Não Salvas" lista o que mudou (ex.: "páginas giradas e texto destacado").
+
+### Changed
+- Janela de alterações não salvas: "Não Salvar" em cinza escuro e "Cancelar" virou
+  "Fechar" (vermelho), que fecha só a janela e mantém a aba aberta.
+
+### Fixed
+- Miniatura de página girada aparecia duplicada (desenho antigo sobreposto ao novo).
+
 ## [1.7.1] - 2026-09-28
 
 ### Changed

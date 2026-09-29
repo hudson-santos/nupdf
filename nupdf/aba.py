@@ -193,6 +193,7 @@ class _Area(QWidget):
 
 class AbaDocumento(QWidget):
     painelMudou = Signal(object)
+    excluirPagina = Signal(int)  # pedido pela página ou pela miniatura (a janela executa)
 
     def __init__(self, documento: Documento):
         super().__init__()
@@ -220,6 +221,11 @@ class AbaDocumento(QWidget):
 
         v = self.visualizador
         self.miniaturas.paginaEscolhida.connect(v.ir_para_pagina)
+        self.miniaturas.rotacao_de = v._rot  # miniaturas acompanham a página girada na tela
+        self.miniaturas.girarPagina.connect(v.girar_pagina)
+        self.miniaturas.excluirPagina.connect(self.excluirPagina)
+        v.excluirPagina.connect(self.excluirPagina)
+        v.rotacaoMudou.connect(self.miniaturas.rotacao_mudou)
         v.paginaMudou.connect(self._pagina_mudou)
         v.copiadoPeloBotao.connect(lambda _t: self.toast("Texto Copiado"))
         v.destaqueFeito.connect(lambda: self.toast("Texto Destacado"))

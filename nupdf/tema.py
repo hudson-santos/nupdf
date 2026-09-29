@@ -90,12 +90,18 @@ QToolButton:pressed, QToolButton:checked { background: $superficie2; }
 QToolButton#trilho:checked { background: $destaque_suave; }
 QToolButton#comMenu::menu-indicator { image: none; width: 0; }
 QToolButton#abaFechar { padding: 2px; border-radius: 5px; }
+QToolButton#miniExcluir { background: #c62828; border: none; border-radius: 14px; padding: 6px; }
+QToolButton#miniExcluir:hover { background: #b71c1c; }
+QToolButton#miniGirar { background: #4b4d53; border: none; border-radius: 14px; padding: 6px; }
+QToolButton#miniGirar:hover { background: #5b5d64; }
 
 QPushButton { background: $superficie2; border: 1px solid $borda; border-radius: 8px; padding: 7px 14px; }
 QPushButton:hover { background: $hover; }
 QPushButton:disabled { color: $texto3; }
 QPushButton#fechar { background: #4b4d53; border: 1px solid #4b4d53; color: #ffffff; font-weight: 600; }
 QPushButton#fechar:hover { background: #5b5d64; }
+QPushButton#perigo { background: #c62828; border: 1px solid #c62828; color: #ffffff; font-weight: 600; }
+QPushButton#perigo:hover { background: #b71c1c; }
 QPushButton#primario { background: $destaque; border: 1px solid $destaque; color: #ffffff; font-weight: 600; }
 QPushButton#primario:hover { background: $destaque_hover; }
 QPushButton#primario:disabled { background: $superficie2; border-color: $borda; color: $texto3; }

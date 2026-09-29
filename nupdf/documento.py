@@ -56,9 +56,14 @@ def _ordenar_visual(palavras) -> list[Palavra]:
 
 
 class Documento:
-    def __init__(self, caminho: str, senha: str | None = None):
+    def __init__(self, caminho: str, senha: str | None = None, dados: bytes | None = None,
+                 pendencias: list[str] | None = None):
+        """`dados`: conteúdo já em memória (ex.: depois de excluir uma página), no lugar
+        do arquivo em `caminho`; `pendencias`: alterações ainda não salvas que vieram
+        junto (descrições, como "páginas excluídas")."""
         self.caminho = Path(caminho)
-        self.dados = self.caminho.read_bytes()
+        self.dados = dados if dados is not None else self.caminho.read_bytes()
+        self.pendencias_herdadas: list[str] = list(pendencias or [])
         self.doc = pymupdf.open(stream=self.dados, filetype="pdf")
         self.senha = None
         if self.doc.needs_pass:
@@ -217,6 +222,18 @@ class Documento:
 
     def marcar_salvo(self):
         self._estado_salvo = self._estado_destaques()
+        self.pendencias_herdadas = []
+
+    def sem_pagina(self, i: int, rotacoes: dict[int, int]) -> bytes:
+        """Bytes do documento como está na tela (rotação e destaques) sem a página i."""
+        copia = pymupdf.open(stream=self.bytes_editados(rotacoes), filetype="pdf")
+        try:
+            if copia.needs_pass:
+                copia.authenticate(self.senha or "")
+            copia.delete_page(i)
+            return copia.tobytes()
+        finally:
+            copia.close()
 
     def bytes_editados(self, rotacoes: dict[int, int]) -> bytes:
         """PDF como está na tela: rotação da visualização gravada nas páginas

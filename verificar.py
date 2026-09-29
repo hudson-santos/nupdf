@@ -142,6 +142,15 @@ def main() -> int:
            and not list(pg_sem.annots(types=[_pm.PDF_ANNOT_HIGHLIGHT])))
     doc_r.fechar()
 
+    sem2 = _pm.open(stream=doc.sem_pagina(1, {2: 90}), filetype="pdf")
+    doc_sem = Documento(str(pdf), dados=sem2.tobytes(), pendencias=["páginas excluídas"])
+    checar("excluir página (em memória)", sem2.page_count == 2 and sem2[1].rotation == 90
+           and doc_sem.n_paginas == 2 and doc_sem.pendencias_herdadas == ["páginas excluídas"]
+           and _pm.open(str(pdf)).page_count == 3)  # o arquivo em disco não muda
+    doc_sem.marcar_salvo()
+    checar("excluir página: salvar limpa a pendência", doc_sem.pendencias_herdadas == [])
+    doc_sem.fechar()
+
     print("Impressão:")
     from nupdf import impressao
     checar("intervalo de páginas", impressao.interpretar_intervalo("1-3, 5", 5) == [0, 1, 2, 4])

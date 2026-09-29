@@ -3,10 +3,10 @@
 import re
 
 import pymupdf
-from PySide6.QtCore import QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QGuiApplication, QIcon, QImage, QPixmap
-from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QLineEdit, QListView, QListWidget,
-                               QListWidgetItem, QPushButton, QScrollArea, QTreeWidget, QTreeWidgetItem,
+from PySide6.QtCore import QEvent, QPoint, QSize, Qt, QTimer, Signal
+from PySide6.QtGui import QColor, QGuiApplication, QIcon, QImage, QPainter, QPixmap
+from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QLineEdit, QListView, QListWidget, QMenu,
+                               QListWidgetItem, QPushButton, QScrollArea, QToolButton, QTreeWidget, QTreeWidgetItem,
                                QVBoxLayout, QWidget)
 
 from . import ui
@@ -22,7 +22,10 @@ def _cabecalho(titulo: str, maiusculas: bool = True) -> QLabel:
 
 class PainelMiniaturas(QWidget):
     paginaEscolhida = Signal(int)
+    girarPagina = Signal(int)  # botões sobre a miniatura / menu do botão direito
+    excluirPagina = Signal(int)
     LARGURA = 128
+    ALTURA = 182  # caixa fixa (retrato A4): girar não muda o tamanho do item
 
     def __init__(self, doc: Documento):
         super().__init__()
@@ -41,12 +44,12 @@ class PainelMiniaturas(QWidget):
         self.lista.setWrapping(False)
         self.lista.setMovement(QListView.Static)
         self.lista.setResizeMode(QListView.Adjust)
-        self.lista.setIconSize(QSize(self.LARGURA, int(self.LARGURA * 1.42)))
+        self.lista.setIconSize(QSize(self.LARGURA, self.ALTURA))
         self.lista.setSpacing(4)
         self.lista.setVerticalScrollMode(QListWidget.ScrollPerPixel)
         self.lista.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)  # só rolagem vertical
         lay.addWidget(self.lista, 1)
-        branco = QPixmap(self.LARGURA, int(self.LARGURA * 1.414))
+        branco = QPixmap(self.LARGURA, self.ALTURA)
         branco.fill(QColor("#ffffff"))
         for i in range(doc.n_paginas):
             it = QListWidgetItem(QIcon(branco), str(i + 1))
@@ -56,6 +59,36 @@ class PainelMiniaturas(QWidget):
         self._proxima = 0
         self._timer = QTimer(self, interval=0, timeout=self._renderizar_lote)
         self._bloquear = False
+        # rotação da visualização de cada página (a aba liga ao visualizador) e a
+        # rotação com que cada miniatura foi desenhada
+        self.rotacao_de = lambda i: 0
+        self._rot_desenhada: dict[int, int] = {}
+        # botão "girar" que aparece sobre a miniatura sob o mouse
+        # botões "girar" e "excluir" que aparecem sobre a miniatura sob o mouse
+        self._botoes = QWidget(self.lista.viewport())
+        bl = QHBoxLayout(self._botoes)
+        bl.setContentsMargins(0, 0, 0, 0)
+        bl.setSpacing(4)
+        # ícones brancos fixos sobre fundo colorido (fora do ui.botao, que repinta
+        # os ícones na cor do tema ao alternar claro/escuro)
+        self._bt_excluir = QToolButton()
+        self._bt_excluir.setObjectName("miniExcluir")  # vermelho
+        self._bt_girar = QToolButton()
+        self._bt_girar.setObjectName("miniGirar")  # cinza escuro
+        for bt, nome in ((self._bt_excluir, "lixeira"), (self._bt_girar, "girar")):
+            bt.setIcon(icone(nome, "#ffffff", 16))
+            bt.setIconSize(QSize(16, 16))
+            bt.setCursor(Qt.PointingHandCursor)
+            bl.addWidget(bt)
+        self._botoes.hide()
+        self._bt_girar.clicked.connect(lambda: self._pagina_do_botao >= 0 and self.girarPagina.emit(self._pagina_do_botao))
+        self._bt_excluir.clicked.connect(self._excluir_sob_mouse)
+        self._pagina_do_botao = -1
+        self.lista.viewport().setMouseTracking(True)
+        self.lista.viewport().installEventFilter(self)
+        self.lista.verticalScrollBar().valueChanged.connect(lambda _: self._botoes.hide())
+        self.lista.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.lista.customContextMenuRequested.connect(self._menu)
 
     def iniciar(self):
         if self._proxima < self.doc.n_paginas and not self._timer.isActive():
@@ -68,17 +101,84 @@ class PainelMiniaturas(QWidget):
             if i >= self.doc.n_paginas:
                 self._timer.stop()
                 return
-            try:
-                pg = self.doc.doc[i]
-                s = self.LARGURA * dpr / max(pg.rect.width, 1)
-                pm = pg.get_pixmap(matrix=pymupdf.Matrix(s, s), alpha=False)
-                img = QImage(pm.samples, pm.width, pm.height, pm.stride, QImage.Format_RGB888).copy()
-                pix = QPixmap.fromImage(img)
-                pix.setDevicePixelRatio(dpr)
-                self.lista.item(i).setIcon(QIcon(pix))
-            except Exception:
-                pass
+            self._desenhar(i, dpr)
             self._proxima += 1
+
+    def _desenhar(self, i: int, dpr: float | None = None):
+        dpr = dpr or self.devicePixelRatioF()
+        rot = self.rotacao_de(i) % 360
+        try:
+            pg = self.doc.doc[i]
+            # tamanho como aparece na tela, encaixado na caixa fixa da miniatura
+            larg, alt = (pg.rect.width, pg.rect.height) if rot in (0, 180) else (pg.rect.height, pg.rect.width)
+            s = min(self.LARGURA / max(larg, 1), self.ALTURA / max(alt, 1)) * dpr
+            pm = pg.get_pixmap(matrix=pymupdf.Matrix(s, s).prerotate(rot), alpha=False)
+            img = QImage(pm.samples, pm.width, pm.height, pm.stride, QImage.Format_RGB888).copy()
+            # a imagem vai centralizada numa tela transparente sempre do mesmo tamanho: o
+            # item nunca muda de tamanho, então a lista não precisa refazer o layout (sem
+            # isso, girar deixava o desenho antigo sobreposto ao novo)
+            tela = QPixmap(round(self.LARGURA * dpr), round(self.ALTURA * dpr))
+            tela.fill(Qt.transparent)
+            p = QPainter(tela)
+            p.drawImage((tela.width() - img.width()) // 2, (tela.height() - img.height()) // 2, img)
+            p.end()
+            tela.setDevicePixelRatio(dpr)
+            self.lista.item(i).setIcon(QIcon(tela))
+            self._rot_desenhada[i] = rot
+        except Exception:
+            pass
+
+    def rotacao_mudou(self):
+        """Redesenha só as miniaturas já desenhadas cuja rotação mudou."""
+        for i, rot in list(self._rot_desenhada.items()):
+            if self.rotacao_de(i) % 360 != rot:
+                self._desenhar(i)
+        self.lista.viewport().update()
+
+    # ------------------------------------------------------------------ girar
+    def eventFilter(self, obj, e):
+        if obj is self.lista.viewport():
+            if e.type() == QEvent.MouseMove:
+                self._mostrar_botao(e.position().toPoint())
+            elif e.type() == QEvent.Leave and not self._botoes.underMouse():
+                self._botoes.hide()
+        return super().eventFilter(obj, e)
+
+    def _mostrar_botao(self, pos: QPoint):
+        it = self.lista.itemAt(pos)
+        if it is None:
+            self._botoes.hide()
+            return
+        i = self.lista.row(it)
+        r = self.lista.visualItemRect(it)
+        bt = self._botoes
+        bt.adjustSize()
+        bt.move(r.center().x() - bt.width() // 2, r.top() + 6)  # centralizados no topo da miniatura
+        self._pagina_do_botao = i
+        self._bt_girar.setToolTip(f"Girar Página {i + 1}")
+        self._bt_excluir.setToolTip(f"Excluir Página {i + 1}")
+        bt.raise_()
+        bt.show()
+
+    def _excluir_sob_mouse(self):
+        i = self._pagina_do_botao
+        self._botoes.hide()
+        if i >= 0:
+            self.excluirPagina.emit(i)
+
+    def _menu(self, pos: QPoint):
+        it = self.lista.itemAt(pos)
+        if it is None:
+            return
+        i = self.lista.row(it)
+        m = QMenu(self)
+        girar = m.addAction(f"Girar Página {i + 1}")
+        excluir = m.addAction(f"Excluir Página {i + 1}")
+        esc = m.exec(self.lista.viewport().mapToGlobal(pos))
+        if esc is girar:
+            self.girarPagina.emit(i)
+        elif esc is excluir:
+            self.excluirPagina.emit(i)
 
     def _escolhida(self, i: int):
         if i >= 0 and not self._bloquear:

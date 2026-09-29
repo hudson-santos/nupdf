@@ -38,6 +38,7 @@ class Visualizador(QScrollArea):
     destaqueFeito = Signal()
     destaqueRemovido = Signal()
     corDestaqueAlterada = Signal()
+    excluirPagina = Signal(int)  # menu do botão direito (a janela executa)
     corDestaqueEscolhida = Signal(str)  # nova cor padrão do "Destacar" (a janela salva)
     assinaturaClicada = Signal(str)  # nome do campo da assinatura visível clicada
 
@@ -50,6 +51,7 @@ class Visualizador(QScrollArea):
         self.zoom = 1.0
         self.rotacao = 0                 # rotação de todas as páginas
         self.rotacao_pagina: dict = {}   # rotação extra de páginas específicas
+        self._rotacoes_salvas: dict = {}  # rotacoes() no último "Salvar" (em relação ao arquivo aberto)
         self.modo = "texto"          # texto | mao | posicionar
         self.ajuste = ("largura", 1.5)  # (modo, zoom máximo) ou None
         self._cache: OrderedDict = OrderedDict()
@@ -319,6 +321,14 @@ class Visualizador(QScrollArea):
     def rotacoes(self) -> dict[int, int]:
         """Rotação efetiva (geral + da página) de cada página girada na tela."""
         return {i: self._rot(i) for i in range(len(self._base)) if self._rot(i)}
+
+    @property
+    def rotacoes_pendentes(self) -> bool:
+        """Páginas giradas desde o último "Salvar" (girar 4x a mesma página não conta)."""
+        return self.rotacoes() != self._rotacoes_salvas
+
+    def marcar_rotacoes_salvas(self):
+        self._rotacoes_salvas = self.rotacoes()
 
     def girar_pagina(self, i: int | None = None):
         """Gira só a visualização de uma página (a atual, por padrão) em 90°."""
@@ -982,6 +992,7 @@ class _Paginas(QWidget):
         m.addSeparator()
         a_girar_pag = m.addAction(f"Girar Página {i + 1}") if i >= 0 else None
         a_girar = m.addAction("Girar Todas as Páginas")
+        a_excluir = m.addAction(f"Excluir Página {i + 1}") if i >= 0 else None
         a_larg = m.addAction("Ajustar à Largura")
         a_pagina = m.addAction("Página Inteira")
         esc = m.exec(e.globalPos())
@@ -999,6 +1010,8 @@ class _Paginas(QWidget):
             v.girar_pagina(i)
         elif esc is a_girar:
             v.girar()
+        elif a_excluir is not None and esc is a_excluir:
+            v.excluirPagina.emit(i)
         elif esc is a_larg:
             v.ajustar("largura")
         elif esc is a_pagina:

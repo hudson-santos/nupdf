@@ -415,14 +415,15 @@ class JanelaPrincipal(QMainWindow):
             self.tabbar.setCurrentIndex((self.tabbar.currentIndex() + d) % n)
 
     def fechar_aba(self, i: int, confirmar: bool = True) -> bool:
-        """Fecha a aba i. Com `confirmar`, pergunta antes de descartar destaques não
-        salvos (as recargas internas - depois de salvar/assinar - não perguntam).
+        """Fecha a aba i. Com `confirmar`, pergunta antes de descartar alterações não
+        salvas - páginas giradas, destaques (as recargas internas - depois de
+        salvar/assinar - não perguntam).
         Devolve False se o usuário desistiu."""
         if not (0 <= i < len(self.abas)):
             return True
-        if confirmar and self.abas[i].doc.destaques_pendentes:
+        if confirmar and self._pendencias(self.abas[i]):
             aba = self.abas[i]
-            resposta = self._perguntar_destaques(aba)
+            resposta = self._perguntar_alteracoes(aba)
             if resposta == "cancelar":
                 return False
             if resposta == "salvar":
@@ -438,28 +439,46 @@ class JanelaPrincipal(QMainWindow):
         self._aba_trocada(self.tabbar.currentIndex())
         return True
 
-    def _perguntar_destaques(self, aba) -> str:
-        """'salvar', 'descartar' ou 'cancelar' para uma aba com destaques não salvos."""
+    @staticmethod
+    def _pendencias(aba) -> list[str]:
+        """Alterações feitas desde o último "Salvar" (vazio = pode fechar sem perguntar)."""
+        pend = list(aba.doc.pendencias_herdadas)  # de antes de excluir uma página
+        if aba.visualizador.rotacoes_pendentes and "páginas giradas" not in pend:
+            pend.append("páginas giradas")
+        if aba.doc.destaques_pendentes and "texto destacado" not in pend:
+            pend.append("texto destacado")
+        return pend
+
+    def _perguntar_alteracoes(self, aba) -> str:
+        """'salvar', 'descartar' ou 'cancelar' para uma aba com alterações não salvas."""
         self.tabbar.setCurrentIndex(self.abas.index(aba))
         caixa = QMessageBox(self)
-        caixa.setWindowTitle("Destaques Não Salvos")
+        caixa.setWindowTitle("Alterações Não Salvas")
         caixa.setIcon(QMessageBox.NoIcon)
+        pend = self._pendencias(aba)
+        quais = pend[0] if len(pend) == 1 else ", ".join(pend[:-1]) + " e " + pend[-1]
         if not self._salvar_bloqueado(aba):
-            caixa.setText(f"O documento <b>{aba.doc.nome}</b> tem texto destacado que ainda não foi "
-                          "salvo.<br><br>Deseja Salvar antes de Fechar ?")
+            caixa.setText(f"O documento <b>{aba.doc.nome}</b> tem alterações que ainda não foram salvas "
+                          f"({quais}).<br><br>Deseja Salvar antes de Fechar ?")
             salvar = caixa.addButton("Salvar", QMessageBox.AcceptRole)
             descartar = caixa.addButton("Não Salvar", QMessageBox.DestructiveRole)
-            estilos = ((salvar, "primario"), (descartar, ""))
+            estilos = ((salvar, "primario"), (descartar, "fechar"))  # "fechar" = cinza escuro
         else:
             # assinado: salvar invalidaria as assinaturas, então só dá para descartar
-            caixa.setText(f"O documento <b>{aba.doc.nome}</b> tem texto destacado que não foi salvo."
-                          "<br><br>Por ter assinatura digital, os destaques não podem ser salvos "
+            caixa.setText(f"O documento <b>{aba.doc.nome}</b> tem alterações que não foram salvas "
+                          f"({quais}).<br><br>Por ter assinatura digital, elas não podem ser salvas "
                           "(as assinaturas seriam invalidadas).<br><br>Deseja Fechar mesmo assim ?")
             salvar = None
             descartar = caixa.addButton("Fechar sem Salvar", QMessageBox.AcceptRole)
             estilos = ((descartar, "primario"),)
-        cancelar = caixa.addButton("Cancelar", QMessageBox.RejectRole)
-        for botao, nome in (*estilos, (cancelar, "fechar")):  # "fechar" = cinza escuro
+        if salvar is not None:
+            # "Fechar" (vermelho) fecha só esta janela: a aba continua aberta, como o Esc
+            cancelar = caixa.addButton("Fechar", QMessageBox.RejectRole)
+            estilos += ((cancelar, "perigo"),)
+        else:
+            cancelar = caixa.addButton("Cancelar", QMessageBox.RejectRole)
+            estilos += ((cancelar, "fechar"),)
+        for botao, nome in estilos:
             botao.setObjectName(nome)
             botao.setCursor(Qt.PointingHandCursor)
             botao.style().unpolish(botao)  # reaplica o QSS com o novo objectName
@@ -542,7 +561,19 @@ class JanelaPrincipal(QMainWindow):
                 QMessageBox.critical(self, NOME_APP, f"Não foi possível abrir o arquivo:\n{p}\n\n{e}")
                 return None
 
+        aba = self._criar_aba(doc)
+        self.config.adicionar_recente(str(resolvido))
+        self.config.set("ultima_pasta", str(resolvido.parent))
+        painel = painel if painel is not None else (self.config.get("painel", "") or None)
+        if painel:
+            aba.mostrar_painel(painel)
+        aba.visualizador._pag.setFocus()
+        return aba
+
+    def _criar_aba(self, doc: Documento, indice: int | None = None) -> AbaDocumento:
+        """Aba para o documento, no fim da barra ou na posição `indice`."""
         aba = AbaDocumento(doc)
+        aba.excluirPagina.connect(lambda i, a=aba: self.excluir_pagina(a, i))
         aba.painelMudou.connect(lambda _: self._atualizar_estado())
         aba.visualizador.rotacaoMudou.connect(self._atualizar_estado)
         aba.visualizador.destaqueFeito.connect(self._atualizar_estado)
@@ -553,9 +584,10 @@ class JanelaPrincipal(QMainWindow):
         aba.visualizador.corDestaqueEscolhida.connect(self._cor_destaque_escolhida)
         aba.visualizador.retanguloDesenhado.connect(lambda pg, r, a=aba: self._posicionado(a, pg, r))
         aba.visualizador.posicionamentoCancelado.connect(lambda a=aba: self._posicionamento_cancelado(a))
-        self.abas.append(aba)
+        indice = len(self.abas) if indice is None else indice
+        self.abas.insert(indice, aba)
         self.pilha.addWidget(aba)
-        idx = self.tabbar.addTab(icone("arquivo", ui.cores()["texto2"], 14), doc.nome)
+        idx = self.tabbar.insertTab(indice, icone("arquivo", ui.cores()["texto2"], 14), doc.nome)
         self.tabbar.setTabToolTip(idx, doc.nome)
         fechar = ui.botao("fechar", "Fechar (Ctrl+W)", tamanho=12, obj="abaFechar")
         fechar.clicked.connect(lambda _=False, a=aba: self.fechar_aba(self.abas.index(a)) if a in self.abas else None)
@@ -569,14 +601,65 @@ class JanelaPrincipal(QMainWindow):
         self.faixa_mais.setFixedHeight(self.tabbar.tabRect(idx).height())
         self.tabbar.setCurrentIndex(idx)
         self._aba_trocada(idx)
-
-        self.config.adicionar_recente(str(resolvido))
-        self.config.set("ultima_pasta", str(resolvido.parent))
-        painel = painel if painel is not None else (self.config.get("painel", "") or None)
-        if painel:
-            aba.mostrar_painel(painel)
-        aba.visualizador._pag.setFocus()
         return aba
+
+    def _confirmar_exclusao(self, i: int) -> bool:
+        caixa = QMessageBox(self)
+        caixa.setWindowTitle("Excluir Página")
+        caixa.setIcon(QMessageBox.NoIcon)
+        caixa.setText(f"Deseja Excluir a Página {i + 1} ?<br><br>"
+                      "O arquivo só é alterado ao Salvar.")
+        excluir = caixa.addButton("Excluir", QMessageBox.AcceptRole)
+        cancelar = caixa.addButton("Cancelar", QMessageBox.RejectRole)
+        for botao, nome in ((excluir, "perigo"), (cancelar, "fechar")):  # vermelho / cinza escuro
+            botao.setObjectName(nome)
+            botao.setCursor(Qt.PointingHandCursor)
+            botao.style().unpolish(botao)  # reaplica o QSS com o novo objectName
+            botao.style().polish(botao)
+        caixa.setDefaultButton(cancelar)  # Enter não exclui por engano
+        caixa.setEscapeButton(cancelar)
+        caixa.exec()
+        return caixa.clickedButton() is excluir
+
+    def excluir_pagina(self, aba: AbaDocumento, i: int):
+        """Exclui a página i. O documento continua em memória (o arquivo só muda ao
+        salvar): a aba é refeita, no mesmo lugar, a partir do conteúdo sem a página."""
+        if aba not in self.abas:
+            return
+        if aba.doc.tem_assinaturas:
+            aba.toast("Documento assinado: não é possível excluir páginas (as assinaturas seriam invalidadas)", 3200)
+            return
+        n = aba.doc.n_paginas
+        if n <= 1:
+            aba.toast("O documento precisa ter pelo menos uma página", 2500)
+            return
+        if not self._confirmar_exclusao(i):
+            return
+        v = aba.visualizador
+        try:
+            dados = aba.doc.sem_pagina(i, v.rotacoes())
+            pendencias = [p for p in self._pendencias(aba) if p != "páginas excluídas"] + ["páginas excluídas"]
+            doc = Documento(str(aba.doc.caminho), aba.doc.senha, dados=dados, pendencias=pendencias)
+        except Exception as e:
+            QMessageBox.critical(self, NOME_APP, f"Não foi possível excluir a página:\n{e}")
+            return
+        # a nova aba continua de onde estava: mesmo painel, zoom e página
+        painel, ajuste, zoom = aba.painel, v.ajuste, v.zoom
+        atual = v.pagina_atual
+        atual = min(atual - 1 if i < atual else atual, n - 2)
+        indice = self.abas.index(aba)
+        self.fechar_aba(indice, confirmar=False)
+        nova = self._criar_aba(doc, indice)
+        if painel:
+            nova.mostrar_painel(painel)
+        nv = nova.visualizador
+        if ajuste:
+            QTimer.singleShot(0, lambda: nv.ajustar(*ajuste))
+        else:
+            QTimer.singleShot(0, lambda: nv.definir_zoom(zoom, manual=True))
+        QTimer.singleShot(0, lambda: nv.ir_para_pagina(atual))
+        nova.toast(f"Página {i + 1} Excluída")
+        self._atualizar_estado()
 
     def _cor_destaque_escolhida(self, cor: str):
         self.config.set("destaque/cor", cor)
@@ -609,6 +692,7 @@ class JanelaPrincipal(QMainWindow):
             QMessageBox.critical(self, NOME_APP, f"Não foi possível salvar:\n{e}")
             return None
         aba.doc.marcar_salvo()
+        aba.visualizador.marcar_rotacoes_salvas()
         mesmo_arquivo = Path(destino).resolve() == aba.doc.caminho.resolve()
         if mesmo_arquivo and editado:
             # recarrega: o que está na tela passa a ser exatamente o arquivo salvo
@@ -861,9 +945,9 @@ class JanelaPrincipal(QMainWindow):
                 self.abrir_arquivo(c)
 
     def closeEvent(self, e):
-        # destaques não salvos: pergunta aba por aba (Cancelar mantém o NuPDF aberto)
-        for aba in [a for a in self.abas if a.doc.destaques_pendentes]:
-            resposta = self._perguntar_destaques(aba)
+        # alterações não salvas: pergunta aba por aba (Fechar/Esc mantém o NuPDF aberto)
+        for aba in [a for a in self.abas if self._pendencias(a)]:
+            resposta = self._perguntar_alteracoes(aba)
             if resposta == "cancelar" or (resposta == "salvar" and self.salvar_copia(aba) is None):
                 e.ignore()
                 return
