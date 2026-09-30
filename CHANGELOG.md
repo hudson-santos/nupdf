@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.12.1] - 2026-09-30
+
+### Changed
+- "Atualizar Cadeia ICP-Brasil": o botão mantém a cor vermelha durante o download (antes
+  ficava cinza), mostra "Baixando a Cadeia ICP-Brasil" e ignora cliques repetidos até terminar.
+
 ## [1.12.0] - 2026-09-30
 
 ### Added

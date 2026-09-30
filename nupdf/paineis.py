@@ -640,13 +640,17 @@ class PainelAssinaturas(QWidget):
 
     def _atualizar_cadeia(self):
         from .assinatura import cadeia_icp
-        self.b_cadeia.setEnabled(False)
-        self.b_cadeia.setText("  Baixando a Cadeia ICP-Brasil…")
+        tarefa = getattr(self, "_tarefa_cadeia", None)
+        if tarefa is not None and tarefa.isRunning():
+            return  # já baixando: ignora cliques repetidos
+        # o botão continua habilitado (desabilitado ficaria cinza): só muda o texto
+        self.b_cadeia.setText("  Baixando a Cadeia ICP-Brasil")
+        self.b_cadeia.setCursor(Qt.BusyCursor)
         self._tarefa_cadeia = ui.Tarefa(cadeia_icp.atualizar)
 
         def fim(texto: str):
-            self.b_cadeia.setEnabled(True)
             self.b_cadeia.setText("  Atualizar Cadeia ICP-Brasil")
+            self.b_cadeia.setCursor(Qt.PointingHandCursor)
             self._mostrar_status(texto)
 
         def ok(n):
