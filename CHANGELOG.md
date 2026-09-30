@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.11.3] - 2026-09-30
+
+### Changed
+- Marcadores: botão de remover com fundo vermelho e ícone branco, igual ao de excluir página
+  nas miniaturas.
+
+### Fixed
+- Painéis laterais (Marcadores, Propriedades e Assinaturas): o estilo do contêiner da lista
+  passava para os itens, apagando o fundo dos botões e deixando as dicas pretas; os cartões
+  de marcadores voltam a mostrar o fundo previsto no tema.
+
 ## [1.11.2] - 2026-09-30
 
 ### Fixed
