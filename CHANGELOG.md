@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.10.2] - 2026-09-30
+
+### Added
+- Pasta ms/ com as imagens da listagem na Microsoft Store: 6 capturas de tela (1920x1080)
+  e os logotipos 1:1 (2160x2160), 2:3 (1440x2160) e 16:9 (3840x2160), gerados a partir do
+  próprio NuPDF com documentos e certificado fictícios (ms/gerar_imagens.py refaz tudo;
+  ms/README.md indica onde cada arquivo vai no Partner Center).
+
 ## [1.10.1] - 2026-09-29
 
 ### Changed
