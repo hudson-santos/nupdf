@@ -360,7 +360,8 @@ class JanelaPrincipal(QMainWindow):
         self.b_paineis = {}
         for nome, ic, dica in (("miniaturas", "miniaturas", "Páginas"),
                                ("dados", "propriedades", "Propriedades do Documento"),
-                               ("assinaturas", "escudo", "Assinaturas Digitais")):
+                               ("assinaturas", "escudo", "Assinaturas Digitais"),
+                               ("destaques", "destacar", "Campos Destacados")):
             b = ui.botao(ic, dica, checavel=True, tamanho=20, obj="trilho")
             b.clicked.connect(lambda _=False, n=nome: self._alternar_painel(n))
             lay.addWidget(b, 0, Qt.AlignHCenter)

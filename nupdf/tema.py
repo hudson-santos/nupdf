@@ -179,6 +179,8 @@ QScrollBar::add-page, QScrollBar::sub-page { background: transparent; }
 #sub { color: $texto2; }
 #sub3 { color: $texto3; font-size: 12px; }
 
+#itemDestaque { background: $superficie2; border: 1px solid $borda; border-radius: 6px; }
+#itemDestaque:hover { background: $hover; }
 #cartao { background: $superficie2; border: 1px solid $borda; border-radius: 10px; }
 #cartao[destaque="true"] { border: 1px solid $destaque; }
 #cartaoTitulo { font-weight: 600; }

@@ -103,6 +103,9 @@ def main() -> int:
     doc_d = Documento(str(pdf))
     linha = doc_d.linhas(0)[0]
     doc_d.destacar(0, [_pm.Rect(linha[0][:4]) | _pm.Rect(linha[-1][:4])])
+    campos = doc_d.listar_destaques()
+    checar("listar campos destacados (cor e texto)", len(campos) == 1 and campos[0]["cor"] == "amarelo"
+           and campos[0]["pagina"] == 0 and linha[0][4] in campos[0]["texto"], str(campos))
     salvo = _pm.open(stream=doc_d.bytes_editados({}), filetype="pdf")
     pg_salva = salvo[0]  # a página precisa continuar referenciada enquanto as anotações são lidas
     anots = [a.rect for a in pg_salva.annots() if a.type[1] == "Highlight"]

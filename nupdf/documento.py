@@ -173,6 +173,27 @@ class Documento:
                     return annot.xref
         return None
 
+    def listar_destaques(self) -> list[dict]:
+        """Todos os destaques (marca-texto) do documento exibido, em ordem de página e
+        posição: página, xref, cor (chave de CORES_DESTAQUE ou None), rgb, área e texto."""
+        itens = []
+        for i in range(self.n_paginas):
+            pg = self.doc[i]  # referenciada enquanto as anotações são lidas
+            for annot in pg.annots(types=[pymupdf.PDF_ANNOT_HIGHLIGHT]):
+                vs = annot.vertices or []
+                rets = [pymupdf.Quad(vs[k:k + 4]).rect for k in range(0, len(vs) - 3, 4)]
+                if not rets:
+                    continue
+                area = pymupdf.Rect(rets[0])
+                for r in rets[1:]:
+                    area |= r
+                texto = " ".join(" ".join(pg.get_textbox(r).split()) for r in rets).strip()
+                itens.append({"pagina": i, "xref": annot.xref, "cor": self.cor_do_destaque(i, annot.xref),
+                              "rgb": (annot.colors or {}).get("stroke"), "area": area,
+                              "texto": texto or "(sem texto)"})
+        itens.sort(key=lambda d: (d["pagina"], round(d["area"].y0), d["area"].x0))
+        return itens
+
     def cor_do_destaque(self, i: int, xref: int) -> str | None:
         """Chave de CORES_DESTAQUE mais próxima da cor do destaque (None se nenhuma bater)."""
         if xref in self._destaques_novos:

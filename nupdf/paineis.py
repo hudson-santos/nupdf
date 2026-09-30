@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QLineEdit, QListView
                                QVBoxLayout, QWidget)
 
 from . import ui
-from .documento import Documento
+from .documento import CORES_DESTAQUE, Documento
 from .icones import icone
 
 
@@ -351,6 +351,98 @@ class _CartaoAssinatura(QFrame):
             confiar.setToolTip(f"Passar a confiar em: {r.topo_cadeia_nome}")
             confiar.clicked.connect(lambda: ao_confiar(r))
             lay.addWidget(confiar, 0, Qt.AlignLeft)
+
+
+class _ItemDestaque(QFrame):
+    """Um campo destacado: texto (até 2 linhas) e página; clicar leva até ele."""
+
+    def __init__(self, d: dict, cor_hex: str, ao_clicar):
+        super().__init__()
+        self.setObjectName("itemDestaque")
+        self.setAttribute(Qt.WA_Hover)  # :hover do QSS
+        self.setCursor(Qt.PointingHandCursor)
+        self.setStyleSheet(f"#itemDestaque {{ border-left: 4px solid {cor_hex}; }}")
+        self._ao_clicar, self._d = ao_clicar, d
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(10, 6, 8, 6)
+        lay.setSpacing(1)
+        texto = d["texto"] if len(d["texto"]) <= 110 else d["texto"][:107].rstrip() + "…"
+        rotulo = QLabel(texto)
+        rotulo.setWordWrap(True)
+        rotulo.setAttribute(Qt.WA_TransparentForMouseEvents)
+        pagina = QLabel(f"Página {d['pagina'] + 1}")
+        pagina.setObjectName("sub3")
+        pagina.setAttribute(Qt.WA_TransparentForMouseEvents)
+        lay.addWidget(rotulo)
+        lay.addWidget(pagina)
+        self.setToolTip(d["texto"])
+
+    def mouseReleaseEvent(self, e):
+        if e.button() == Qt.LeftButton:
+            self._ao_clicar(self._d)
+        super().mouseReleaseEvent(e)
+
+
+class PainelDestaques(QWidget):
+    """Campos destacados (marca-texto) do documento, agrupados por cor/prioridade."""
+
+    destaqueEscolhido = Signal(int, object)  # página, área (pymupdf.Rect)
+    ORDEM = ("vermelho", "amarelo", "azul", "verde")  # alta, média, baixa, resolvido
+
+    def __init__(self, doc: Documento):
+        super().__init__()
+        self.doc = doc
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(12, 14, 12, 12)
+        lay.setSpacing(8)
+        lay.addWidget(_cabecalho("Campos Destacados", maiusculas=False))
+        self.status = QLabel("")
+        self.status.setObjectName("sub")
+        self.status.setWordWrap(True)
+        lay.addWidget(self.status)
+        area = QScrollArea()
+        area.setWidgetResizable(True)
+        area.setFrameShape(QFrame.NoFrame)
+        area.setStyleSheet("QScrollArea { background: transparent; }")
+        self.conteudo = QWidget()
+        self.conteudo.setStyleSheet("background: transparent;")
+        self.lista = QVBoxLayout(self.conteudo)
+        self.lista.setContentsMargins(0, 0, 4, 0)
+        self.lista.setSpacing(6)
+        self.lista.addStretch(1)
+        area.setWidget(self.conteudo)
+        lay.addWidget(area, 1)
+
+    def carregar(self):
+        while self.lista.count() > 1:
+            w = self.lista.takeAt(0).widget()
+            if w:
+                w.hide()
+                w.deleteLater()
+        itens = self.doc.listar_destaques()
+        n = len(itens)
+        self.status.setText("Nenhum Campo Destacado." if not n else
+                            f"{n} Campo{'s' if n > 1 else ''} Destacado{'s' if n > 1 else ''}.")
+        grupos: dict = {}
+        for d in itens:
+            grupos.setdefault(d["cor"] if d["cor"] in CORES_DESTAQUE else None, []).append(d)
+        for cor in (*self.ORDEM, None):
+            if cor not in grupos:
+                continue
+            if cor:
+                rotulo, rgb = CORES_DESTAQUE[cor]
+            else:
+                rotulo, rgb = "Outras Cores", (0.6, 0.6, 0.6)
+            cor_hex = "#%02x%02x%02x" % tuple(round(c * 255) for c in rgb)
+            titulo = QLabel(f"{rotulo} ({len(grupos[cor])})")
+            titulo.setObjectName("cartaoTitulo")
+            titulo.setContentsMargins(0, 6, 0, 0)
+            self.lista.insertWidget(self.lista.count() - 1, titulo)
+            for d in grupos[cor]:
+                rgb_item = d["rgb"] or rgb
+                hex_item = cor_hex if cor else "#%02x%02x%02x" % tuple(round(c * 255) for c in rgb_item)
+                self.lista.insertWidget(self.lista.count() - 1, _ItemDestaque(
+                    d, hex_item, lambda d: self.destaqueEscolhido.emit(d["pagina"], d["area"])))
 
 
 class PainelAssinaturas(QWidget):

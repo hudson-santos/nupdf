@@ -36,6 +36,7 @@ class Visualizador(QScrollArea):
     copiadoPeloBotao = Signal(str)
     rotacaoMudou = Signal()
     destaqueFeito = Signal()
+    edicaoRestaurada = Signal()  # depois do Ctrl+Z (destaques podem ter mudado)
     vaiAlterar = Signal()  # logo ANTES de girar/destacar/remover/recolorir (a aba guarda o Ctrl+Z)
     destaqueRemovido = Signal()
     corDestaqueAlterada = Signal()
@@ -351,6 +352,7 @@ class Visualizador(QScrollArea):
                 self.ajustar(*self.ajuste)
             self.ir_para_pagina(i)
             self.rotacaoMudou.emit()
+        self.edicaoRestaurada.emit()
 
     def girar_pagina(self, i: int | None = None):
         """Gira só a visualização de uma página (a atual, por padrão) em 90°."""

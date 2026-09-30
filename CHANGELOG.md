@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.11.0] - 2026-09-30
+
+### Added
+- Painel "Campos Destacados" no menu lateral (abaixo de Assinaturas Digitais): lista todos os
+  destaques do documento agrupados por cor/prioridade (Vermelho - Alta, Amarelo - Média,
+  Azul - Baixa, Verde - Resolvido e Outras Cores), com o texto destacado e a página. Clicar
+  num item leva até ele na página, com um realce momentâneo. A lista acompanha as alterações
+  (destacar, remover, mudar a cor e desfazer) e inclui os destaques que já vinham no PDF.
+
 ## [1.10.2] - 2026-09-30
 
 ### Added

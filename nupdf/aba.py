@@ -7,10 +7,10 @@ from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QLineEdit, QMenu, QS
 
 from . import ui
 from .documento import Documento
-from .paineis import PainelAssinaturas, PainelMiniaturas, PainelPropriedades
+from .paineis import PainelAssinaturas, PainelDestaques, PainelMiniaturas, PainelPropriedades
 from .visualizador import Visualizador
 
-PAINEIS = ("miniaturas", "dados", "assinaturas")
+PAINEIS = ("miniaturas", "dados", "assinaturas", "destaques")
 LARGURA_PAINEL = 280
 LARGURA_MINIATURAS = 172  # só a coluna de miniaturas + rolagem, sem sobra à direita
 
@@ -212,7 +212,8 @@ class AbaDocumento(QWidget):
         self.miniaturas = PainelMiniaturas(documento)
         self.dados = PainelPropriedades(documento)  # chave "dados" mantida (preferência salva)
         self.assinaturas = PainelAssinaturas(documento)
-        for p in (self.miniaturas, self.dados, self.assinaturas):
+        self.destaques = PainelDestaques(documento)
+        for p in (self.miniaturas, self.dados, self.assinaturas, self.destaques):
             self.lateral.addWidget(p)
         lay.addWidget(self.lateral)
 
@@ -231,6 +232,10 @@ class AbaDocumento(QWidget):
         v.paginaMudou.connect(self._pagina_mudou)
         v.copiadoPeloBotao.connect(lambda _t: self.toast("Texto Copiado"))
         v.vaiAlterar.connect(self.registrar)
+        # "Campos Destacados": vai até o destaque clicado e acompanha as alterações
+        self.destaques.destaqueEscolhido.connect(self._ir_para_destaque)
+        for sinal in (v.destaqueFeito, v.destaqueRemovido, v.corDestaqueAlterada, v.edicaoRestaurada):
+            sinal.connect(self._destaques_mudaram)
         v.destaqueFeito.connect(lambda: self.toast("Texto Destacado"))
         v.destaqueRemovido.connect(lambda: self.toast("Destaque Removido"))
         v.corDestaqueAlterada.connect(lambda: self.toast("Cor do Destaque Alterada"))
@@ -260,7 +265,8 @@ class AbaDocumento(QWidget):
             self.lateral.hide()
         else:
             self._painel = nome
-            w = {"miniaturas": self.miniaturas, "dados": self.dados, "assinaturas": self.assinaturas}[nome]
+            w = {"miniaturas": self.miniaturas, "dados": self.dados, "assinaturas": self.assinaturas,
+                 "destaques": self.destaques}[nome]
             self.lateral.setCurrentWidget(w)
             self.lateral.setFixedWidth(LARGURA_MINIATURAS if nome == "miniaturas" else LARGURA_PAINEL)
             self.lateral.show()
@@ -269,9 +275,20 @@ class AbaDocumento(QWidget):
                 self.miniaturas.marcar(self.visualizador.pagina_atual)
             elif nome == "dados":
                 self.dados.carregar()
+            elif nome == "destaques":
+                self.destaques.carregar()
             else:
                 self.assinaturas.carregar()
         self.painelMudou.emit(self._painel)
+
+    def _destaques_mudaram(self):
+        if self._painel == "destaques":
+            self.destaques.carregar()
+
+    def _ir_para_destaque(self, pagina: int, area):
+        v = self.visualizador
+        v.ir_para_pagina(pagina)
+        v.mostrar_retangulo(pagina, area, realcar=True)
 
     def _assinatura_clicada(self, campo: str):
         if self._painel != "assinaturas":
