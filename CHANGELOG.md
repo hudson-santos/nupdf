@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.11.2] - 2026-09-30
+
+### Fixed
+- Painel "Marcadores": passar o mouse sobre um marcador mostrava um card preto (a dica com o
+  texto herdava o estilo do item). A dica foi removida - o item já exibe o texto, agora com
+  até 160 caracteres - e a dica da lixeira usa o estilo normal do app.
+
 ## [1.11.1] - 2026-09-30
 
 ### Changed

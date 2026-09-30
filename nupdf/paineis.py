@@ -3,8 +3,8 @@
 import re
 
 import pymupdf
-from PySide6.QtCore import QEvent, QPoint, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QGuiApplication, QIcon, QImage, QPainter, QPixmap
+from PySide6.QtCore import QEvent, QPoint, QRectF, QSize, Qt, QTimer, Signal
+from PySide6.QtGui import QColor, QGuiApplication, QIcon, QImage, QPainter, QPainterPath, QPixmap
 from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QLineEdit, QListView, QListWidget, QMenu, QMessageBox,
                                QListWidgetItem, QPushButton, QScrollArea, QToolButton, QTreeWidget, QTreeWidgetItem,
                                QVBoxLayout, QWidget)
@@ -362,7 +362,9 @@ class _ItemDestaque(QFrame):
         self.setObjectName("itemDestaque")
         self.setAttribute(Qt.WA_Hover)  # :hover do QSS
         self.setCursor(Qt.PointingHandCursor)
-        self.setStyleSheet(f"#itemDestaque {{ border-left: 4px solid {cor_hex}; }}")
+        # a barra da cor é desenhada no paintEvent: um setStyleSheet por item faria as
+        # dicas (tooltips) do item herdarem esse estilo e aparecerem como um card preto
+        self._cor = QColor(cor_hex)
         self._ao_clicar, self._d = ao_clicar, d
         fora = QHBoxLayout(self)
         fora.setContentsMargins(10, 6, 4, 6)
@@ -377,7 +379,7 @@ class _ItemDestaque(QFrame):
         self._lixeira.setSizePolicy(politica)
         self._lixeira.hide()
         fora.addWidget(self._lixeira, 0, Qt.AlignVCenter)
-        texto = d["texto"] if len(d["texto"]) <= 110 else d["texto"][:107].rstrip() + "…"
+        texto = d["texto"] if len(d["texto"]) <= 160 else d["texto"][:157].rstrip() + "…"
         rotulo = QLabel(texto)
         rotulo.setWordWrap(True)
         rotulo.setAttribute(Qt.WA_TransparentForMouseEvents)
@@ -386,7 +388,18 @@ class _ItemDestaque(QFrame):
         pagina.setAttribute(Qt.WA_TransparentForMouseEvents)
         lay.addWidget(rotulo)
         lay.addWidget(pagina)
-        self.setToolTip(d["texto"])
+
+    def paintEvent(self, e):
+        super().paintEvent(e)  # fundo e borda do QSS (#itemDestaque)
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        p.setPen(Qt.NoPen)
+        p.setBrush(self._cor)
+        caminho = QPainterPath()
+        caminho.addRoundedRect(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5), 6, 6)
+        p.setClipPath(caminho)
+        p.drawRect(QRectF(0, 0, 4, self.height()))  # barra da cor na borda esquerda
+        p.end()
 
     def enterEvent(self, e):
         self._lixeira.show()
