@@ -6,7 +6,7 @@ import pymupdf
 from PySide6.QtCore import QEvent, QPoint, QRectF, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QGuiApplication, QIcon, QImage, QPainter, QPainterPath, QPixmap
 from PySide6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QLabel, QLineEdit, QListView, QListWidget, QMenu, QMessageBox,
-                               QListWidgetItem, QPushButton, QScrollArea, QToolButton, QTreeWidget, QTreeWidgetItem,
+                               QListWidgetItem, QPushButton, QScrollArea, QTreeWidget, QTreeWidgetItem,
                                QVBoxLayout, QWidget)
 
 from . import ui
@@ -75,22 +75,12 @@ class PainelMiniaturas(QWidget):
         bl = QHBoxLayout(self._botoes)
         bl.setContentsMargins(0, 0, 0, 0)
         bl.setSpacing(3)
-        # ícones brancos fixos sobre fundo colorido (fora do ui.botao, que repinta
-        # os ícones na cor do tema ao alternar claro/escuro)
-        self._bt_excluir = QToolButton()
-        self._bt_excluir.setObjectName("miniExcluir")  # vermelho
-        self._bt_girar = QToolButton()
-        self._bt_girar.setObjectName("miniGirar")  # cinza escuro
-        self._bt_subir = QToolButton()
-        self._bt_subir.setObjectName("miniGirar")
-        self._bt_descer = QToolButton()
-        self._bt_descer.setObjectName("miniGirar")
-        for bt, nome in ((self._bt_subir, "acima"), (self._bt_descer, "abaixo"),
-                         (self._bt_girar, "girar"), (self._bt_excluir, "lixeira")):
-            bt.setIcon(icone(nome, "#ffffff", 16))
-            bt.setIconSize(QSize(16, 16))
-            bt.setFixedSize(30, 30)  # com border-radius 15px (tema): círculo perfeito
-            bt.setCursor(Qt.PointingHandCursor)
+        # círculos com ícone branco: excluir em vermelho, os demais em cinza escuro
+        self._bt_subir = ui.BotaoRedondo("acima", ui.CINZA)
+        self._bt_descer = ui.BotaoRedondo("abaixo", ui.CINZA)
+        self._bt_girar = ui.BotaoRedondo("girar", ui.CINZA)
+        self._bt_excluir = ui.BotaoRedondo("lixeira", ui.VERMELHO)
+        for bt in (self._bt_subir, self._bt_descer, self._bt_girar, self._bt_excluir):
             bl.addWidget(bt)
         self._botoes.hide()
         self._bt_girar.clicked.connect(lambda: self._pagina_do_botao >= 0 and self.girarPagina.emit(self._pagina_do_botao))
@@ -477,15 +467,8 @@ class _ItemDestaque(QFrame):
         lay = QVBoxLayout()
         lay.setSpacing(1)
         fora.addLayout(lay, 1)
-        # mesmo botão vermelho da exclusão de páginas nas miniaturas (ícone branco fixo,
-        # fora do ui.botao, que repintaria o ícone na cor do tema)
-        self._lixeira = QToolButton()
-        self._lixeira.setObjectName("miniExcluir")
-        self._lixeira.setIcon(icone("lixeira", "#ffffff", 16))
-        self._lixeira.setIconSize(QSize(16, 16))
-        self._lixeira.setFixedSize(30, 30)  # com border-radius 15px (tema): círculo perfeito
-        self._lixeira.setCursor(Qt.PointingHandCursor)
-        self._lixeira.setToolTip("Remover Destaque")
+        # mesmo botão vermelho da exclusão de páginas nas miniaturas
+        self._lixeira = ui.BotaoRedondo("lixeira", ui.VERMELHO, "Remover Destaque")
         self._lixeira.clicked.connect(lambda: ao_remover(d))
         politica = self._lixeira.sizePolicy()
         politica.setRetainSizeWhenHidden(True)  # o texto não muda de largura no hover

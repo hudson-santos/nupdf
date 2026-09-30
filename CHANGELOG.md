@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.12.3] - 2026-09-30
+
+### Fixed
+- Botões redondos de ações (Subir, Descer, Girar e Excluir nas miniaturas e a lixeira dos
+  Marcadores) com um leve corte no topo da borda: agora são desenhados como círculos
+  perfeitos, com antialiasing, mantendo as cores, o realce ao passar o mouse e o estado
+  desabilitado.
+
 ## [1.12.2] - 2026-09-30
 
 ### Changed

@@ -1,8 +1,9 @@
 """Utilitários de interface: botões com ícone que acompanham o tema, toast e
 execução de tarefas em segundo plano."""
 
-from PySide6.QtCore import QSize, Qt, QThread, QTimer, Signal
-from PySide6.QtWidgets import QFrame, QLabel, QToolButton, QWidget
+from PySide6.QtCore import QRectF, QSize, Qt, QThread, QTimer, Signal
+from PySide6.QtGui import QColor, QPainter
+from PySide6.QtWidgets import QAbstractButton, QFrame, QLabel, QToolButton, QWidget
 
 from . import tema
 from .icones import icone, largura_icone
@@ -46,6 +47,48 @@ def botao(nome: str, dica: str = "", checavel=False, tamanho=18, obj: str | None
     if obj:
         b.setObjectName(obj)
     return b
+
+
+VERMELHO = ("#c62828", "#b71c1c")  # (cor, cor ao passar o mouse)
+CINZA = ("#4b4d53", "#5b5d64")
+
+
+class BotaoRedondo(QAbstractButton):
+    """Botão circular com ícone branco (ações sobre miniaturas e marcadores).
+
+    Desenhado à mão (círculo com antialiasing): o border-radius do QSS com raio igual
+    à metade do tamanho corta 1px no topo/base da borda."""
+
+    def __init__(self, nome_icone: str, cores: tuple[str, str], dica: str = "", tamanho: int = 30):
+        super().__init__()
+        self._cor, self._cor_hover = cores
+        self._icone = icone(nome_icone, "#ffffff", 16)
+        self.setFixedSize(tamanho, tamanho)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setToolTip(dica)
+
+    def sizeHint(self) -> QSize:
+        return self.size()
+
+    def enterEvent(self, e):
+        self.update()
+        super().enterEvent(e)
+
+    def leaveEvent(self, e):
+        self.update()
+        super().leaveEvent(e)
+
+    def paintEvent(self, e):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        if not self.isEnabled():
+            p.setOpacity(0.45)
+        p.setPen(Qt.NoPen)
+        p.setBrush(QColor(self._cor_hover if self.underMouse() and self.isEnabled() else self._cor))
+        p.drawEllipse(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5))
+        self._icone.paint(p, self.rect().adjusted((self.width() - 16) // 2, (self.height() - 16) // 2,
+                                                  -((self.width() - 16) // 2), -((self.height() - 16) // 2)))
+        p.end()
 
 
 def separador_horizontal() -> QFrame:
