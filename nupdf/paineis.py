@@ -233,8 +233,12 @@ class PainelMiniaturas(QWidget):
             return
         i = self.lista.row(it)
         r = self.lista.visualItemRect(it)
+        varias = self.lista.count() > 1  # com uma página só não há o que reordenar
+        self._bt_subir.setVisible(varias)
+        self._bt_descer.setVisible(varias)
         bt = self._botoes
-        bt.adjustSize()
+        bt.layout().activate()
+        bt.adjustSize()  # depois de mostrar/esconder Subir e Descer: largura certa para centralizar
         bt.move(r.center().x() - bt.width() // 2, r.top() + 6)  # centralizados no topo da miniatura
         self._pagina_do_botao = i
         self._bt_girar.setToolTip(f"Girar Página {i + 1}")
@@ -258,11 +262,13 @@ class PainelMiniaturas(QWidget):
             return
         i = self.lista.row(it)
         m = QMenu(self)
-        subir = m.addAction("Mover Página para Cima")
-        subir.setEnabled(i > 0)
-        descer = m.addAction("Mover Página para Baixo")
-        descer.setEnabled(i < self.lista.count() - 1)
-        m.addSeparator()
+        subir = descer = None
+        if self.lista.count() > 1:  # com uma página só não há o que reordenar
+            subir = m.addAction("Mover Página para Cima")
+            subir.setEnabled(i > 0)
+            descer = m.addAction("Mover Página para Baixo")
+            descer.setEnabled(i < self.lista.count() - 1)
+            m.addSeparator()
         girar = m.addAction(f"Girar Página {i + 1}")
         excluir = m.addAction(f"Excluir Página {i + 1}")
         esc = m.exec(self.lista.viewport().mapToGlobal(pos))
@@ -270,9 +276,9 @@ class PainelMiniaturas(QWidget):
             self.girarPagina.emit(i)
         elif esc is excluir:
             self.excluirPagina.emit(i)
-        elif esc is subir:
+        elif subir is not None and esc is subir:
             self.moverPagina.emit(i, i - 1)
-        elif esc is descer:
+        elif descer is not None and esc is descer:
             self.moverPagina.emit(i, i + 1)
 
     def _escolhida(self, i: int):

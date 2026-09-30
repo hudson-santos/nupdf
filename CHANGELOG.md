@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.12.2] - 2026-09-30
+
+### Changed
+- Painel "Páginas": em PDF de uma página só, a miniatura não mostra os botões Subir e Descer
+  (nem "Mover Página para Cima/Baixo" no botão direito) - ficam Girar e Excluir.
+
 ## [1.12.1] - 2026-09-30
 
 ### Changed
