@@ -274,6 +274,20 @@ class Documento:
         self._estado_salvo = self._estado_destaques()
         self.pendencias_herdadas = []
 
+    def com_pagina_movida(self, de: int, para: int, rotacoes: dict[int, int]) -> bytes:
+        """Bytes do documento como está na tela (rotação e destaques) com a página `de`
+        levada para a posição `para` (índices finais, 0 = primeira)."""
+        copia = pymupdf.open(stream=self.bytes_editados(rotacoes), filetype="pdf")
+        try:
+            if copia.needs_pass:
+                copia.authenticate(self.senha or "")
+            ordem = list(range(copia.page_count))
+            ordem.insert(para, ordem.pop(de))
+            copia.select(ordem)
+            return copia.tobytes()
+        finally:
+            copia.close()
+
     def sem_pagina(self, i: int, rotacoes: dict[int, int]) -> bytes:
         """Bytes do documento como está na tela (rotação e destaques) sem a página i."""
         copia = pymupdf.open(stream=self.bytes_editados(rotacoes), filetype="pdf")

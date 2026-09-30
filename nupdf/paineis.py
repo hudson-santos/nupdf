@@ -5,7 +5,7 @@ import re
 import pymupdf
 from PySide6.QtCore import QEvent, QPoint, QRectF, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QGuiApplication, QIcon, QImage, QPainter, QPainterPath, QPixmap
-from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QLineEdit, QListView, QListWidget, QMenu, QMessageBox,
+from PySide6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QLabel, QLineEdit, QListView, QListWidget, QMenu, QMessageBox,
                                QListWidgetItem, QPushButton, QScrollArea, QToolButton, QTreeWidget, QTreeWidgetItem,
                                QVBoxLayout, QWidget)
 
@@ -24,6 +24,7 @@ class PainelMiniaturas(QWidget):
     paginaEscolhida = Signal(int)
     girarPagina = Signal(int)  # botões sobre a miniatura / menu do botão direito
     excluirPagina = Signal(int)
+    moverPagina = Signal(int, int)  # de, para (índices finais) - botões, menu ou arrastar
     LARGURA = 128
     ALTURA = 182  # caixa fixa (retrato A4): girar não muda o tamanho do item
 
@@ -38,6 +39,12 @@ class PainelMiniaturas(QWidget):
         titulo.setAlignment(Qt.AlignHCenter)
         titulo.setContentsMargins(0, 0, 8, 0)
         lay.addWidget(titulo)
+        # separador igual ao dos outros painéis, com a mesma folga à direita do título
+        caixa_sep = QWidget()
+        cs = QVBoxLayout(caixa_sep)
+        cs.setContentsMargins(0, 0, 8, 2)
+        cs.addWidget(ui.separador_horizontal())
+        lay.addWidget(caixa_sep)
         self.lista = QListWidget()
         self.lista.setViewMode(QListView.IconMode)
         self.lista.setFlow(QListView.TopToBottom)
@@ -63,27 +70,42 @@ class PainelMiniaturas(QWidget):
         # rotação com que cada miniatura foi desenhada
         self.rotacao_de = lambda i: 0
         self._rot_desenhada: dict[int, int] = {}
-        # botão "girar" que aparece sobre a miniatura sob o mouse
-        # botões "girar" e "excluir" que aparecem sobre a miniatura sob o mouse
+        # botões "subir", "descer", "girar" e "excluir" sobre a miniatura sob o mouse
         self._botoes = QWidget(self.lista.viewport())
         bl = QHBoxLayout(self._botoes)
         bl.setContentsMargins(0, 0, 0, 0)
-        bl.setSpacing(4)
+        bl.setSpacing(3)
         # ícones brancos fixos sobre fundo colorido (fora do ui.botao, que repinta
         # os ícones na cor do tema ao alternar claro/escuro)
         self._bt_excluir = QToolButton()
         self._bt_excluir.setObjectName("miniExcluir")  # vermelho
         self._bt_girar = QToolButton()
         self._bt_girar.setObjectName("miniGirar")  # cinza escuro
-        for bt, nome in ((self._bt_excluir, "lixeira"), (self._bt_girar, "girar")):
+        self._bt_subir = QToolButton()
+        self._bt_subir.setObjectName("miniGirar")
+        self._bt_descer = QToolButton()
+        self._bt_descer.setObjectName("miniGirar")
+        for bt, nome in ((self._bt_subir, "acima"), (self._bt_descer, "abaixo"),
+                         (self._bt_girar, "girar"), (self._bt_excluir, "lixeira")):
             bt.setIcon(icone(nome, "#ffffff", 16))
             bt.setIconSize(QSize(16, 16))
+            bt.setFixedSize(30, 30)  # com border-radius 15px (tema): círculo perfeito
             bt.setCursor(Qt.PointingHandCursor)
             bl.addWidget(bt)
         self._botoes.hide()
         self._bt_girar.clicked.connect(lambda: self._pagina_do_botao >= 0 and self.girarPagina.emit(self._pagina_do_botao))
         self._bt_excluir.clicked.connect(self._excluir_sob_mouse)
+        self._bt_subir.clicked.connect(lambda: self._mover_sob_mouse(-1))
+        self._bt_descer.clicked.connect(lambda: self._mover_sob_mouse(+1))
         self._pagina_do_botao = -1
+        # arrastar com o mouse: linha vermelha onde a página vai entrar
+        self._arraste = None  # (página de origem, ponto do clique) enquanto o botão está pressionado
+        self._arrastando = False
+        self._alvo = -1       # posição de inserção (0..n) durante o arraste
+        self._linha = QFrame(self.lista.viewport())
+        self._linha.setObjectName("linhaSoltar")
+        self._linha.setFixedHeight(3)
+        self._linha.hide()
         self.lista.viewport().setMouseTracking(True)
         self.lista.viewport().installEventFilter(self)
         self.lista.verticalScrollBar().valueChanged.connect(lambda _: self._botoes.hide())
@@ -138,11 +160,71 @@ class PainelMiniaturas(QWidget):
     # ------------------------------------------------------------------ girar
     def eventFilter(self, obj, e):
         if obj is self.lista.viewport():
-            if e.type() == QEvent.MouseMove:
-                self._mostrar_botao(e.position().toPoint())
-            elif e.type() == QEvent.Leave and not self._botoes.underMouse():
+            t = e.type()
+            if t == QEvent.MouseButtonPress and e.button() == Qt.LeftButton:
+                it = self.lista.itemAt(e.position().toPoint())
+                self._arraste = (self.lista.row(it), e.position().toPoint()) if it else None
+            elif t == QEvent.MouseMove:
+                pos = e.position().toPoint()
+                if self._arraste and e.buttons() & Qt.LeftButton:
+                    distancia = (pos - self._arraste[1]).manhattanLength()
+                    if not self._arrastando and distancia >= QApplication.startDragDistance():
+                        self._arrastando = True
+                        self._botoes.hide()
+                        self.lista.viewport().setCursor(Qt.ClosedHandCursor)
+                    if self._arrastando:
+                        self._atualizar_linha(pos)
+                        return True  # a lista não faz a seleção por arraste
+                else:
+                    self._mostrar_botao(pos)
+            elif t == QEvent.MouseButtonRelease and e.button() == Qt.LeftButton:
+                arrastou, origem, alvo = self._arrastando, self._arraste, self._alvo
+                self._fim_arraste()
+                if arrastou and origem:
+                    de = origem[0]
+                    para = alvo - 1 if alvo > de else alvo
+                    if 0 <= para < self.lista.count() and para != de:
+                        self.moverPagina.emit(de, para)
+                    return True
+            elif t == QEvent.Leave and not self._botoes.underMouse():
                 self._botoes.hide()
         return super().eventFilter(obj, e)
+
+    def _atualizar_linha(self, pos: QPoint):
+        """Posição de inserção sob o mouse (metade de cima = antes da miniatura) e a linha."""
+        n = self.lista.count()
+        it = self.lista.itemAt(pos)
+        if it is not None:
+            r = self.lista.visualItemRect(it)
+            i = self.lista.row(it)
+            alvo = i if pos.y() < r.center().y() else i + 1
+        else:
+            ultimo = self.lista.visualItemRect(self.lista.item(n - 1))
+            alvo = n if pos.y() > ultimo.bottom() else 0
+        self._alvo = alvo
+        ref = self.lista.visualItemRect(self.lista.item(min(alvo, n - 1)))
+        y = ref.top() - 3 if alvo < n else ref.bottom() + 1
+        self._linha.setGeometry(ref.left() + 6, max(0, y), ref.width() - 12, 3)
+        self._linha.raise_()
+        self._linha.show()
+        # rolagem automática perto das bordas
+        vp = self.lista.viewport().height()
+        barra = self.lista.verticalScrollBar()
+        if pos.y() < 30:
+            barra.setValue(barra.value() - 20)
+        elif pos.y() > vp - 30:
+            barra.setValue(barra.value() + 20)
+
+    def _fim_arraste(self):
+        self._arraste, self._arrastando, self._alvo = None, False, -1
+        self._linha.hide()
+        self.lista.viewport().unsetCursor()
+
+    def _mover_sob_mouse(self, passo: int):
+        i = self._pagina_do_botao
+        self._botoes.hide()
+        if i >= 0 and 0 <= i + passo < self.lista.count():
+            self.moverPagina.emit(i, i + passo)
 
     def _mostrar_botao(self, pos: QPoint):
         it = self.lista.itemAt(pos)
@@ -157,6 +239,10 @@ class PainelMiniaturas(QWidget):
         self._pagina_do_botao = i
         self._bt_girar.setToolTip(f"Girar Página {i + 1}")
         self._bt_excluir.setToolTip(f"Excluir Página {i + 1}")
+        self._bt_subir.setToolTip(f"Subir Página {i + 1}")
+        self._bt_descer.setToolTip(f"Descer Página {i + 1}")
+        self._bt_subir.setEnabled(i > 0)
+        self._bt_descer.setEnabled(i < self.lista.count() - 1)
         bt.raise_()
         bt.show()
 
@@ -172,6 +258,11 @@ class PainelMiniaturas(QWidget):
             return
         i = self.lista.row(it)
         m = QMenu(self)
+        subir = m.addAction("Mover Página para Cima")
+        subir.setEnabled(i > 0)
+        descer = m.addAction("Mover Página para Baixo")
+        descer.setEnabled(i < self.lista.count() - 1)
+        m.addSeparator()
         girar = m.addAction(f"Girar Página {i + 1}")
         excluir = m.addAction(f"Excluir Página {i + 1}")
         esc = m.exec(self.lista.viewport().mapToGlobal(pos))
@@ -179,6 +270,10 @@ class PainelMiniaturas(QWidget):
             self.girarPagina.emit(i)
         elif esc is excluir:
             self.excluirPagina.emit(i)
+        elif esc is subir:
+            self.moverPagina.emit(i, i - 1)
+        elif esc is descer:
+            self.moverPagina.emit(i, i + 1)
 
     def _escolhida(self, i: int):
         if i >= 0 and not self._bloquear:
@@ -232,6 +327,7 @@ class PainelPropriedades(QWidget):
         lay.setContentsMargins(12, 14, 12, 12)
         lay.setSpacing(8)
         lay.addWidget(_cabecalho("Propriedades do Documento", maiusculas=False))
+        lay.addWidget(ui.separador_horizontal())  # igual aos painéis Assinaturas e Marcadores
         area = QScrollArea()
         area.setWidgetResizable(True)
         area.setFrameShape(QFrame.NoFrame)
@@ -381,6 +477,7 @@ class _ItemDestaque(QFrame):
         self._lixeira.setObjectName("miniExcluir")
         self._lixeira.setIcon(icone("lixeira", "#ffffff", 16))
         self._lixeira.setIconSize(QSize(16, 16))
+        self._lixeira.setFixedSize(30, 30)  # com border-radius 15px (tema): círculo perfeito
         self._lixeira.setCursor(Qt.PointingHandCursor)
         self._lixeira.setToolTip("Remover Destaque")
         self._lixeira.clicked.connect(lambda: ao_remover(d))
@@ -440,10 +537,6 @@ class PainelDestaques(QWidget):
         lay.setSpacing(8)
         lay.addWidget(_cabecalho("Marcadores", maiusculas=False))
         lay.addWidget(ui.separador_horizontal())
-        self.status = QLabel("")
-        self.status.setObjectName("sub")
-        self.status.setWordWrap(True)
-        lay.addWidget(self.status)
         area = self._area = QScrollArea()
         area.setWidgetResizable(True)
         area.setFrameShape(QFrame.NoFrame)
@@ -468,15 +561,21 @@ class PainelDestaques(QWidget):
                 w.hide()
                 w.deleteLater()
         itens = self.doc.listar_destaques()
-        n = len(itens)
-        self.status.setText(f"{n} Marcador{'es' if n > 1 else ''}.")
-        self.status.setVisible(bool(n))  # sem marcadores: só o título
+        # sem total geral: só o título e a contagem de cada grupo de cor
         grupos: dict = {}
         for d in itens:
             grupos.setdefault(d["cor"] if d["cor"] in CORES_DESTAQUE else None, []).append(d)
+        primeiro = True
         for cor in (*self.ORDEM, None):
             if cor not in grupos:
                 continue
+            if not primeiro:  # separador entre os grupos de cor
+                sep = QWidget()
+                sl = QVBoxLayout(sep)
+                sl.setContentsMargins(0, 8, 0, 2)
+                sl.addWidget(ui.separador_horizontal())
+                self.lista.insertWidget(self.lista.count() - 1, sep)
+            primeiro = False
             if cor:
                 rotulo, rgb = CORES_DESTAQUE[cor]
             else:
@@ -508,6 +607,7 @@ class PainelAssinaturas(QWidget):
         lay.setContentsMargins(12, 14, 12, 12)
         lay.setSpacing(8)
         lay.addWidget(_cabecalho("Assinaturas Digitais", maiusculas=False))
+        lay.addWidget(ui.separador_horizontal())  # igual ao painel Marcadores
         self.status = QLabel("")
         self.status.setObjectName("sub")
         self.status.setWordWrap(True)
@@ -527,23 +627,27 @@ class PainelAssinaturas(QWidget):
         area.setWidget(self.conteudo)
         lay.addWidget(area, 1)
         # cadeia oficial do ITI (o instalador já baixa; aqui atualiza quando surgem ACs novas)
-        self.b_cadeia = QPushButton("Atualizar Cadeia ICP-Brasil")
-        self.b_cadeia.setObjectName("linkPequeno")
+        # mesmo visual do "Assinar com Certificado Digital"; só aparece quando o PDF tem
+        # alguma assinatura (ver _exibir)
+        self.b_cadeia = QPushButton("  Atualizar Cadeia ICP-Brasil")
+        self.b_cadeia.setObjectName("primario")
+        self.b_cadeia.setIcon(icone("atualizar", "#ffffff", 16))
         self.b_cadeia.setCursor(Qt.PointingHandCursor)
         self.b_cadeia.setToolTip("Baixar novamente a cadeia de certificados oficial da ICP-Brasil (ITI)")
         self.b_cadeia.clicked.connect(self._atualizar_cadeia)
+        self.b_cadeia.hide()
         lay.addWidget(self.b_cadeia, 0, Qt.AlignHCenter)
 
     def _atualizar_cadeia(self):
         from .assinatura import cadeia_icp
         self.b_cadeia.setEnabled(False)
-        self.b_cadeia.setText("Baixando a Cadeia ICP-Brasil…")
+        self.b_cadeia.setText("  Baixando a Cadeia ICP-Brasil…")
         self._tarefa_cadeia = ui.Tarefa(cadeia_icp.atualizar)
 
         def fim(texto: str):
             self.b_cadeia.setEnabled(True)
-            self.b_cadeia.setText("Atualizar Cadeia ICP-Brasil")
-            self.status.setText(texto)
+            self.b_cadeia.setText("  Atualizar Cadeia ICP-Brasil")
+            self._mostrar_status(texto)
 
         def ok(n):
             fim(f"Cadeia ICP-Brasil atualizada ({n} certificados).")
@@ -575,6 +679,11 @@ class PainelAssinaturas(QWidget):
             confiar(r.topo_cadeia_der)
             self.carregar(forcar=True)
 
+    def _mostrar_status(self, texto: str):
+        """Linha abaixo do título; some quando não há o que dizer."""
+        self.status.setText(texto)
+        self.status.setVisible(bool(texto))
+
     def redesenhar(self):
         if self._resultados is not None:
             self._exibir(self._resultados)
@@ -583,25 +692,25 @@ class PainelAssinaturas(QWidget):
         if self._carregado and not forcar:
             return
         self._carregado = True
-        self.status.setText("Verificando assinaturas…")
+        self._mostrar_status("")  # sem "Verificando assinaturas…": a linha só aparece com o resultado
         from .assinatura.validador import validar
         self._tarefa = ui.Tarefa(validar, self.doc.dados)
         self._tarefa.concluida.connect(self._exibir)
-        self._tarefa.falhou.connect(lambda e: self.status.setText(f"Não foi possível verificar: {e}"))
+        self._tarefa.falhou.connect(lambda e: self._mostrar_status(f"Não foi possível verificar: {e}"))
         self._tarefa.start()
 
     def _exibir(self, resultados):
         self._resultados = resultados
+        self.b_cadeia.setVisible(bool(resultados))
         while self.lista.count() > 1:
             w = self.lista.takeAt(0).widget()
             if w:
                 w.hide()
                 w.deleteLater()
+        # sem contagem de assinaturas: os cartões já as mostram (a linha fica só para erros)
+        self._mostrar_status("")
         if not resultados:
-            self.status.setText("Documento sem Assinatura Digital.")
             return
-        n = len(resultados)
-        self.status.setText(f"{n} Assinatura{'s' if n > 1 else ''} Encontrada{'s' if n > 1 else ''}.")
         for r in resultados:
             self.lista.insertWidget(self.lista.count() - 1, _CartaoAssinatura(r, self._confiar))
         self._aplicar_destaque()

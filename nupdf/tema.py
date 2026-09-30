@@ -90,9 +90,9 @@ QToolButton:pressed, QToolButton:checked { background: $superficie2; }
 QToolButton#trilho:checked { background: $destaque_suave; }
 QToolButton#comMenu::menu-indicator { image: none; width: 0; }
 QToolButton#abaFechar { padding: 2px; border-radius: 5px; }
-QToolButton#miniExcluir { background: #c62828; border: none; border-radius: 14px; padding: 6px; }
+QToolButton#miniExcluir { background: #c62828; border: none; border-radius: 15px; padding: 0; }
 QToolButton#miniExcluir:hover { background: #b71c1c; }
-QToolButton#miniGirar { background: #4b4d53; border: none; border-radius: 14px; padding: 6px; }
+QToolButton#miniGirar { background: #4b4d53; border: none; border-radius: 15px; padding: 0; }
 QToolButton#miniGirar:hover { background: #5b5d64; }
 
 QPushButton { background: $superficie2; border: 1px solid $borda; border-radius: 8px; padding: 7px 14px; }
@@ -179,6 +179,7 @@ QScrollBar::add-page, QScrollBar::sub-page { background: transparent; }
 #sub { color: $texto2; }
 #sub3 { color: $texto3; font-size: 12px; }
 
+#linhaSoltar { background: $destaque; border-radius: 1px; }
 #itemDestaque { background: $superficie2; border: 1px solid $borda; border-radius: 6px; }
 #itemDestaque:hover { background: $hover; }
 #cartao { background: $superficie2; border: 1px solid $borda; border-radius: 10px; }

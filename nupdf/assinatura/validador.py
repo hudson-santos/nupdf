@@ -139,10 +139,35 @@ def _status(sig, raizes, intermediarias, buscar: bool):
     return validate_pdf_signature(sig, vc)
 
 
+def _tem_campo_de_assinatura(dados: bytes) -> bool:
+    """Checagem prévia com o MuPDF, que tolera PDFs com estrutura malformada: há algum
+    campo de assinatura? Na dúvida (não abriu), responde que sim e deixa o pyHanko decidir."""
+    import pymupdf
+    try:
+        doc = pymupdf.open(stream=dados, filetype="pdf")
+    except Exception:
+        return True
+    try:
+        if doc.get_sigflags() > 0:
+            return True
+        for pg in doc:
+            if any(True for _ in pg.widgets(types=[pymupdf.PDF_WIDGET_TYPE_SIGNATURE])):
+                return True
+        return False
+    except Exception:
+        return True
+    finally:
+        doc.close()
+
+
 def validar(dados: bytes, buscar_na_internet: bool = True) -> list[ResultadoAssinatura]:
     from pyhanko.pdf_utils.reader import PdfFileReader
     from pyhanko.sign.diff_analysis import ModificationLevel
 
+    # sem campo de assinatura não há o que validar - e o pyHanko nem é chamado, o que
+    # evita erro de leitura ("Parse error...") em PDF malformado que não é assinado
+    if not _tem_campo_de_assinatura(dados):
+        return []
     reader = PdfFileReader(BytesIO(dados), strict=False)
     assinaturas = reader.embedded_signatures
     if not assinaturas:

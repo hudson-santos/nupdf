@@ -154,6 +154,10 @@ def main() -> int:
            and not list(pg_sem.annots(types=[_pm.PDF_ANNOT_HIGHLIGHT])))
     doc_r.fechar()
 
+    movido = _pm.open(stream=doc.com_pagina_movida(0, 2, {}), filetype="pdf")
+    textos = [doc.doc[i].get_text()[:30] for i in range(3)]
+    checar("reordenar página (1ª vai para o fim)", movido.page_count == 3
+           and [movido[i].get_text()[:30] for i in range(3)] == [textos[1], textos[2], textos[0]])
     sem2 = _pm.open(stream=doc.sem_pagina(1, {2: 90}), filetype="pdf")
     doc_sem = Documento(str(pdf), dados=sem2.tobytes(), pendencias=["páginas excluídas"])
     checar("excluir página (em memória)", sem2.page_count == 2 and sem2[1].rotation == 90
@@ -221,6 +225,10 @@ def main() -> int:
         # reconstrói a estrutura e assina (o conteúdo das páginas não muda)
         k = doc.dados.find(b" 0 obj", len(doc.dados) // 3)
         quebrado = doc.dados[:k] + b"\n%" + b"x" * 60 + b"\n" + doc.dados[k:]
+        try:
+            checar("PDF quebrado sem assinatura: validação sem erro", validar(quebrado, buscar_na_internet=False) == [])
+        except Exception as e:
+            checar("PDF quebrado sem assinatura: validação sem erro", False, str(e))
         try:
             ok_quebrado = assinar_pdf(quebrado, ConfigAssinatura(info, impressao="TESTE", der=b"x",
                                                                  visivel=False))

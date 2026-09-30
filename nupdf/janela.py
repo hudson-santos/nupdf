@@ -579,6 +579,7 @@ class JanelaPrincipal(QMainWindow):
         """Aba para o documento, no fim da barra ou na posição `indice`."""
         aba = AbaDocumento(doc)
         aba.excluirPagina.connect(lambda i, a=aba: self.excluir_pagina(a, i))
+        aba.moverPagina.connect(lambda de, para, a=aba: self.mover_pagina(a, de, para))
         aba.painelMudou.connect(lambda _: self._atualizar_estado())
         aba.visualizador.rotacaoMudou.connect(self._atualizar_estado)
         aba.visualizador.destaqueFeito.connect(self._atualizar_estado)
@@ -653,6 +654,26 @@ class JanelaPrincipal(QMainWindow):
         atual = min(atual - 1 if i < atual else atual, n - 2)
         nova = self._substituir_aba(aba, doc, aba.historico + [antes], atual)
         nova.toast(f"Página {i + 1} Excluída")
+        self._atualizar_estado()
+
+    def mover_pagina(self, aba: AbaDocumento, de: int, para: int):
+        """Reordena: leva a página `de` para a posição `para`. Como a exclusão, fica em
+        memória até salvar e a aba é refeita no mesmo lugar (Ctrl+Z desfaz)."""
+        if aba not in self.abas or de == para or not (0 <= para < aba.doc.n_paginas):
+            return
+        if aba.doc.tem_assinaturas:
+            aba.toast("Documento assinado: não é possível reordenar páginas (as assinaturas seriam invalidadas)", 3200)
+            return
+        antes = aba.retrato()  # para o Ctrl+Z
+        try:
+            dados = aba.doc.com_pagina_movida(de, para, aba.visualizador.rotacoes())
+            pendencias = [p for p in self._pendencias(aba) if p != "páginas reordenadas"] + ["páginas reordenadas"]
+            doc = Documento(str(aba.doc.caminho), aba.doc.senha, dados=dados, pendencias=pendencias)
+        except Exception as e:
+            QMessageBox.critical(self, NOME_APP, f"Não foi possível mover a página:\n{e}")
+            return
+        nova = self._substituir_aba(aba, doc, aba.historico + [antes], para)
+        nova.toast(f"Página {de + 1} Movida para a Posição {para + 1}")
         self._atualizar_estado()
 
     def _substituir_aba(self, aba: AbaDocumento, doc: Documento, historico: list, pagina: int,

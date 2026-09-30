@@ -194,6 +194,7 @@ class _Area(QWidget):
 class AbaDocumento(QWidget):
     painelMudou = Signal(object)
     excluirPagina = Signal(int)  # pedido pela página ou pela miniatura (a janela executa)
+    moverPagina = Signal(int, int)  # reordenar pelas miniaturas (a janela executa)
 
     def __init__(self, documento: Documento):
         super().__init__()
@@ -227,6 +228,7 @@ class AbaDocumento(QWidget):
         self.miniaturas.rotacao_de = v._rot  # miniaturas acompanham a página girada na tela
         self.miniaturas.girarPagina.connect(v.girar_pagina)
         self.miniaturas.excluirPagina.connect(self.excluirPagina)
+        self.miniaturas.moverPagina.connect(self.moverPagina)
         v.excluirPagina.connect(self.excluirPagina)
         v.rotacaoMudou.connect(self.miniaturas.rotacao_mudou)
         v.paginaMudou.connect(self._pagina_mudou)

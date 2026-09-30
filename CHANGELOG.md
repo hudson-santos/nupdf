@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.12.0] - 2026-09-30
+
+### Added
+- Reordenar páginas no painel "Páginas": botões Subir e Descer sobre a miniatura (com Girar
+  e Excluir), "Mover Página para Cima/Baixo" no botão direito e arrastar a miniatura com o
+  mouse (uma linha vermelha mostra onde a página vai entrar). Fica em memória até salvar,
+  entra na confirmação ao fechar ("páginas reordenadas"), tem desfazer (Ctrl+Z) e é
+  bloqueado em documentos assinados.
+
+### Changed
+- Painéis laterais com separador abaixo do título (Páginas, Propriedades, Assinaturas e
+  Marcadores) e, em Marcadores, também entre os grupos de cor.
+- Marcadores sem o total de marcadores; Assinaturas Digitais sem "Verificando assinaturas…",
+  sem a contagem e sem "Documento sem Assinatura Digital.".
+- "Atualizar Cadeia ICP-Brasil" só aparece quando o PDF tem assinatura digital, no mesmo
+  visual do botão "Assinar com Certificado Digital".
+- Botões redondos das miniaturas e da lixeira dos marcadores sem cortes nas bordas.
+
+### Fixed
+- PDF com estrutura malformada e sem assinatura mostrava "Não foi possível verificar: Parse
+  error..." no painel de assinaturas; agora a verificação só roda quando há campo de assinatura.
+
 ## [1.11.5] - 2026-09-30
 
 ### Fixed
