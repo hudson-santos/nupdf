@@ -232,8 +232,9 @@ class AbaDocumento(QWidget):
         v.paginaMudou.connect(self._pagina_mudou)
         v.copiadoPeloBotao.connect(lambda _t: self.toast("Texto Copiado"))
         v.vaiAlterar.connect(self.registrar)
-        # "Campos Destacados": vai até o destaque clicado e acompanha as alterações
+        # "Marcadores": vai até o destaque clicado e acompanha as alterações
         self.destaques.destaqueEscolhido.connect(self._ir_para_destaque)
+        self.destaques.removerDestaque.connect(lambda pg, xref: v.remover_destaque((pg, xref)))
         for sinal in (v.destaqueFeito, v.destaqueRemovido, v.corDestaqueAlterada, v.edicaoRestaurada):
             sinal.connect(self._destaques_mudaram)
         v.destaqueFeito.connect(lambda: self.toast("Texto Destacado"))

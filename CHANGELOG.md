@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.11.1] - 2026-09-30
+
+### Changed
+- Painel "Campos Destacados" renomeado para "Marcadores" ("N Marcadores." / "Nenhum Marcador.").
+- Remover marcador pela barra lateral: lixeira ao passar o mouse sobre o item, para os
+  marcadores do NuPDF e também os criados em outros editores de PDF ("Outras Cores"); no
+  documento, clicar no marcador continua mostrando "Alterar Cor" e "Remover Destaque".
+  Tudo com desfazer (Ctrl+Z). A lista mantém a posição de rolagem ao atualizar.
+
 ## [1.11.0] - 2026-09-30
 
 ### Added

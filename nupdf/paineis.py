@@ -354,18 +354,29 @@ class _CartaoAssinatura(QFrame):
 
 
 class _ItemDestaque(QFrame):
-    """Um campo destacado: texto (até 2 linhas) e página; clicar leva até ele."""
+    """Um campo destacado: texto e página; clicar leva até ele. A lixeira (ao passar o
+    mouse) remove o destaque - vale também para os criados em outros editores de PDF."""
 
-    def __init__(self, d: dict, cor_hex: str, ao_clicar):
+    def __init__(self, d: dict, cor_hex: str, ao_clicar, ao_remover):
         super().__init__()
         self.setObjectName("itemDestaque")
         self.setAttribute(Qt.WA_Hover)  # :hover do QSS
         self.setCursor(Qt.PointingHandCursor)
         self.setStyleSheet(f"#itemDestaque {{ border-left: 4px solid {cor_hex}; }}")
         self._ao_clicar, self._d = ao_clicar, d
-        lay = QVBoxLayout(self)
-        lay.setContentsMargins(10, 6, 8, 6)
+        fora = QHBoxLayout(self)
+        fora.setContentsMargins(10, 6, 4, 6)
+        fora.setSpacing(4)
+        lay = QVBoxLayout()
         lay.setSpacing(1)
+        fora.addLayout(lay, 1)
+        self._lixeira = ui.botao("lixeira", "Remover Destaque", tamanho=16)
+        self._lixeira.clicked.connect(lambda: ao_remover(d))
+        politica = self._lixeira.sizePolicy()
+        politica.setRetainSizeWhenHidden(True)  # o texto não muda de largura no hover
+        self._lixeira.setSizePolicy(politica)
+        self._lixeira.hide()
+        fora.addWidget(self._lixeira, 0, Qt.AlignVCenter)
         texto = d["texto"] if len(d["texto"]) <= 110 else d["texto"][:107].rstrip() + "…"
         rotulo = QLabel(texto)
         rotulo.setWordWrap(True)
@@ -377,6 +388,14 @@ class _ItemDestaque(QFrame):
         lay.addWidget(pagina)
         self.setToolTip(d["texto"])
 
+    def enterEvent(self, e):
+        self._lixeira.show()
+        super().enterEvent(e)
+
+    def leaveEvent(self, e):
+        self._lixeira.hide()
+        super().leaveEvent(e)
+
     def mouseReleaseEvent(self, e):
         if e.button() == Qt.LeftButton:
             self._ao_clicar(self._d)
@@ -387,6 +406,7 @@ class PainelDestaques(QWidget):
     """Campos destacados (marca-texto) do documento, agrupados por cor/prioridade."""
 
     destaqueEscolhido = Signal(int, object)  # página, área (pymupdf.Rect)
+    removerDestaque = Signal(int, int)       # página, xref
     ORDEM = ("vermelho", "amarelo", "azul", "verde")  # alta, média, baixa, resolvido
 
     def __init__(self, doc: Documento):
@@ -395,12 +415,12 @@ class PainelDestaques(QWidget):
         lay = QVBoxLayout(self)
         lay.setContentsMargins(12, 14, 12, 12)
         lay.setSpacing(8)
-        lay.addWidget(_cabecalho("Campos Destacados", maiusculas=False))
+        lay.addWidget(_cabecalho("Marcadores", maiusculas=False))
         self.status = QLabel("")
         self.status.setObjectName("sub")
         self.status.setWordWrap(True)
         lay.addWidget(self.status)
-        area = QScrollArea()
+        area = self._area = QScrollArea()
         area.setWidgetResizable(True)
         area.setFrameShape(QFrame.NoFrame)
         area.setStyleSheet("QScrollArea { background: transparent; }")
@@ -414,6 +434,7 @@ class PainelDestaques(QWidget):
         lay.addWidget(area, 1)
 
     def carregar(self):
+        rolagem = self._area.verticalScrollBar().value()  # mantém a posição ao atualizar
         while self.lista.count() > 1:
             w = self.lista.takeAt(0).widget()
             if w:
@@ -421,8 +442,7 @@ class PainelDestaques(QWidget):
                 w.deleteLater()
         itens = self.doc.listar_destaques()
         n = len(itens)
-        self.status.setText("Nenhum Campo Destacado." if not n else
-                            f"{n} Campo{'s' if n > 1 else ''} Destacado{'s' if n > 1 else ''}.")
+        self.status.setText("Nenhum Marcador." if not n else f"{n} Marcador{'es' if n > 1 else ''}.")
         grupos: dict = {}
         for d in itens:
             grupos.setdefault(d["cor"] if d["cor"] in CORES_DESTAQUE else None, []).append(d)
@@ -442,7 +462,9 @@ class PainelDestaques(QWidget):
                 rgb_item = d["rgb"] or rgb
                 hex_item = cor_hex if cor else "#%02x%02x%02x" % tuple(round(c * 255) for c in rgb_item)
                 self.lista.insertWidget(self.lista.count() - 1, _ItemDestaque(
-                    d, hex_item, lambda d: self.destaqueEscolhido.emit(d["pagina"], d["area"])))
+                    d, hex_item, lambda d: self.destaqueEscolhido.emit(d["pagina"], d["area"]),
+                    lambda d: self.removerDestaque.emit(d["pagina"], d["xref"])))
+        QTimer.singleShot(0, lambda: self._area.verticalScrollBar().setValue(rolagem))
 
 
 class PainelAssinaturas(QWidget):
