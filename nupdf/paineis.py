@@ -439,6 +439,7 @@ class PainelDestaques(QWidget):
         lay.setContentsMargins(12, 14, 12, 12)
         lay.setSpacing(8)
         lay.addWidget(_cabecalho("Marcadores", maiusculas=False))
+        lay.addWidget(ui.separador_horizontal())
         self.status = QLabel("")
         self.status.setObjectName("sub")
         self.status.setWordWrap(True)
@@ -468,7 +469,8 @@ class PainelDestaques(QWidget):
                 w.deleteLater()
         itens = self.doc.listar_destaques()
         n = len(itens)
-        self.status.setText("Nenhum Marcador." if not n else f"{n} Marcador{'es' if n > 1 else ''}.")
+        self.status.setText(f"{n} Marcador{'es' if n > 1 else ''}.")
+        self.status.setVisible(bool(n))  # sem marcadores: só o título
         grupos: dict = {}
         for d in itens:
             grupos.setdefault(d["cor"] if d["cor"] in CORES_DESTAQUE else None, []).append(d)

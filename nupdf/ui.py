@@ -48,6 +48,13 @@ def botao(nome: str, dica: str = "", checavel=False, tamanho=18, obj: str | None
     return b
 
 
+def separador_horizontal() -> QFrame:
+    s = QFrame()
+    s.setFixedHeight(1)
+    s.setObjectName("sep")  # mesma cor do separador vertical
+    return s
+
+
 def separador_vertical(altura=22) -> QFrame:
     s = QFrame()
     s.setFixedSize(1, altura)

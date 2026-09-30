@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.11.4] - 2026-09-30
+
+### Changed
+- Painel "Marcadores": separador abaixo do título e sem o texto "Nenhum Marcador." quando o
+  documento não tem marcadores (a contagem só aparece quando há algum).
+
 ## [1.11.3] - 2026-09-30
 
 ### Changed
