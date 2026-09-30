@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.11.5] - 2026-09-30
+
+### Fixed
+- Assinatura de PDFs com erro de estrutura (tabela de objetos/xref malformada, comum em PDFs
+  gerados por sistemas de prefeituras): falhava com "Parse error on indirect object
+  reference". O NuPDF agora reconstrói a estrutura do arquivo (sem mudar o conteúdo das
+  páginas) e assina. Se o PDF já tiver assinaturas, não é alterado e a mensagem explica o
+  motivo (a reconstrução as invalidaria).
+
 ## [1.11.4] - 2026-09-30
 
 ### Changed

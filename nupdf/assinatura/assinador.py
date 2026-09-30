@@ -154,11 +154,61 @@ def _assinante(cfg: ConfigAssinatura):
     return assinante_pyhanko(cfg.impressao, cfg.der)
 
 
+def _reparar(dados: bytes, senha_pdf: str | None) -> bytes:
+    """Reescreve a estrutura do PDF (tabela xref e objetos) com o MuPDF, que tolera e
+    corrige arquivos malformados. O conteúdo das páginas não muda."""
+    import pymupdf
+    doc = pymupdf.open(stream=dados, filetype="pdf")
+    try:
+        if doc.needs_pass:
+            doc.authenticate(senha_pdf or "")
+        return doc.tobytes(garbage=3, deflate=True)
+    finally:
+        doc.close()
+
+
+def _ja_assinado(dados: bytes) -> bool:
+    import pymupdf
+    try:
+        doc = pymupdf.open(stream=dados, filetype="pdf")
+        try:
+            return doc.get_sigflags() > 0
+        finally:
+            doc.close()
+    except Exception:
+        return False
+
+
 def assinar_pdf(dados: bytes, cfg: ConfigAssinatura, senha_pdf: str | None = None,
                 assinante=None) -> bytes:
     """Assina os bytes de um PDF e devolve os bytes do PDF assinado (atualização incremental).
-    `assinante` permite injetar outro Signer do pyHanko (usado nos testes)."""
+    `assinante` permite injetar outro Signer do pyHanko (usado nos testes).
+
+    PDF com erro de estrutura (xref/objetos malformados - comum em PDFs gerados por
+    sistemas de prefeituras etc.): os leitores abrem, mas o pyHanko recusa. Nesse caso,
+    se o documento ainda não tem assinaturas, a estrutura é reconstruída e a assinatura
+    é refeita sobre ela (só nesse erro de leitura - um PIN cancelado não repete)."""
+    from pyhanko.pdf_utils.misc import PdfReadError
     signer = assinante or _assinante(cfg)
+    try:
+        return _assinar(dados, cfg, senha_pdf, signer)
+    except PdfReadError as e:
+        if _ja_assinado(dados):
+            raise ErroAssinatura(
+                "O PDF tem erros de estrutura e já possui assinaturas digitais: não é possível "
+                f"corrigi-lo sem invalidar as assinaturas existentes.\n\n{e}") from e
+        try:
+            reparado = _reparar(dados, senha_pdf)
+        except Exception:
+            raise ErroAssinatura(f"Falha ao assinar o documento (PDF com erro de estrutura):\n{e}") from e
+        try:
+            return _assinar(reparado, cfg, senha_pdf, signer)
+        except PdfReadError as e2:
+            raise ErroAssinatura(f"Falha ao assinar o documento (PDF com erro de estrutura):\n{e2}") from e2
+
+
+def _assinar(dados: bytes, cfg: ConfigAssinatura, senha_pdf: str | None, signer) -> bytes:
+    from pyhanko.pdf_utils.misc import PdfReadError
     carimbo = None
     try:
         entrada = BytesIO(dados)
@@ -197,8 +247,8 @@ def assinar_pdf(dados: bytes, cfg: ConfigAssinatura, senha_pdf: str | None = Non
         saida = BytesIO()
         pdf_signer.sign_pdf(w, output=saida)
         return saida.getvalue()
-    except ErroAssinatura:
-        raise
+    except (ErroAssinatura, PdfReadError):
+        raise  # PdfReadError: assinar_pdf tenta de novo com a estrutura reconstruída
     except Exception as e:
         raise ErroAssinatura(f"Falha ao assinar o documento:\n{e}") from e
     finally:

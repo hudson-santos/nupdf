@@ -217,6 +217,17 @@ def main() -> int:
         checar("titular na validação", res[0].titular == "FULANO DE TESTE")
         checar("1ª assinatura continua cobrindo (incremental)", res[0].cobre_documento, res[0].observacao)
         checar("autoassinado não confiável", not res[0].confiavel)
+        # PDF com a tabela xref quebrada (objetos deslocados): o pyHanko recusa, o NuPDF
+        # reconstrói a estrutura e assina (o conteúdo das páginas não muda)
+        k = doc.dados.find(b" 0 obj", len(doc.dados) // 3)
+        quebrado = doc.dados[:k] + b"\n%" + b"x" * 60 + b"\n" + doc.dados[k:]
+        try:
+            ok_quebrado = assinar_pdf(quebrado, ConfigAssinatura(info, impressao="TESTE", der=b"x",
+                                                                 visivel=False))
+            res_q = validar(ok_quebrado, buscar_na_internet=False)
+            checar("assinar PDF com estrutura quebrada (reconstruída)", len(res_q) == 1 and res_q[0].integra)
+        except Exception as e:
+            checar("assinar PDF com estrutura quebrada (reconstruída)", False, str(e))
         # "Confiar nesta Cadeia": grava o topo da cadeia e a assinatura passa a ser confiável
         from nupdf.assinatura import validador as _val
         checar("oferece 'Confiar nesta Cadeia'", res[0].topo_cadeia_der is not None, res[0].topo_cadeia_nome)
