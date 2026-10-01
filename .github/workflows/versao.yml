@@ -67,6 +67,19 @@ jobs:
           # uma linha em branco logo após o título de cada versão).
           sed -i -e '/./,$!d' corpo_release.md
 
+          # Junta as linhas de continuação (indentadas) ao item de cima: no
+          # CHANGELOG os itens quebram em ~95 colunas para leitura, mas a
+          # página de Releases do GitHub trata cada quebra de linha como
+          # quebra real. Sub-itens ("  - ...") continuam em linha própria.
+          awk '
+            /^[[:space:]]+[^[:space:]]/ && $0 !~ /^[[:space:]]*[-*][[:space:]]/ && tem && ant != "" {
+              sub(/^[[:space:]]+/, ""); ant = ant " " $0; next
+            }
+            { if (tem) print ant; ant = $0; tem = 1 }
+            END { if (tem) print ant }
+          ' corpo_release.md > corpo_unido.md
+          mv corpo_unido.md corpo_release.md
+
           if [ ! -s corpo_release.md ]; then
             echo "Seção do CHANGELOG para $VERSAO ficou vazia."
             exit 1

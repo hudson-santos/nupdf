@@ -223,9 +223,10 @@ class PainelMiniaturas(QWidget):
             return
         i = self.lista.row(it)
         r = self.lista.visualItemRect(it)
-        varias = self.lista.count() > 1  # com uma página só não há o que reordenar
-        self._bt_subir.setVisible(varias)
-        self._bt_descer.setVisible(varias)
+        # com uma página só não há o que reordenar nem excluir: os botões nem aparecem
+        varias = self.lista.count() > 1
+        for b in (self._bt_subir, self._bt_descer, self._bt_excluir):
+            b.setVisible(varias)
         bt = self._botoes
         bt.layout().activate()
         bt.adjustSize()  # depois de mostrar/esconder Subir e Descer: largura certa para centralizar
@@ -259,12 +260,13 @@ class PainelMiniaturas(QWidget):
             descer = m.addAction("Mover Página para Baixo")
             descer.setEnabled(i < self.lista.count() - 1)
             m.addSeparator()
-        girar = m.addAction(f"Girar Página {i + 1}")
-        excluir = m.addAction(f"Excluir Página {i + 1}")
+        girar = m.addAction("Girar Página" if self.lista.count() == 1 else f"Girar Página {i + 1}")
+        # o PDF precisa de ao menos uma página: com uma só, a opção nem aparece
+        excluir = m.addAction(f"Excluir Página {i + 1}") if self.lista.count() > 1 else None
         esc = m.exec(self.lista.viewport().mapToGlobal(pos))
         if esc is girar:
             self.girarPagina.emit(i)
-        elif esc is excluir:
+        elif excluir is not None and esc is excluir:
             self.excluirPagina.emit(i)
         elif subir is not None and esc is subir:
             self.moverPagina.emit(i, i - 1)

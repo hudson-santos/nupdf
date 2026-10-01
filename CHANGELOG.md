@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.12.4] - 2026-10-01
+
+### Changed
+- Documento de uma página só: as opções que não se aplicam somem em vez de aparecer
+  desabilitadas - sem os botões Subir, Descer e Excluir na miniatura, sem "Excluir Página" e
+  "Girar Todas as Páginas" nos menus do botão direito, e "Girar Página" sem o número.
+
+### Fixed
+- Notas das Releases no GitHub com quebras de linha no meio dos itens: o workflow junta as
+  linhas de continuação do CHANGELOG antes de publicar.
+
 ## [1.12.3] - 2026-09-30
 
 ### Fixed

@@ -1019,9 +1019,12 @@ class _Paginas(QWidget):
             v.preencher_menu_cores(m_cor, "cor", v.doc.cor_do_destaque(*alvo))
             a_remover = m.addAction("Remover Destaque")
         m.addSeparator()
-        a_girar_pag = m.addAction(f"Girar Página {i + 1}") if i >= 0 else None
-        a_girar = m.addAction("Girar Todas as Páginas")
-        a_excluir = m.addAction(f"Excluir Página {i + 1}") if i >= 0 else None
+        # com uma página só: "Girar Página" (sem número) e sem "Girar Todas as Páginas"
+        uma_pagina = len(v._base) == 1
+        a_girar_pag = m.addAction("Girar Página" if uma_pagina else f"Girar Página {i + 1}") if i >= 0 else None
+        a_girar = None if uma_pagina else m.addAction("Girar Todas as Páginas")
+        # o PDF precisa de ao menos uma página: com uma só, a opção nem aparece
+        a_excluir = m.addAction(f"Excluir Página {i + 1}") if i >= 0 and len(v._base) > 1 else None
         a_larg = m.addAction("Ajustar à Largura")
         a_pagina = m.addAction("Página Inteira")
         esc = m.exec(e.globalPos())
@@ -1037,7 +1040,7 @@ class _Paginas(QWidget):
             v.remover_destaque(alvo)
         elif a_girar_pag is not None and esc is a_girar_pag:
             v.girar_pagina(i)
-        elif esc is a_girar:
+        elif a_girar is not None and esc is a_girar:
             v.girar()
         elif a_excluir is not None and esc is a_excluir:
             v.excluirPagina.emit(i)
