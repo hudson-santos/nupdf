@@ -318,10 +318,11 @@ class JanelaPrincipal(QMainWindow):
         self.b_girar = ui.botao("girar+seta", "Girar", obj="comMenu")  # seta ao lado, não no canto
         self.b_girar.setPopupMode(QToolButton.InstantPopup)  # menu com as duas opções
         menu_girar = QMenu(self.b_girar)
-        menu_girar.addAction("Girar Página Atual	Ctrl+Shift+R",
-                             lambda: self._no_visualizador(lambda v: v.girar_pagina()))
-        menu_girar.addAction("Girar Todas as Páginas	Ctrl+R",
-                             lambda: self._no_visualizador(lambda v: v.girar()))
+        # textos ajustados em _atualizar_estado: com uma página só fica "Girar Página"
+        self.a_girar_pagina = menu_girar.addAction("Girar Página Atual	Ctrl+Shift+R",
+                                                   lambda: self._no_visualizador(lambda v: v.girar_pagina()))
+        self.a_girar_todas = menu_girar.addAction("Girar Todas as Páginas	Ctrl+R",
+                                                  lambda: self._no_visualizador(lambda v: v.girar()))
         self.b_girar.setMenu(menu_girar)
         self.b_desfazer = ui.botao("desfazer", "Desfazer (Ctrl+Z)")  # habilitado só com algo a desfazer
         self.b_buscar = ui.botao("buscar", "Buscar (Ctrl+F)")
@@ -504,6 +505,11 @@ class JanelaPrincipal(QMainWindow):
             w.setVisible(tem)
         # PDF assinado: pode girar, mas não salvar girado (invalidaria as assinaturas)
         self.b_desfazer.setEnabled(bool(aba and aba.historico))
+        # menu do Girar: com uma página só, "Girar Página" e sem "Girar Todas as Páginas"
+        uma_pagina = bool(aba) and aba.doc.n_paginas == 1
+        self.a_girar_pagina.setText("Girar Página	Ctrl+Shift+R" if uma_pagina
+                                    else "Girar Página Atual	Ctrl+Shift+R")
+        self.a_girar_todas.setVisible(not uma_pagina)
         bloqueado = self._salvar_bloqueado(aba)
         self.b_salvar.setEnabled(not bloqueado)
         self.b_salvar.setToolTip(

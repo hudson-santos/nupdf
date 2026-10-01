@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.6] - 2026-10-01
+
+### Changed
+- Menu do botão Girar da barra: em documento de uma página só mostra apenas "Girar Página"
+  (sem "Girar Todas as Páginas"), como nos menus do botão direito; o menu se ajusta ao
+  trocar de aba, excluir ou reordenar páginas.
+
 ## [1.12.5] - 2026-10-01
 
 ### Changed
