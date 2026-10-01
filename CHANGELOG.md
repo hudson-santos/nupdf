@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.12.7] - 2026-10-01
+
+### Changed
+- Abertura mais rápida do aplicativo: a fonte do tema é resolvida sem varrer todas as fontes
+  instaladas no Windows, e o PyMuPDF e a aba de documento são carregados logo após a janela
+  aparecer (PDF aberto pelo Explorer entra depois do primeiro desenho da janela).
+- Instalador pré-compila o código do NuPDF: a primeira abertura após instalar/atualizar não
+  compila mais tudo na hora.
+
+### Fixed
+- Atraso na abertura em máquinas com arquivos recentes em pastas de rede (servidor lento ou
+  fora do ar): caminhos de rede da lista de recentes são conferidos em segundo plano.
+
 ## [1.12.6] - 2026-10-01
 
 ### Changed

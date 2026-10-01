@@ -1,21 +1,52 @@
 """Janela principal do NuPDF."""
 
+from __future__ import annotations
+
 import subprocess
+import threading
 from pathlib import Path
 
-import pymupdf
-from PySide6.QtCore import QEvent, QSize, Qt, QTimer
+from typing import TYPE_CHECKING
+
+from PySide6.QtCore import QEvent, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import (QApplication, QDialog, QFileDialog, QFrame, QHBoxLayout, QInputDialog, QLabel,
                                QLineEdit, QMainWindow, QMenu, QMessageBox, QProgressDialog, QPushButton,
                                QStackedWidget, QTabBar, QToolButton, QVBoxLayout, QWidget)
 
 from . import leitor_padrao, tema, ui
-from .aba import AbaDocumento
 from .config import Config
-from .documento import Documento, SenhaNecessaria
 from .icones import icone, icone_app, pixmap_logo
 from .versao import NOME_APP, VERSAO
+
+if TYPE_CHECKING:
+    import pymupdf
+
+    from .aba import AbaDocumento
+    from .documento import Documento
+
+# A aba de documento (PyMuPDF, visualizador, painéis) é o bloco mais pesado de
+# importar: carregada sob demanda, a janela aparece antes - e logo depois de
+# aparecer o NuPDF já a importa em segundo plano (pré-carga, ver main.py).
+
+
+def preparar_documentos():
+    """Importa os módulos da aba de documento (chamada pela pré-carga)."""
+    from . import aba  # noqa: F401
+
+
+def _disco_local(caminho: str) -> bool:
+    """True quando conferir o arquivo é instantâneo (disco fixo da máquina).
+    Caminho de rede (\\servidor ou unidade mapeada), pendrive e afins podem
+    levar segundos para responder - ou travar até o timeout do Windows, com o
+    servidor fora do ar."""
+    if caminho.startswith(("\\\\", "//")):
+        return False
+    try:
+        import ctypes
+        return ctypes.windll.kernel32.GetDriveTypeW(caminho[:3]) in (3, 6)  # DRIVE_FIXED, DRIVE_RAMDISK
+    except Exception:
+        return True
 
 
 class _LinhaRecente(QFrame):
@@ -84,9 +115,14 @@ class _LinhaRecente(QFrame):
 
 
 class TelaInicial(QWidget):
+    _redeConferida = Signal(int, object)  # (geração, caminhos de rede que não existem)
+
     def __init__(self, janela: "JanelaPrincipal"):
         super().__init__()
         self.janela = janela
+        self._geracao = 0
+        self._ausentes_rede: set[str] = set()
+        self._redeConferida.connect(self._rede_conferida)
         self.setObjectName("inicio")
         self.setAttribute(Qt.WA_StyledBackground, True)
         externo = QVBoxLayout(self)
@@ -162,12 +198,44 @@ class TelaInicial(QWidget):
         externo.addStretch(2)
 
     def atualizar(self, recentes: list[str]):
+        # Disco local é conferido na hora; caminho de rede é conferido numa thread
+        # (servidor lento ou fora do ar travaria a abertura do NuPDF) e entra na
+        # lista até a resposta - se não existir, sai quando a conferência terminar.
+        self._geracao += 1
+        self._recentes = list(recentes)
+        rede = [c for c in recentes if not _disco_local(c)]
+        self._rede = set(rede)
+        self._locais_ok = {c for c in recentes if c not in self._rede and Path(c).is_file()}
+        self._desenhar()
+        if rede:
+            geracao = self._geracao
+
+            def conferir():
+                ausentes = set()
+                for c in rede:
+                    try:
+                        if not Path(c).is_file():
+                            ausentes.add(c)
+                    except OSError:
+                        ausentes.add(c)
+                self._redeConferida.emit(geracao, ausentes)
+
+            threading.Thread(target=conferir, daemon=True).start()
+
+    def _rede_conferida(self, geracao: int, ausentes: set):
+        if geracao != self._geracao or ausentes == self._ausentes_rede:
+            return
+        self._ausentes_rede = ausentes
+        self._desenhar()
+
+    def _desenhar(self):
         while self.recentes.count():
             w = self.recentes.takeAt(0).widget()
             if w:
                 w.hide()
                 w.deleteLater()
-        existentes = [c for c in recentes if Path(c).is_file()][:6]
+        existentes = [c for c in self._recentes
+                      if c in self._locais_ok or (c in self._rede and c not in self._ausentes_rede)][:6]
         self.cab_recentes.setVisible(bool(existentes))
         for c in existentes:
             self.recentes.addWidget(_LinhaRecente(self, c))
@@ -556,6 +624,7 @@ class JanelaPrincipal(QMainWindow):
             self._atualizar_estado()
             return None
 
+        from .documento import Documento, SenhaNecessaria
         senha = None
         while True:
             try:
@@ -583,6 +652,7 @@ class JanelaPrincipal(QMainWindow):
 
     def _criar_aba(self, doc: Documento, indice: int | None = None) -> AbaDocumento:
         """Aba para o documento, no fim da barra ou na posição `indice`."""
+        from .aba import AbaDocumento
         aba = AbaDocumento(doc)
         aba.excluirPagina.connect(lambda i, a=aba: self.excluir_pagina(a, i))
         aba.moverPagina.connect(lambda de, para, a=aba: self.mover_pagina(a, de, para))
@@ -652,6 +722,7 @@ class JanelaPrincipal(QMainWindow):
         try:
             dados = aba.doc.sem_pagina(i, v.rotacoes())
             pendencias = [p for p in self._pendencias(aba) if p != "páginas excluídas"] + ["páginas excluídas"]
+            from .documento import Documento
             doc = Documento(str(aba.doc.caminho), aba.doc.senha, dados=dados, pendencias=pendencias)
         except Exception as e:
             QMessageBox.critical(self, NOME_APP, f"Não foi possível excluir a página:\n{e}")
@@ -674,6 +745,7 @@ class JanelaPrincipal(QMainWindow):
         try:
             dados = aba.doc.com_pagina_movida(de, para, aba.visualizador.rotacoes())
             pendencias = [p for p in self._pendencias(aba) if p != "páginas reordenadas"] + ["páginas reordenadas"]
+            from .documento import Documento
             doc = Documento(str(aba.doc.caminho), aba.doc.senha, dados=dados, pendencias=pendencias)
         except Exception as e:
             QMessageBox.critical(self, NOME_APP, f"Não foi possível mover a página:\n{e}")
@@ -722,6 +794,7 @@ class JanelaPrincipal(QMainWindow):
         else:
             # desfaz uma exclusão de página: reabre o conteúdo de antes
             try:
+                from .documento import Documento
                 doc = Documento(str(aba.doc.caminho), aba.doc.senha, dados=antes["dados"],
                                 pendencias=antes["pendencias"])
                 doc.restaurar_edicao(antes["edicao"])
@@ -968,8 +1041,11 @@ class JanelaPrincipal(QMainWindow):
         self._mostrar_nova_versao(versao)
 
     def _mostrar_nova_versao(self, versao: str):
+        if not versao:  # caso comum: nem importa o módulo de atualização (urllib) na abertura
+            self.b_nova_versao.hide()
+            return
         from . import atualizacao
-        if versao and atualizacao.eh_mais_nova(versao):
+        if atualizacao.eh_mais_nova(versao):
             self.b_nova_versao.setText(f"Nova Versão {versao} Disponível - Atualizar")
             self.b_nova_versao.setToolTip(f"Baixar e Instalar a Versão {versao} do NuPDF")
             self.b_nova_versao.show()

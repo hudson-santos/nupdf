@@ -204,6 +204,11 @@ function Etapa5-InstalarDependencias {
 
     Write-Host "      Dependencias instaladas."
 
+    # Pré-compila o bytecode do NuPDF (a etapa 3 apaga os __pycache__): sem isso a
+    # primeira abertura depois de instalar/atualizar compila tudo na hora - e, se o
+    # usuário não puder gravar na pasta, toda abertura compilaria de novo.
+    & $pythonVenv -m compileall -q (Join-Path $APP_DIR "nupdf") | Out-Null
+
     # Cadeia oficial ICP-Brasil (raízes + ACs, pacote do ITI) para validar assinaturas.
     # Falha aqui (sem internet) não interrompe a instalação: dá para baixar depois no
     # painel de assinaturas ("Atualizar Cadeia ICP-Brasil").

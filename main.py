@@ -14,7 +14,7 @@ import os
 import sys
 import traceback
 
-from PySide6.QtCore import QByteArray, Qt
+from PySide6.QtCore import QByteArray, Qt, QTimer
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication, QMessageBox
 
@@ -116,8 +116,14 @@ def main() -> int:
     janela = JanelaPrincipal(verificar_atualizacao=True)
     _iniciar_servidor(janela)
     janela.showMaximized()
-    for arq in arquivos:
-        janela.abrir_arquivo(arq)
+    if arquivos:
+        # abre depois do primeiro desenho: a janela aparece na hora e o PDF entra em seguida
+        QTimer.singleShot(0, lambda: [janela.abrir_arquivo(arq) for arq in arquivos])
+    else:
+        # pré-carga da aba de documento (PyMuPDF etc.) logo após a janela aparecer -
+        # o primeiro "Abrir PDF" não paga essa importação
+        from nupdf.janela import preparar_documentos
+        QTimer.singleShot(150, preparar_documentos)
     return app.exec()
 
 

@@ -4,6 +4,11 @@ from pathlib import Path
 from string import Template
 
 FONTE = "Google Sans"
+# Família usada no QSS: uma só (a embutida, ou a Segoe UI se ela faltar). Uma
+# lista com alternativas ("Google Sans", "Segoe UI", sans-serif) faz o Qt varrer
+# todas as fontes instaladas no primeiro desenho - em máquinas com muitas fontes
+# isso atrasava a abertura em quase meio segundo ou mais.
+_familia = "Segoe UI"
 _PASTA_FONTES = Path(__file__).resolve().parents[1] / "assets" / "fonts"
 _fontes_carregadas = False
 
@@ -12,15 +17,19 @@ def carregar_fontes():
     """Registra a Google Sans embutida em assets/fonts (licença OFL) - assim o
     app fica igual em máquinas que não têm a fonte instalada. Sem o arquivo,
     o QSS cai para Segoe UI."""
-    global _fontes_carregadas
+    global _fontes_carregadas, _familia
     if _fontes_carregadas:
         return
     _fontes_carregadas = True
     from PySide6.QtGui import QFont, QFontDatabase
     from PySide6.QtWidgets import QApplication
+    # applicationFontFamilies() lê só o arquivo registrado; QFontDatabase.families()
+    # enumeraria todas as fontes do Windows (lento com muitas fontes instaladas)
+    familias = set()
     for arq in _PASTA_FONTES.glob("*.ttf"):
-        QFontDatabase.addApplicationFont(str(arq))
-    if FONTE in QFontDatabase.families():
+        familias.update(QFontDatabase.applicationFontFamilies(QFontDatabase.addApplicationFont(str(arq))))
+    if FONTE in familias:
+        _familia = FONTE
         fonte = QFont(FONTE, 10)
         fonte.setHintingPreference(QFont.PreferNoHinting)
         QApplication.setFont(fonte)
@@ -72,7 +81,7 @@ CLARO = {
 }
 
 _QSS = Template("""
-* { font-family: "Google Sans", "Segoe UI", sans-serif; font-size: 13px; color: $texto; }
+* { font-family: "$familia"; font-size: 13px; color: $texto; }
 QMainWindow, QDialog { background: $janela; }
 QToolTip { background: $superficie2; color: $texto; border: 1px solid $borda; padding: 4px 8px; border-radius: 6px; }
 
@@ -222,4 +231,4 @@ def aplicar(app, escuro: bool):
 def qss(escuro: bool) -> str:
     # caminho com "/" (o QSS não aceita "\\" do Windows)
     check = (Path(__file__).resolve().parents[1] / "assets" / "check.svg").as_posix()
-    return _QSS.substitute(paleta(escuro), check=check)
+    return _QSS.substitute(paleta(escuro), check=check, familia=_familia)
