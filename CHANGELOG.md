@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.5] - 2026-10-01
+
+### Changed
+- Barras de rolagem mais visíveis em todo o app (documento, miniaturas e painéis): alça com
+  cor própria que se destaca do fundo nos temas claro e escuro, mais larga, mais escura ao
+  passar o mouse ou arrastar, e com tamanho mínimo maior em documentos com muitas páginas.
+
 ## [1.12.4] - 2026-10-01
 
 ### Changed

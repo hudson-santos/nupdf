@@ -33,6 +33,8 @@ ESCURO = {
     "hover": "#34363b",
     "borda": "#34363b",
     "canvas": "#2b2c31",
+    "rolagem": "#5c5f67",        # alça da barra de rolagem (visível sobre o canvas)
+    "rolagem_hover": "#80838c",
     "texto": "#e7e7ea",
     "texto2": "#a1a3aa",
     "texto3": "#6f727a",
@@ -54,6 +56,8 @@ CLARO = {
     "hover": "#ebebef",
     "borda": "#e3e3e8",
     "canvas": "#e8e8ec",
+    "rolagem": "#a6a9b1",        # alça da barra de rolagem (visível sobre o canvas)
+    "rolagem_hover": "#878b94",
     "texto": "#1d1f24",
     "texto2": "#5d6068",
     "texto3": "#9a9ca3",
@@ -152,11 +156,12 @@ QTreeWidget::branch { background: transparent; }
 QHeaderView::section { background: transparent; border: none; color: $texto2; padding: 4px; }
 
 QScrollArea { background: $canvas; border: none; }
-QScrollBar:vertical { background: transparent; width: 10px; margin: 2px; }
-QScrollBar::handle:vertical { background: $superficie2; border-radius: 4px; min-height: 30px; }
-QScrollBar::handle:vertical:hover { background: $texto3; }
-QScrollBar:horizontal { background: transparent; height: 10px; margin: 2px; }
-QScrollBar::handle:horizontal { background: $superficie2; border-radius: 4px; min-width: 30px; }
+QScrollBar:vertical { background: transparent; width: 14px; margin: 2px; }
+QScrollBar::handle:vertical { background: $rolagem; border-radius: 5px; min-height: 48px; }
+QScrollBar::handle:vertical:hover, QScrollBar::handle:vertical:pressed { background: $rolagem_hover; }
+QScrollBar:horizontal { background: transparent; height: 14px; margin: 2px; }
+QScrollBar::handle:horizontal { background: $rolagem; border-radius: 5px; min-width: 48px; }
+QScrollBar::handle:horizontal:hover, QScrollBar::handle:horizontal:pressed { background: $rolagem_hover; }
 QScrollBar::add-line, QScrollBar::sub-line { width: 0; height: 0; }
 QScrollBar::add-page, QScrollBar::sub-page { background: transparent; }
 
