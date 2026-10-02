@@ -253,7 +253,7 @@ class JanelaPrincipal(QMainWindow):
     def __init__(self, verificar_atualizacao: bool = False):
         super().__init__()
         self.config = Config()
-        self.escuro = bool(self.config.get("tema_escuro", True))
+        self.escuro = self.config.tema_escuro()
         tema.carregar_fontes()
         ui.definir_cores(tema.paleta(self.escuro))
         tema.aplicar(QApplication.instance(), self.escuro)

@@ -28,6 +28,14 @@ class Config:
     def set(self, chave: str, valor):
         self._s.setValue(chave, valor)
 
+    def tema_escuro(self) -> bool:
+        """Tema claro é o padrão de instalações novas. Quem já usava o NuPDF (já há
+        preferências gravadas) sem nunca ter trocado o tema estava no escuro - o
+        padrão antigo - e continua nele."""
+        if not self._s.contains("tema_escuro"):
+            self._s.setValue("tema_escuro", bool(self._s.allKeys()))
+        return bool(self.get("tema_escuro", False))
+
     # --- arquivos recentes -------------------------------------------------
     def recentes(self) -> list[str]:
         try:

@@ -5,7 +5,12 @@ fica protegida por um hash que só o próprio Windows gera) e bloqueia até a
 janela "Abrir com" chamada por um programa ("Para alterar os aplicativos
 padrão, vá para Configurações..."). O caminho aceito é a página do NuPDF em
 Configurações > Aplicativos > Aplicativos padrão, onde o usuário clica em
-"Definir padrão".
+"Definir padrão" - no Windows 11. No Windows 10 essa página não existe (o link
+cai na lista geral e o usuário teria de procurar ".pdf" em "por tipo de
+arquivo"); lá o NuPDF abre a janela do sistema "Como você deseja abrir este
+arquivo?" (SHOpenWithDialog), com o NuPDF na lista e a caixa "Sempre usar este
+aplicativo" - a escolha é gravada pelo próprio Windows. Se ela não resolver, o
+botão passa a abrir as Configurações.
 """
 
 import ctypes
@@ -72,9 +77,47 @@ def registrar_nas_configuracoes() -> bool:
         return False
 
 
+def windows_10() -> bool:
+    """Windows 10 (ou anterior): build abaixo de 22000 (o Windows 11 também se diz "10.0")."""
+    try:
+        return sys.platform == "win32" and sys.getwindowsversion().build < 22000
+    except Exception:
+        return False
+
+
+class _OPENASINFO(ctypes.Structure):
+    _fields_ = [("pcszFile", wintypes.LPCWSTR), ("pcszClass", wintypes.LPCWSTR), ("oaifInFlags", ctypes.c_int)]
+
+
+_OAIF_ALLOW_REGISTRATION = 0x01  # mostra a caixa "Sempre usar este aplicativo..."
+_OAIF_REGISTER_EXT = 0x02        # grava a escolha (sem abrir o arquivo)
+
+
+def abrir_com_do_windows(hwnd: int = 0) -> bool:
+    """Janela "Como você deseja abrir este arquivo?" para .pdf (Windows 10). Usa um
+    PDF vazio temporário só para o Windows saber a extensão; nada é aberto.
+    False se a janela não pôde ser mostrada."""
+    import tempfile
+    try:
+        registrar_nas_configuracoes()
+        exemplo = os.path.join(tempfile.gettempdir(), "NuPDF.pdf")
+        if not os.path.isfile(exemplo):
+            with open(exemplo, "wb") as f:
+                f.write(b"%PDF-1.4\n%%EOF\n")
+        info = _OPENASINFO(exemplo, None, _OAIF_ALLOW_REGISTRATION | _OAIF_REGISTER_EXT)
+        shell32 = ctypes.windll.shell32
+        shell32.SHOpenWithDialog.argtypes = [wintypes.HWND, ctypes.POINTER(_OPENASINFO)]
+        shell32.SHOpenWithDialog.restype = ctypes.c_long
+        hr = shell32.SHOpenWithDialog(hwnd or None, ctypes.byref(info))
+        # S_OK; cancelar devolve HRESULT_FROM_WIN32(ERROR_CANCELLED) - a janela apareceu
+        return hr in (0, ctypes.c_long(0x800704C7).value)
+    except (OSError, AttributeError):
+        return False
+
+
 def abrir_configuracoes():
     """Abre a página do NuPDF em Aplicativos padrão (ou a lista geral, se não registrado)."""
-    url = ("ms-settings:defaultapps?registeredAppUser=NuPDF" if registrar_nas_configuracoes()
+    url = ("ms-settings:defaultapps?registeredAppUser=NuPDF" if registrar_nas_configuracoes() and not windows_10()
            else "ms-settings:defaultapps")
     QDesktopServices.openUrl(QUrl(url))
 
@@ -93,14 +136,21 @@ class DialogoLeitorPadrao(QDialog):
 
         atual = leitor_atual()
         agora = f"Hoje os arquivos PDF abrem no <b>{atual}</b>. " if atual and atual != "NuPDF" else ""
-        texto = QLabel(agora + "Clique em <b>Definir como Padrão</b>: as Configurações do Windows vão "
-                       "abrir na página do NuPDF - lá, clique em <b>Definir padrão</b>.")
+        self._win10 = windows_10()
+        if self._win10:
+            explicacao = ("Clique em <b>Definir como Padrão</b>, escolha <b>NuPDF</b> na janela do Windows, "
+                          "marque <b>Sempre usar este aplicativo para abrir arquivos .pdf</b> e clique em <b>OK</b>.")
+        else:
+            explicacao = ("Clique em <b>Definir como Padrão</b>: as Configurações do Windows vão "
+                          "abrir na página do NuPDF - lá, clique em <b>Definir padrão</b>.")
+        texto = QLabel(agora + explicacao)
         texto.setWordWrap(True)
         texto.setTextFormat(Qt.RichText)
         lay.addWidget(texto)
 
         self.pendente = QLabel("O NuPDF ainda não é o leitor padrão. Nas Configurações do Windows, "
                                "clique em \"Definir padrão\" na página do NuPDF.")
+        self._tentou_abrir_com = False
         self.pendente.setObjectName("statusAviso")
         self.pendente.setWordWrap(True)
         self.pendente.hide()
@@ -123,6 +173,19 @@ class DialogoLeitorPadrao(QDialog):
         self._abriu_configuracoes = False
 
     def _definir(self):
+        if self._win10 and not self._tentou_abrir_com:
+            self._tentou_abrir_com = True
+            if abrir_com_do_windows(int(self.winId())):
+                if e_padrao():
+                    self.accept()
+                    return
+                # não marcou "Sempre usar" (ou o Windows não gravou): segunda tentativa
+                # pelas Configurações, procurando .pdf em "por tipo de arquivo"
+                self.pendente.setText("O NuPDF ainda não é o leitor padrão. Clique em \"Definir como "
+                                      "Padrão\" de novo para escolher pelas Configurações do Windows "
+                                      "(\"Escolher aplicativos padrão por tipo de arquivo\" > .pdf).")
+                self.pendente.show()
+                return
         self._abriu_configuracoes = True
         abrir_configuracoes()
 

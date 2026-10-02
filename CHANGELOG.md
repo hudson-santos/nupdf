@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.13.3] - 2026-10-02
+
+### Changed
+- Tema claro passa a ser o padrão em instalações novas; quem já usava o NuPDF continua no
+  tema em que estava.
+- Leitor de PDF padrão no Windows 10: "Definir como Padrão" abre a janela do Windows "Como
+  você deseja abrir este arquivo?" com o NuPDF e a opção "Sempre usar este aplicativo" -
+  sem precisar procurar ".pdf" nas Configurações. Se não resolver, um segundo clique abre
+  as Configurações. No Windows 11 o fluxo continua o mesmo.
+
 ## [1.13.2] - 2026-10-02
 
 ### Changed
