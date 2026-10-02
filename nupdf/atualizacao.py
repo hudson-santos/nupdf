@@ -5,6 +5,12 @@ A release é criada pelo workflow .github/workflows/versao.yml a cada commit
 CHANGELOG.md. Só a biblioteca padrão é usada: urllib respeita o proxy
 configurado no Windows e o ssl usa o repositório de certificados do sistema
 (inclusive certificados de inspeção SSL corporativos).
+
+Atualização automática: a verificação diária (janela.py) baixa o instalador da
+versão nova em segundo plano para PASTA_PENDENTE; no próximo acesso, o main.py
+roda esse instalador em modo silencioso antes de montar a janela (o instalador
+reabre o NuPDF ao final). O urllib só é importado ao consultar/baixar - a
+checagem de pendência roda em toda abertura e precisa ser instantânea.
 """
 
 import json
@@ -12,9 +18,6 @@ import os
 import re
 import subprocess
 import sys
-import urllib.error
-import urllib.parse
-import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -26,6 +29,7 @@ PAGINA_DOWNLOAD = "https://nupdf.com.br"
 PASTA_INSTALACAO = Path(r"C:\NuPDF")
 NOME_INSTALADOR = "Instalador.exe"
 HOSTS_PERMITIDOS = ("github.com", "objects.githubusercontent.com", "release-assets.githubusercontent.com")
+PASTA_PENDENTE = PASTA_INSTALACAO / "atualizacao"
 TIMEOUT = 15
 
 
@@ -50,7 +54,16 @@ def eh_mais_nova(remota: str, local: str = VERSAO) -> bool:
     return _tupla(remota) > _tupla(local)
 
 
+def instalado() -> bool:
+    """Só a cópia instalada em C:\\NuPDF se atualiza sozinha (nunca a pasta de desenvolvimento)."""
+    try:
+        return Path(__file__).resolve().parents[1] == PASTA_INSTALACAO.resolve()
+    except OSError:
+        return False
+
+
 def _abrir(url: str):
+    import urllib.request
     req = urllib.request.Request(url, headers={
         "User-Agent": f"NuPDF/{VERSAO}",
         "Accept": "application/vnd.github+json",
@@ -59,6 +72,7 @@ def _abrir(url: str):
 
 
 def ultima_release() -> Release:
+    import urllib.error
     try:
         with _abrir(API_ULTIMA) as r:
             dados = json.load(r)
@@ -82,14 +96,17 @@ def ultima_release() -> Release:
     )
 
 
-def baixar_instalador(release: Release, progresso=None, cancelado=lambda: False) -> Path:
+def baixar_instalador(release: Release, progresso=None, cancelado=lambda: False,
+                      destino: Path | None = None) -> Path:
     """Baixa o Instalador.exe para C:\\NuPDF (arquivo .part renomeado no fim)."""
+    import urllib.parse
     host = urllib.parse.urlparse(release.url_instalador).hostname or ""
     if not any(host == h or host.endswith("." + h) for h in HOSTS_PERMITIDOS):
         raise ErroAtualizacao(f"Endereço de download inesperado: {host}")
-    PASTA_INSTALACAO.mkdir(parents=True, exist_ok=True)
-    destino = PASTA_INSTALACAO / NOME_INSTALADOR
-    parcial = destino.with_suffix(".exe.part")
+    destino = destino or PASTA_INSTALACAO / NOME_INSTALADOR
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    # .part por processo: em servidor RemoteApp vários usuários podem baixar ao mesmo tempo
+    parcial = destino.with_name(f"{destino.name}.{os.getpid()}.part")
     try:
         with _abrir(release.url_instalador) as r, open(parcial, "wb") as f:
             total = int(r.headers.get("Content-Length") or release.tamanho or 0)
@@ -127,3 +144,55 @@ def executar_instalador(caminho: Path):
         flags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
     subprocess.Popen([str(caminho), "/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-"],
                      cwd=str(caminho.parent), creationflags=flags, close_fds=True)
+
+
+# ---------------------------------------------------------------- atualização automática
+def _pendentes() -> list[tuple[tuple, Path]]:
+    try:
+        arquivos = list(PASTA_PENDENTE.glob("Instalador-*.exe"))
+    except OSError:
+        return []
+    return sorted(((_tupla(a.stem.split("-", 1)[1]), a) for a in arquivos), reverse=True)
+
+
+def baixar_pendente(release: Release) -> Path:
+    """Baixa (em segundo plano) o instalador da versão nova para PASTA_PENDENTE,
+    a ser instalado no próximo acesso. Já baixado e íntegro: não baixa de novo."""
+    destino = PASTA_PENDENTE / f"Instalador-{release.versao}.exe"
+    if not (destino.is_file() and (not release.tamanho or destino.stat().st_size == release.tamanho)):
+        baixar_instalador(release, destino=destino)
+    for _, antigo in _pendentes():
+        if antigo != destino:
+            antigo.unlink(missing_ok=True)
+    return destino
+
+
+def atualizacao_pendente() -> Path | None:
+    """Instalador já baixado de uma versão mais nova que a atual (o mais novo).
+    Sobras de versões já instaladas são apagadas."""
+    if not instalado():
+        return None
+    atual = _tupla(VERSAO)
+    escolhido = None
+    for versao, arq in _pendentes():
+        if versao > atual and escolhido is None:
+            escolhido = arq
+        elif versao <= atual:
+            try:
+                arq.unlink(missing_ok=True)
+            except OSError:
+                pass
+    return escolhido
+
+
+def instalar_pendente(caminho: Path) -> bool:
+    """Tira o instalador da pasta de pendentes (se a instalação falhar, não tenta
+    de novo a cada abertura - a verificação diária baixa outra vez) e o executa
+    em modo silencioso. False se não deu (ex.: outro usuário já está instalando)."""
+    executar = PASTA_INSTALACAO / NOME_INSTALADOR
+    try:
+        os.replace(caminho, executar)
+        executar_instalador(executar)
+        return True
+    except OSError:
+        return False

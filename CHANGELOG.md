@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.13.0] - 2026-10-02
+
+### Added
+- Atualização automática silenciosa: ao encontrar uma versão nova (verificação diária), o
+  NuPDF baixa o instalador em segundo plano e, no próximo acesso, instala sozinho (só a
+  janela de progresso, sem perguntas) e reabre já atualizado - inclusive com o PDF que foi
+  aberto naquele acesso. O aviso "Nova Versão Disponível - Atualizar" continua e, com o
+  download pronto, instala na hora. Só a cópia instalada em C:\NuPDF se atualiza sozinha.
+
 ## [1.12.7] - 2026-10-01
 
 ### Changed

@@ -9,6 +9,7 @@ Explorer.
 """
 
 import getpass
+import json
 import logging
 import os
 import sys
@@ -86,6 +87,44 @@ def _iniciar_servidor(janela) -> QLocalServer:
     return servidor
 
 
+def _arquivo_abrir_depois():
+    from nupdf.config import pasta_dados
+    return pasta_dados() / "abrir_apos_atualizar.json"
+
+
+def _instalar_atualizacao_pendente(arquivos: list[str]) -> bool:
+    """Atualização automática: se a verificação diária já baixou o instalador de
+    uma versão nova, instala agora em modo silencioso (só a janelinha de progresso)
+    e o próprio instalador reabre o NuPDF ao final. Os PDFs pedidos nesta abertura
+    ficam anotados e são abertos pelo NuPDF já atualizado."""
+    from nupdf import atualizacao
+    pendente = atualizacao.atualizacao_pendente()
+    if pendente is None:
+        return False
+    anotacao = _arquivo_abrir_depois()
+    try:
+        if arquivos:
+            anotacao.write_text(json.dumps(arquivos), encoding="utf-8")
+    except OSError:
+        pass
+    if atualizacao.instalar_pendente(pendente):
+        return True
+    anotacao.unlink(missing_ok=True)
+    return False
+
+
+def _arquivos_apos_atualizacao() -> list[str]:
+    anotacao = _arquivo_abrir_depois()
+    if not anotacao.is_file():
+        return []
+    try:
+        lista = json.loads(anotacao.read_text(encoding="utf-8"))
+        anotacao.unlink(missing_ok=True)
+    except (OSError, ValueError):
+        return []
+    return [c for c in lista if isinstance(c, str)]
+
+
 def _erro_nao_tratado(tipo, valor, tb):
     texto = "".join(traceback.format_exception(tipo, valor, tb))
     if sys.__stderr__:
@@ -102,6 +141,9 @@ def main() -> int:
     arquivos = _arquivos_da_linha_de_comando()
     if _enviar_para_instancia_aberta(arquivos):
         return 0
+    if _instalar_atualizacao_pendente(arquivos):
+        return 0
+    arquivos = _arquivos_apos_atualizacao() + arquivos
 
     from nupdf.icones import icone_app
     from nupdf.janela import JanelaPrincipal

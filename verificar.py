@@ -180,6 +180,42 @@ def main() -> int:
     from nupdf import atualizacao
     checar("compara versões (semver)", atualizacao.eh_mais_nova("0.10.0", "0.9.9")
            and not atualizacao.eh_mais_nova("0.2.1", "0.2.1") and not atualizacao.eh_mais_nova("0.2.0", "0.2.1"))
+    checar("pasta de desenvolvimento não se atualiza sozinha",
+           atualizacao.instalado() == (Path(atualizacao.__file__).resolve().parents[1]
+                                       == atualizacao.PASTA_INSTALACAO.resolve()))
+    # atualização automática: instalador baixado em segundo plano -> instalado no próximo acesso
+    orig = (atualizacao.PASTA_INSTALACAO, atualizacao.PASTA_PENDENTE, atualizacao.instalado,
+            atualizacao.executar_instalador, atualizacao.baixar_instalador)
+    executados, baixados = [], []
+    try:
+        base = Path(tempfile.mkdtemp())
+        atualizacao.PASTA_INSTALACAO, atualizacao.PASTA_PENDENTE = base, base / "atualizacao"
+        atualizacao.instalado = lambda: True
+        atualizacao.executar_instalador = executados.append
+
+        def falso_download(rel, destino=None, **_):
+            baixados.append(rel.versao)
+            destino.parent.mkdir(parents=True, exist_ok=True)
+            destino.write_bytes(b"MZ" + b"0" * 8)
+            return destino
+
+        atualizacao.baixar_instalador = falso_download
+        nova = atualizacao.Release("999.0.0", "", "https://github.com/x", 10, "")
+        (base / "atualizacao").mkdir()
+        (base / "atualizacao" / "Instalador-0.0.1.exe").write_bytes(b"MZ")  # sobra de versão já instalada
+        atualizacao.baixar_pendente(nova)
+        atualizacao.baixar_pendente(nova)  # já baixado e íntegro: não baixa de novo
+        checar("baixa a versão nova uma vez só", baixados == ["999.0.0"])
+        pendente = atualizacao.atualizacao_pendente()
+        checar("encontra a atualização pendente (e apaga sobras)",
+               pendente is not None and pendente.name == "Instalador-999.0.0.exe"
+               and not (base / "atualizacao" / "Instalador-0.0.1.exe").exists())
+        checar("instala a pendente uma vez só (sai da fila)",
+               atualizacao.instalar_pendente(pendente) and executados == [base / "Instalador.exe"]
+               and atualizacao.atualizacao_pendente() is None)
+    finally:
+        (atualizacao.PASTA_INSTALACAO, atualizacao.PASTA_PENDENTE, atualizacao.instalado,
+         atualizacao.executar_instalador, atualizacao.baixar_instalador) = orig
 
     print("Leitor de PDF padrão:")
     from nupdf import leitor_padrao

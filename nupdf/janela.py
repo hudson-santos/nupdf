@@ -1026,15 +1026,27 @@ class JanelaPrincipal(QMainWindow):
 
         def verificar():
             rel = atualizacao.ultima_release()
-            return rel if atualizacao.eh_mais_nova(rel.versao) else None
+            if not atualizacao.eh_mais_nova(rel.versao):
+                return None, True
+            if not atualizacao.instalado():  # pasta de desenvolvimento: só avisa
+                return rel, True
+            # atualização automática: baixa agora em segundo plano; o próximo acesso
+            # ao NuPDF instala (main.py). Falha no download: tenta de novo na próxima hora.
+            try:
+                atualizacao.baixar_pendente(rel)
+                return rel, True
+            except Exception:
+                return rel, False
 
         self._tarefa_atualizacao = ui.Tarefa(verificar)
         self._tarefa_atualizacao.concluida.connect(self._verificacao_concluida)
         self._tarefa_atualizacao.start()  # falha (sem internet etc.) é ignorada: tenta na próxima hora
 
-    def _verificacao_concluida(self, release):
+    def _verificacao_concluida(self, resultado):
         import time
-        self.config.set("atualizacao/ultima_verificacao", time.time())
+        release, completa = resultado
+        if completa:
+            self.config.set("atualizacao/ultima_verificacao", time.time())
         self._release_nova = release
         versao = release.versao if release is not None else ""
         self.config.set("atualizacao/versao_disponivel", versao)
@@ -1047,12 +1059,24 @@ class JanelaPrincipal(QMainWindow):
         from . import atualizacao
         if atualizacao.eh_mais_nova(versao):
             self.b_nova_versao.setText(f"Nova Versão {versao} Disponível - Atualizar")
-            self.b_nova_versao.setToolTip(f"Baixar e Instalar a Versão {versao} do NuPDF")
+            if atualizacao.atualizacao_pendente() is not None:
+                self.b_nova_versao.setToolTip(f"A Versão {versao} já foi Baixada e será Instalada Automaticamente "
+                                              "no Próximo Acesso ao NuPDF - Clique para Instalar Agora")
+            else:
+                self.b_nova_versao.setToolTip(f"Baixar e Instalar a Versão {versao} do NuPDF")
             self.b_nova_versao.show()
         else:
             self.b_nova_versao.hide()
 
     def _atualizar_agora(self):
+        from . import atualizacao
+        pendente = atualizacao.atualizacao_pendente()
+        if pendente is not None:
+            # já baixada em segundo plano: fecha (perguntando sobre alterações não
+            # salvas) e instala - o instalador reabre o NuPDF ao final
+            if self.close() and atualizacao.instalar_pendente(pendente):
+                QApplication.instance().quit()
+            return
         from .dialogo_atualizacao import DialogoAtualizacao
         # sem a release em memória (encontrada em outro dia), o diálogo consulta de novo
         DialogoAtualizacao(self, release=self._release_nova, iniciar=True).exec()
