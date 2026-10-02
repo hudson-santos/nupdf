@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.13.2] - 2026-10-02
+
+### Changed
+- Painel de assinaturas: spinner laranja centralizado no painel enquanto as assinaturas
+  digitais são verificadas (também ao atualizar a cadeia ou confiar em um certificado).
+
 ## [1.13.1] - 2026-10-02
 
 ### Changed

@@ -53,6 +53,48 @@ VERMELHO = ("#c62828", "#b71c1c")  # (cor, cor ao passar o mouse)
 CINZA = ("#4b4d53", "#5b5d64")
 
 
+class Spinner(QWidget):
+    """Indicador de carregamento: arco girando na cor de destaque do tema (a
+    mesma laranja do "Assinar"). Só anima enquanto visível."""
+
+    def __init__(self, tamanho: int = 30, espessura: float = 3.0, parent=None):
+        super().__init__(parent)
+        self.setFixedSize(tamanho, tamanho)
+        self._espessura = espessura
+        self._angulo = 0
+        self._timer = QTimer(self)
+        self._timer.setInterval(16)
+        self._timer.timeout.connect(self._girar)
+
+    def _girar(self):
+        self._angulo = (self._angulo + 8) % 360
+        self.update()
+
+    def showEvent(self, e):
+        self._timer.start()
+        super().showEvent(e)
+
+    def hideEvent(self, e):
+        self._timer.stop()
+        super().hideEvent(e)
+
+    def paintEvent(self, e):
+        from PySide6.QtGui import QPen
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        m = self._espessura / 2 + 1
+        r = QRectF(m, m, self.width() - 2 * m, self.height() - 2 * m)
+        cor = QColor(cores().get("destaque", "#e5484d"))
+        trilho = QColor(cor)
+        trilho.setAlpha(45)
+        p.setPen(QPen(trilho, self._espessura))
+        p.drawEllipse(r)
+        caneta = QPen(cor, self._espessura)
+        caneta.setCapStyle(Qt.RoundCap)
+        p.setPen(caneta)
+        p.drawArc(r, -self._angulo * 16, 100 * 16)
+
+
 class BotaoRedondo(QAbstractButton):
     """Botão circular com ícone branco (ações sobre miniaturas e marcadores).
 

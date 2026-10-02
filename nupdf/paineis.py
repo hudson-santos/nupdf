@@ -603,6 +603,12 @@ class PainelAssinaturas(QWidget):
         self.status.setObjectName("sub")
         self.status.setWordWrap(True)
         lay.addWidget(self.status)
+        # validar as assinaturas leva um tempo (cadeia, revogação): spinner no centro do
+        # painel até o resultado (ocupa o lugar da lista enquanto ela está escondida)
+        self.spinner = ui.Spinner(30)
+        self.spinner.setToolTip("Verificando as Assinaturas Digitais")
+        self.spinner.hide()
+        lay.addWidget(self.spinner, 1, Qt.AlignCenter)
         area = self._area = QScrollArea()
         area.setWidgetResizable(True)
         area.setStyleSheet("QScrollArea { background: transparent; }")
@@ -689,13 +695,23 @@ class PainelAssinaturas(QWidget):
         self._carregado = True
         self._mostrar_status("")  # sem "Verificando assinaturas…": a linha só aparece com o resultado
         from .assinatura.validador import validar
+        self._carregando(True)
         self._tarefa = ui.Tarefa(validar, self.doc.dados)
         self._tarefa.concluida.connect(self._exibir)
-        self._tarefa.falhou.connect(lambda e: self._mostrar_status(f"Não foi possível verificar: {e}"))
+        self._tarefa.falhou.connect(self._falha_validacao)
         self._tarefa.start()
+
+    def _carregando(self, sim: bool):
+        self.spinner.setVisible(sim)
+        self._area.setVisible(not sim)
+
+    def _falha_validacao(self, erro: str):
+        self._carregando(False)
+        self._mostrar_status(f"Não foi possível verificar: {erro}")
 
     def _exibir(self, resultados):
         self._resultados = resultados
+        self._carregando(False)
         self.b_cadeia.setVisible(bool(resultados))
         while self.lista.count() > 1:
             w = self.lista.takeAt(0).widget()
