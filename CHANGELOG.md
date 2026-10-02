@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.13.1] - 2026-10-02
+
+### Changed
+- Painel de assinaturas: o link "Confiar nesta Cadeia" passou a se chamar "Confiar neste
+  Certificado" (também no título da confirmação) e não fica mais sublinhado ao passar o mouse.
+
 ## [1.13.0] - 2026-10-02
 
 ### Added

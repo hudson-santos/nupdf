@@ -4,7 +4,7 @@ Confiança da cadeia, além do repositório de certificados do Windows:
 - cadeia ICP-Brasil oficial (pasta 'icp-brasil', baixada do ITI pelo instalador ou
   pelo botão "Atualizar Cadeia ICP-Brasil" - ver cadeia_icp.py): as raízes viram
   âncoras de confiança e as ACs intermediárias só ajudam a montar o caminho;
-- certificados em que o usuário mandou confiar ("Confiar nesta Cadeia"), na pasta
+- certificados em que o usuário mandou confiar ("Confiar neste Certificado"), na pasta
   'confiaveis' de %APPDATA%\\NuPDF\\cadeias;
 - certificados colocados à mão em %APPDATA%\\NuPDF\\cadeias ou na pasta 'cadeias'
   ao lado do programa (todos tratados como confiáveis, como antes).
@@ -44,7 +44,7 @@ class ResultadoAssinatura:
     motivo: str
     local: str
     observacao: str
-    # topo da cadeia que acompanha a assinatura: o que "Confiar nesta Cadeia" grava
+    # topo da cadeia que acompanha a assinatura: o que "Confiar neste Certificado" grava
     topo_cadeia_der: bytes | None = None
     topo_cadeia_nome: str = ""
 
@@ -99,7 +99,7 @@ def _carregar_cadeias() -> tuple[list, list]:
 
 
 def confiar(der: bytes) -> Path:
-    """Passa a confiar no certificado (topo de uma cadeia) - "Confiar nesta Cadeia"."""
+    """Passa a confiar no certificado (topo de uma cadeia) - "Confiar neste Certificado"."""
     pasta = pasta_dados() / "cadeias" / PASTA_CONFIAVEIS
     pasta.mkdir(parents=True, exist_ok=True)
     arq = pasta / f"{hashlib.sha1(der).hexdigest()}.cer"

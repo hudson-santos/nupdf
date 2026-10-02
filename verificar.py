@@ -272,9 +272,9 @@ def main() -> int:
             checar("assinar PDF com estrutura quebrada (reconstruída)", len(res_q) == 1 and res_q[0].integra)
         except Exception as e:
             checar("assinar PDF com estrutura quebrada (reconstruída)", False, str(e))
-        # "Confiar nesta Cadeia": grava o topo da cadeia e a assinatura passa a ser confiável
+        # "Confiar neste Certificado": grava o topo da cadeia e a assinatura passa a ser confiável
         from nupdf.assinatura import validador as _val
-        checar("oferece 'Confiar nesta Cadeia'", res[0].topo_cadeia_der is not None, res[0].topo_cadeia_nome)
+        checar("oferece 'Confiar neste Certificado'", res[0].topo_cadeia_der is not None, res[0].topo_cadeia_nome)
         _val.confiar(res[0].topo_cadeia_der)
         res_t = validar(duas, buscar_na_internet=False)
         checar("confiar na cadeia torna a assinatura confiável", all(r.confiavel for r in res_t),

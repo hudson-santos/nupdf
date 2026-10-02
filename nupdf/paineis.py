@@ -442,7 +442,7 @@ class _CartaoAssinatura(QFrame):
             lay.addWidget(obs)
         if not r.confiavel and r.topo_cadeia_der and ao_confiar:
             # como o "Adicionar a certificados confiáveis" do Adobe
-            confiar = QPushButton("Confiar nesta Cadeia")
+            confiar = QPushButton("Confiar neste Certificado")
             confiar.setObjectName("linkCartao")
             confiar.setCursor(Qt.PointingHandCursor)
             confiar.setToolTip(f"Passar a confiar em: {r.topo_cadeia_nome}")
@@ -654,7 +654,7 @@ class PainelAssinaturas(QWidget):
 
     def _confiar(self, r):
         caixa = QMessageBox(self)
-        caixa.setWindowTitle("Confiar nesta Cadeia")
+        caixa.setWindowTitle("Confiar neste Certificado")
         caixa.setIcon(QMessageBox.NoIcon)
         caixa.setText(f"Passar a confiar nas assinaturas cuja cadeia chega a:<br><br><b>{r.topo_cadeia_nome}</b>"
                       "<br><br>Vale para todos os documentos, neste computador. Só confirme se você "
