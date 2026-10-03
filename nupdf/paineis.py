@@ -405,14 +405,12 @@ class _CartaoAssinatura(QFrame):
         lay = QVBoxLayout(self)
         lay.setContentsMargins(12, 10, 12, 10)
         lay.setSpacing(3)
-        # assinatura válida não ganha selo; ressalvas e erros continuam em destaque
-        if r.nivel != "ok":
+        # só assinatura inválida ganha selo; válida e "com ressalvas" não (a ressalva
+        # aparece na observação, em cinza, no fim do cartão)
+        if r.nivel == "erro":
             topo = QHBoxLayout()
             topo.setSpacing(8)
-            nome_ic, cor, status, obj = {
-                "aviso": ("escudo_alerta", c["aviso"], "Válida, com ressalvas", "statusAviso"),
-                "erro": ("escudo_x", c["erro"], "Assinatura inválida", "statusErro"),
-            }[r.nivel]
+            nome_ic, cor, status, obj = "escudo_x", c["erro"], "Assinatura inválida", "statusErro"
             ic = QLabel()
             ic.setPixmap(icone(nome_ic, cor, 22).pixmap(22, 22))
             topo.addWidget(ic)

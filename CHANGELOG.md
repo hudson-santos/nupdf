@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.15.1] - 2026-10-03
+
+### Changed
+- Painel de assinaturas: removido o selo "Válida, com ressalvas" dos cartões (a ressalva
+  continua na observação, no fim do cartão); assinatura inválida mantém o selo.
+
 ## [1.15.0] - 2026-10-03
 
 ### Added
