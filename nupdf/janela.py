@@ -1091,8 +1091,7 @@ class JanelaPrincipal(QMainWindow):
         descricao = "Leia PDFs, Copie Dados e Assine Digitalmente com Certificado ICP-Brasil."
         caixa.setText(
             f"<h3>{NOME_APP} {VERSAO}</h3>"
-            f'<p style="white-space:nowrap;">{descricao}</p>'
-            "<p>Componentes: PySide6 (Qt), PyMuPDF, pyHanko.</p>")
+            f'<p style="white-space:nowrap;">{descricao}</p>')
         # a caixa padrão limita a largura do texto; alarga para a descrição caber numa linha
         rotulo = caixa.findChild(QLabel, "qt_msgbox_label")
         if rotulo is not None:

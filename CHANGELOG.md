@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.14.1] - 2026-10-03
+
+### Changed
+- Janela "Sobre o NuPDF": removida a linha "Componentes: PySide6 (Qt), PyMuPDF, pyHanko.".
+
 ## [1.14.0] - 2026-10-03
 
 ### Added
