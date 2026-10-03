@@ -480,8 +480,9 @@ internal sealed class JanelaInstalacao : Form
         }
         else
         {
-            titulo = _atualizacao ? "Atualizando o NuPDF…" : "Instalando o NuPDF…";
-            sub = _status.Length > 0 ? _status + "…" : "";
+            // as etapas (_status) só movem a barra; o texto fica fixo, sem detalhes técnicos
+            titulo = _atualizacao ? "Atualizando o NuPDF" : "Instalando o NuPDF";
+            sub = "Isso pode levar alguns minutos…";
         }
 
         using (var fTitulo = new Font("Segoe UI", 14.5f, FontStyle.Regular, GraphicsUnit.Point))

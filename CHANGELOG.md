@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.14.2] - 2026-10-03
+
+### Changed
+- Janela do instalador: títulos "Instalando o NuPDF" e "Atualizando o NuPDF" sem reticências e,
+  abaixo, a mensagem fixa "Isso pode levar alguns minutos…" no lugar das etapas (a barra de
+  progresso continua acompanhando as etapas).
+
 ## [1.14.1] - 2026-10-03
 
 ### Changed
