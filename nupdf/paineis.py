@@ -3,8 +3,9 @@
 import re
 
 import pymupdf
-from PySide6.QtCore import QEvent, QPoint, QRectF, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QGuiApplication, QIcon, QImage, QPainter, QPainterPath, QPixmap
+from PySide6.QtCore import QEvent, QPoint, QRectF, QSize, Qt, QTimer, QUrl, Signal
+from PySide6.QtGui import (QColor, QDesktopServices, QGuiApplication, QIcon, QImage, QPainter, QPainterPath,
+                           QPixmap)
 from PySide6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QLabel, QLineEdit, QListView, QListWidget, QMenu, QMessageBox,
                                QListWidgetItem, QPushButton, QScrollArea, QTreeWidget, QTreeWidgetItem,
                                QVBoxLayout, QWidget)
@@ -12,6 +13,8 @@ from PySide6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QLabel, QLineE
 from . import ui
 from .documento import CORES_DESTAQUE, Documento
 from .icones import icone
+
+URL_VALIDAR_ITI = "https://validar.iti.gov.br"
 
 
 def _cabecalho(titulo: str, maiusculas: bool = True) -> QLabel:
@@ -626,14 +629,28 @@ class PainelAssinaturas(QWidget):
         # cadeia oficial do ITI (o instalador já baixa; aqui atualiza quando surgem ACs novas)
         # mesmo visual do "Assinar com Certificado Digital"; só aparece quando o PDF tem
         # alguma assinatura (ver _exibir)
+        # "Validar Assinatura" (preto) acima: abre o validador oficial do ITI. Os dois
+        # botões ficam numa coluna da largura do maior, centralizada
+        self.botoes_assinatura = QWidget()
+        coluna = QVBoxLayout(self.botoes_assinatura)
+        coluna.setContentsMargins(0, 0, 0, 0)
+        coluna.setSpacing(8)
+        self.b_validar = QPushButton("  Validar Assinatura")
+        self.b_validar.setObjectName("preto")
+        self.b_validar.setIcon(icone("escudo", "#ffffff", 16))
+        self.b_validar.setCursor(Qt.PointingHandCursor)
+        self.b_validar.setToolTip(f"Abrir o Validador de Assinaturas do ITI ({URL_VALIDAR_ITI})")
+        self.b_validar.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(URL_VALIDAR_ITI)))
+        coluna.addWidget(self.b_validar)
         self.b_cadeia = QPushButton("  Atualizar Cadeia ICP-Brasil")
         self.b_cadeia.setObjectName("primario")
         self.b_cadeia.setIcon(icone("atualizar", "#ffffff", 16))
         self.b_cadeia.setCursor(Qt.PointingHandCursor)
         self.b_cadeia.setToolTip("Baixar novamente a cadeia de certificados oficial da ICP-Brasil (ITI)")
         self.b_cadeia.clicked.connect(self._atualizar_cadeia)
-        self.b_cadeia.hide()
-        lay.addWidget(self.b_cadeia, 0, Qt.AlignHCenter)
+        coluna.addWidget(self.b_cadeia)
+        self.botoes_assinatura.hide()
+        lay.addWidget(self.botoes_assinatura, 0, Qt.AlignHCenter)
 
     def _atualizar_cadeia(self):
         from .assinatura import cadeia_icp
@@ -712,7 +729,7 @@ class PainelAssinaturas(QWidget):
     def _exibir(self, resultados):
         self._resultados = resultados
         self._carregando(False)
-        self.b_cadeia.setVisible(bool(resultados))
+        self.botoes_assinatura.setVisible(bool(resultados))
         while self.lista.count() > 1:
             w = self.lista.takeAt(0).widget()
             if w:

@@ -33,9 +33,9 @@ DisableProgramGroupPage=yes
 ; com") - ver [UninstallRun] (desinstalar.ps1) e [UninstallDelete].
 ; As preferências do usuário (%APPDATA%\NuPDF) são mantidas.
 Uninstallable=yes
-; nome com a versão, como os demais programas da lista (ex.: "NuPDF 1.2.0");
-; atualizado a cada instalação/atualização
-UninstallDisplayName={#MyAppName} {#MyAppVersion}
+; só o nome ("NuPDF"), sem a versão no nome; a versão continua na coluna "Versão"
+; (AppVersion). Regravado a cada instalação/atualização.
+UninstallDisplayName={#MyAppName}
 UninstallDisplayIcon={app}\assets\nupdf.ico
 AppPublisherURL=https://nupdf.com.br
 AppSupportURL=https://github.com/hudson-santos/nupdf

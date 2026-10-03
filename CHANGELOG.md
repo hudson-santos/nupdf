@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.15.0] - 2026-10-03
+
+### Added
+- Painel de assinaturas: botão preto "Validar Assinatura", acima de "Atualizar Cadeia
+  ICP-Brasil", que abre o validador oficial do ITI (https://validar.iti.gov.br).
+
+### Changed
+- Janela do instalador: títulos "Instalando NuPDF" e "Atualizando NuPDF".
+- Programas e Recursos do Windows: o NuPDF aparece só como "NuPDF", sem a versão no nome (a
+  versão continua na coluna "Versão").
+
 ## [1.14.2] - 2026-10-03
 
 ### Changed

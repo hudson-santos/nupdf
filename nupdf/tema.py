@@ -109,6 +109,8 @@ QPushButton:hover { background: $hover; }
 QPushButton:disabled { color: $texto3; }
 QPushButton#fechar { background: #4b4d53; border: 1px solid #4b4d53; color: #ffffff; font-weight: 600; }
 QPushButton#fechar:hover { background: #5b5d64; }
+QPushButton#preto { background: #111214; border: 1px solid #2e3035; color: #ffffff; font-weight: 600; }
+QPushButton#preto:hover { background: #26282c; }
 QPushButton#perigo { background: #c62828; border: 1px solid #c62828; color: #ffffff; font-weight: 600; }
 QPushButton#perigo:hover { background: #b71c1c; }
 QPushButton#primario { background: $destaque; border: 1px solid $destaque; color: #ffffff; font-weight: 600; }

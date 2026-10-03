@@ -135,7 +135,7 @@ internal sealed class JanelaInstalacao : Form
         using (Stream st = Assembly.GetExecutingAssembly().GetManifestResourceStream("NuPDF.Logo.png"))
             _logo = Image.FromStream(st);
 
-        Text = atualizacao ? "Atualizando o NuPDF" : "Instalador do NuPDF";
+        Text = atualizacao ? "Atualizando NuPDF" : "Instalador do NuPDF";
         try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
         FormBorderStyle = FormBorderStyle.None;
         StartPosition = FormStartPosition.Manual;  // centralizada em OnLoad
@@ -481,7 +481,7 @@ internal sealed class JanelaInstalacao : Form
         else
         {
             // as etapas (_status) só movem a barra; o texto fica fixo, sem detalhes técnicos
-            titulo = _atualizacao ? "Atualizando o NuPDF" : "Instalando o NuPDF";
+            titulo = _atualizacao ? "Atualizando NuPDF" : "Instalando NuPDF";
             sub = "Isso pode levar alguns minutos…";
         }
 
