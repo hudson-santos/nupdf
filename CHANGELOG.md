@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.14.0] - 2026-10-03
+
+### Added
+- Instalador com janela própria, clara e limpa (no estilo do Chrome/Gemini): logo, "Instalando
+  o NuPDF…" (ou "Atualizando o NuPDF…"), a etapa atual e uma barra de progresso fina,
+  centralizada na tela; ao terminar, abre o NuPDF e fecha sozinha. Em caso de erro, mostra a
+  mensagem com "Tentar Novamente", "Fechar" e "Ver Detalhes" (log). Fechar a janela no meio
+  deixa a instalação terminar em segundo plano.
+- A atualização automática passa a usar a mesma janela. O motor continua sendo o Inno Setup,
+  embutido no Instalador.exe; /VERYSILENT (Microsoft Store) segue sem janela nenhuma.
+
 ## [1.13.3] - 2026-10-02
 
 ### Changed

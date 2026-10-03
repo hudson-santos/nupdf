@@ -16,3 +16,6 @@ NuPDF.new.exe
 sign/
 *.pfx
 *.p12
+
+# Motor do Inno Setup, embutido no Instalador.exe (instalador\compilar_instalador.ps1)
+InstaladorInno.exe

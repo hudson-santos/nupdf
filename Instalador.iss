@@ -53,7 +53,10 @@ DisableStartupPrompt=yes
 Compression=lzma2/ultra64
 SolidCompression=yes
 OutputDir=.
-OutputBaseFilename=Instalador
+; Motor da instalação: vai embutido no Instalador.exe distribuído (a janela de
+; instalação própria, instalador\Setup.cs - ver instalador\compilar_instalador.ps1),
+; que o executa em /VERYSILENT e mostra o progresso gravado por Progresso() abaixo.
+OutputBaseFilename=InstaladorInno
 SetupIconFile=assets\nupdf.ico
 WizardStyle=modern
 ; sem a página "Completando o Assistente": ao terminar, o instalador fecha
@@ -96,6 +99,27 @@ Type: filesandordirs; Name: "{app}"
 var
   PaginaProgresso: TOutputProgressWizardPage;
   CaminhoInstalarPs1: String;
+
+// Progresso para a janela de instalação (instalador\Setup.cs): arquivo indicado na
+// variável de ambiente NUPDF_PROGRESSO, com "inicio|fim|texto" (faixa da barra em %)
+// ou "erro|mensagem". Sem a variável (Inno executado direto), não grava nada.
+procedure Progresso(Inicio, Fim: Integer; const Texto: String);
+var
+  Arquivo: String;
+begin
+  Arquivo := GetEnv('NUPDF_PROGRESSO');
+  if Arquivo <> '' then
+    SaveStringToFile(Arquivo, IntToStr(Inicio) + '|' + IntToStr(Fim) + '|' + Texto, False);
+end;
+
+procedure ProgressoErro(const Mensagem: String);
+var
+  Arquivo: String;
+begin
+  Arquivo := GetEnv('NUPDF_PROGRESSO');
+  if Arquivo <> '' then
+    SaveStringToFile(Arquivo, 'erro|' + Mensagem, False);
+end;
 
 // Abre o NuPDF ao final, sem pedir confirmação (instalação, atualização pelo
 // botão do app com /SILENT e atualização manual). Fica aqui e não em [Run]:
@@ -154,16 +178,20 @@ begin
   try
     PaginaProgresso.SetText('[1/7] Verificando se o NuPDF já está em execução...', '');
     PaginaProgresso.SetProgress(1, 7);
+    Progresso(0, 4, 'Fechando o NuPDF aberto');
     if not RodarEtapaInstalador(1, '') then begin
       Result := 'Falha ao verificar/encerrar uma instância do NuPDF em execução.';
+      ProgressoErro(Result);
       Exit;
     end;
 
     PaginaProgresso.SetText('[2/7] Verificando instalação do Python...',
       'Se precisar baixar o Python, isso pode demorar alguns minutos.');
     PaginaProgresso.SetProgress(2, 7);
+    Progresso(4, 24, 'Preparando o Python');
     if not RodarEtapaInstalador(2, '') then begin
       Result := 'Falha ao verificar/instalar o Python. Verifique sua conexão com a internet e tente novamente.';
+      ProgressoErro(Result);
       Exit;
     end;
   finally
@@ -174,6 +202,8 @@ end;
 // Etapas 4 a 7 depois da cópia dos arquivos (etapa 3, feita pelo Inno Setup).
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
+  if CurStep = ssInstall then
+    Progresso(24, 32, 'Copiando os arquivos');
   if CurStep <> ssPostInstall then
     Exit;
 
@@ -183,14 +213,18 @@ begin
   try
     PaginaProgresso.SetText('[4/7] Criando ambiente virtual...', '');
     PaginaProgresso.SetProgress(4, 7);
+    Progresso(32, 40, 'Criando o ambiente do NuPDF');
     if not RodarEtapaInstalador(4, '') then begin
+      ProgressoErro('Falha ao criar o ambiente virtual do NuPDF.');
       SuppressibleMsgBox('Falha ao criar o ambiente virtual do NuPDF.', mbCriticalError, MB_OK, IDOK);
       Abort;
     end;
 
     PaginaProgresso.SetText('[5/7] Instalando dependências...', 'Isso pode demorar alguns minutos.');
     PaginaProgresso.SetProgress(5, 7);
+    Progresso(40, 88, 'Instalando os componentes, isso pode levar alguns minutos');
     if not RodarEtapaInstalador(5, '') then begin
+      ProgressoErro('Falha ao instalar os componentes do NuPDF. Verifique a conexão com a internet e tente novamente.');
       SuppressibleMsgBox('Falha ao instalar as dependências do NuPDF.', mbCriticalError, MB_OK, IDOK);
       Abort;
     end;
@@ -198,10 +232,12 @@ begin
     // Falha aqui é só aviso: os atalhos caem para o pythonw.exe.
     PaginaProgresso.SetText('[6/7] Compilando NuPDF.exe...', '');
     PaginaProgresso.SetProgress(6, 7);
+    Progresso(88, 94, 'Finalizando');
     RodarEtapaInstalador(6, '');
 
     PaginaProgresso.SetText('[7/7] Criando atalhos...', '');
     PaginaProgresso.SetProgress(7, 7);
+    Progresso(94, 99, 'Criando os atalhos');
     if not RodarEtapaInstalador(7, '') then
       SuppressibleMsgBox('Falha ao criar os atalhos do NuPDF.', mbError, MB_OK, IDOK);
   finally

@@ -95,11 +95,11 @@ jobs:
         shell: powershell
         run: choco install innosetup -y --no-progress
 
+      # Inno Setup (motor, InstaladorInno.exe) + janela de instalação própria
+      # (instalador/Setup.cs) com o motor embutido -> Instalador.exe
       - name: Compilar o Instalador.exe
         shell: powershell
-        run: |
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" Instalador.iss
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File instalador\compilar_instalador.ps1
 
       - name: Criar a tag e a Release no GitHub
         shell: bash
