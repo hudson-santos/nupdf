@@ -1,8 +1,10 @@
 ﻿<#
     Instalador/atualizador do NuPDF - sempre em C:\NuPDF, sem pedir
-    elevação (mesmo modelo do Zeebs): o Python é instalado por usuário se
-    ainda não houver um compatível; C:\NuPDF fica compartilhada entre os
-    usuários da máquina (RemoteApp publica o NuPDF.exe a partir dela).
+    elevação (mesmo modelo do Zeebs). Python em pastas fixas da máquina:
+    C:\Python64 (64 bits - o que o NuPDF usa) e C:\Python32 (32 bits, para
+    outros sistemas); a etapa 2 instala a que faltar. C:\NuPDF fica
+    compartilhada entre os usuários da máquina (RemoteApp publica o
+    NuPDF.exe a partir dela).
 
     Também serve para ATUALIZAR: encerra uma instância em execução, copia
     os arquivos novos e reinstala as dependências.
@@ -24,15 +26,16 @@ param(
 $ErrorActionPreference = "Stop"
 
 $APP_DIR = "C:\NuPDF"
-$PYTHON_VERSION = "3.12.10"
-$PYTHON_URL = "https://www.python.org/ftp/python/$PYTHON_VERSION/python-$PYTHON_VERSION-amd64.exe"
+# Versão instalada quando C:\Python64 / C:\Python32 ainda não existem.
+$PYTHON_VERSION = "3.14.8"
+$PYTHON_BASE_URL = "https://www.python.org/ftp/python/$PYTHON_VERSION"
+$PYTHON64_DIR = "C:\Python64"   # o NuPDF roda neste (o PySide6 não existe para 32 bits)
+$PYTHON32_DIR = "C:\Python32"
+$PYTHON64_EXE = Join-Path $PYTHON64_DIR "python.exe"
 # O código usa sintaxe do Python 3.10+; versões muito novas podem ainda não
 # ter wheels de todas as dependências.
 $PYTHON_MIN = 310
 $PYTHON_MAX = 314
-# Caminho do python.exe escolhido na etapa 2, lido pela etapa 4 (cada etapa
-# roda num processo PowerShell separado quando chamada via -Etapa).
-$ESTADO_PYTHON = Join-Path $env:TEMP "nupdf_python_exe.txt"
 
 
 function Garantir-PastaCompartilhada {
@@ -55,73 +58,70 @@ function Etapa1-EncerrarInstancia {
 }
 
 
-function Testar-Python([string]$exe) {
-    # Devolve o caminho real (sys.executable) se a versão for compatível.
-    # Nunca executa o alias falso da Microsoft Store (WindowsApps), que
-    # pode abrir a Loja e travar o instalador - quem chama já filtra.
+function Testar-Python([string]$exe, [int]$bits) {
+    # True se for um Python 3.10-3.14 com o número de bits pedido.
+    if (-not (Test-Path $exe)) { return $false }
     try {
-        $saida = & $exe -c "import sys; print(sys.executable); print(sys.version_info[0]*100 + sys.version_info[1])" 2>$null
-        if ($LASTEXITCODE -ne 0 -or -not $saida -or $saida.Count -lt 2) { return $null }
-        $versao = [int]$saida[1]
-        if ($versao -ge $PYTHON_MIN -and $versao -le $PYTHON_MAX) { return $saida[0] }
-        Write-Host "      Ignorando $($saida[0]) (versao $([math]::Floor($versao / 100)).$($versao % 100) incompativel)."
+        $saida = & $exe -c "import struct, sys; print(sys.version_info[0]*100 + sys.version_info[1]); print(struct.calcsize('P') * 8)" 2>$null
+        if ($LASTEXITCODE -ne 0 -or -not $saida -or $saida.Count -lt 2) { return $false }
+        $versao = [int]$saida[0]
+        if ($versao -ge $PYTHON_MIN -and $versao -le $PYTHON_MAX -and [int]$saida[1] -eq $bits) { return $true }
+        Write-Host "      $exe incompativel (versao $([math]::Floor($versao / 100)).$($versao % 100), $($saida[1]) bits)."
     } catch { }
-    return $null
+    return $false
+}
+
+
+function Instalar-Python([string]$pasta, [string]$arquivo, [int]$bits) {
+    # Instalador oficial do python.org, silencioso e por usuário (sem UAC), na
+    # pasta fixa; sem PATH, associação de .py nem atalhos - não mexe no Python
+    # que a máquina já usa para outras coisas.
+    $exe = Join-Path $pasta "python.exe"
+    Write-Host "      Baixando Python $PYTHON_VERSION ($bits bits) para $pasta..."
+    $installer = Join-Path $env:TEMP "nupdf_$arquivo"
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    try {
+        Invoke-WebRequest -Uri "$PYTHON_BASE_URL/$arquivo" -OutFile $installer -TimeoutSec 300 -UseBasicParsing
+    } catch {
+        Write-Host "[ERRO] Falha ao baixar o Python $bits bits."
+        Write-Host "       Verifique a conexao com a internet (www.python.org liberado no proxy/firewall)."
+        return $false
+    }
+    $proc = Start-Process -FilePath $installer -ArgumentList @(
+        "/quiet", "InstallAllUsers=0", "TargetDir=$pasta", "PrependPath=0", "AssociateFiles=0",
+        "Shortcuts=0", "Include_launcher=0", "Include_test=0", "Include_doc=0"
+    ) -WorkingDirectory $env:TEMP -Wait -PassThru  # o instalador do Python deixa cópias de si na pasta atual
+    Remove-Item $installer -Force -ErrorAction SilentlyContinue
+    if ($proc.ExitCode -ne 0 -or -not (Test-Path $exe)) {
+        # ex.: a mesma versão já instalada em outra pasta - o instalador entra em
+        # "reparar" e ignora o TargetDir
+        Write-Host "[ERRO] A instalacao do Python $bits bits em $pasta falhou (codigo $($proc.ExitCode))."
+        return $false
+    }
+    Write-Host "      Python $bits bits instalado em $pasta."
+    return $true
 }
 
 
 function Etapa2-VerificarPython {
-    Write-Host "[2/7] Verificando instalacao do Python..."
-    $pythonExe = $null
+    Write-Host "[2/7] Verificando o Python (C:\Python64 e C:\Python32)..."
 
-    $candidatos = @()
-    foreach ($v in "312", "313", "311", "310", "314") {
-        $candidatos += Join-Path $env:LOCALAPPDATA "Programs\Python\Python$v\python.exe"
-    }
-    foreach ($cmd in "py", "python") {
-        Get-Command $cmd -ErrorAction SilentlyContinue -All |
-            Where-Object { $_.Source -and $_.Source -notlike "*WindowsApps*" } |
-            ForEach-Object { $candidatos += $_.Source }
-    }
-    foreach ($c in $candidatos) {
-        if (-not (Test-Path $c)) { continue }
-        $pythonExe = Testar-Python $c
-        if ($pythonExe) { break }
+    # 64 bits: obrigatório - é o Python do NuPDF
+    if (Testar-Python $PYTHON64_EXE 64) {
+        Write-Host "      Python 64 bits encontrado em $PYTHON64_DIR."
+    } elseif (Test-Path $PYTHON64_EXE) {
+        Write-Host "[ERRO] $PYTHON64_DIR tem um Python incompativel com o NuPDF (precisa ser 3.10 a 3.14, 64 bits)."
+        exit 1
+    } elseif (-not (Instalar-Python $PYTHON64_DIR "python-$PYTHON_VERSION-amd64.exe" 64)) {
+        exit 1
     }
 
-    if ($pythonExe) {
-        Write-Host "      Python compativel encontrado: `"$pythonExe`"."
-    } else {
-        Write-Host "      Python compativel nao encontrado. Baixando Python $PYTHON_VERSION..."
-        Write-Host "      (isso pode levar alguns minutos, dependendo da internet)"
-        $installer = Join-Path $env:TEMP "nupdf_python_installer.exe"
-        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-        try {
-            Invoke-WebRequest -Uri $PYTHON_URL -OutFile $installer -TimeoutSec 180 -UseBasicParsing
-        } catch {
-            Write-Host "[ERRO] Falha ao baixar o instalador do Python."
-            Write-Host "       Verifique a conexao com a internet (www.python.org liberado no proxy/firewall)."
-            exit 1
-        }
-        Write-Host "      Instalando Python $PYTHON_VERSION (usuario atual, silencioso)..."
-        $proc = Start-Process -FilePath $installer -ArgumentList @(
-            "/quiet", "InstallAllUsers=0", "PrependPath=1", "Include_test=0"
-        ) -Wait -PassThru
-        Remove-Item $installer -Force -ErrorAction SilentlyContinue
-        if ($proc.ExitCode -ne 0) {
-            Write-Host "[ERRO] A instalacao do Python falhou."
-            exit 1
-        }
-        $pythonExe = Join-Path $env:LOCALAPPDATA "Programs\Python\Python312\python.exe"
-        if (-not (Test-Path $pythonExe)) {
-            Write-Host "[AVISO] Python instalado, mas nao encontrado no caminho esperado."
-            Write-Host "        Feche esta janela e execute o instalador novamente."
-            exit 1
-        }
-        Write-Host "      Python instalado com sucesso."
+    # 32 bits: só garante que exista (o NuPDF não usa); falha aqui é só aviso
+    if (Test-Path (Join-Path $PYTHON32_DIR "python.exe")) {
+        Write-Host "      Python 32 bits encontrado em $PYTHON32_DIR."
+    } elseif (-not (Instalar-Python $PYTHON32_DIR "python-$PYTHON_VERSION.exe" 32)) {
+        Write-Host "[AVISO] Python 32 bits nao instalado - o NuPDF nao depende dele."
     }
-
-    Set-Content -Path $ESTADO_PYTHON -Value $pythonExe -Encoding ascii -NoNewline
 }
 
 
@@ -162,22 +162,31 @@ function Etapa3b-PosProcessamento {
 }
 
 
+function Venv-UsaPython64([string]$venvPath) {
+    # pyvenv.cfg "home = <pasta do Python>" - venvs antigos apontam para
+    # %LOCALAPPDATA%\Programs\Python\... (Python por usuário)
+    $cfg = Join-Path $venvPath "pyvenv.cfg"
+    if (-not (Test-Path $cfg)) { return $false }
+    $pastaPython = (Get-Content $cfg | Where-Object { $_ -match '^\s*home\s*=' } | Select-Object -First 1)
+    if (-not $pastaPython) { return $false }
+    $pastaPython = ($pastaPython -split '=', 2)[1].Trim().TrimEnd('\')
+    return [string]::Equals($pastaPython, $PYTHON64_DIR, [StringComparison]::OrdinalIgnoreCase)
+}
+
+
 function Etapa4-CriarVenv {
     Write-Host "[4/7] Criando ambiente virtual..."
     $venvPath = Join-Path $APP_DIR "venv"
     if (Test-Path (Join-Path $venvPath "Scripts\python.exe")) {
-        Write-Host "      Ambiente virtual ja existe."
-        return
+        if (Venv-UsaPython64 $venvPath) {
+            Write-Host "      Ambiente virtual ja existe ($PYTHON64_DIR)."
+            return
+        }
+        # criado com outro Python (instalações antigas): recria a partir do C:\Python64
+        Write-Host "      Ambiente virtual de outro Python - recriando a partir de $PYTHON64_DIR..."
+        Remove-Item $venvPath -Recurse -Force
     }
-    $pythonExe = $null
-    if (Test-Path $ESTADO_PYTHON) {
-        $pythonExe = Get-Content $ESTADO_PYTHON -ErrorAction SilentlyContinue
-    }
-    if (-not $pythonExe -or -not (Test-Path $pythonExe)) {
-        $padrao = Join-Path $env:LOCALAPPDATA "Programs\Python\Python312\python.exe"
-        $pythonExe = if (Test-Path $padrao) { $padrao } else { "python" }
-    }
-    & $pythonExe -m venv $venvPath
+    & $PYTHON64_EXE -m venv $venvPath
     if ($LASTEXITCODE -ne 0) {
         Write-Host "[ERRO] Falha ao criar o ambiente virtual."
         exit 1

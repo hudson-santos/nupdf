@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.16.0] - 2026-10-04
+
+### Changed
+- O NuPDF passa a usar o Python de C:\Python64 (64 bits). Se a máquina não tiver C:\Python64 e
+  C:\Python32, o instalador instala o Python 3.14.8 (64 e 32 bits) nessas pastas - por
+  usuário, sem administrador, sem alterar PATH nem associações. O C:\Python32 não é usado
+  pelo NuPDF (falha nele é só aviso).
+- Na atualização, o ambiente do NuPDF criado com outro Python (o antigo, por usuário) é
+  recriado a partir do C:\Python64 - todas as máquinas ficam padronizadas, e em servidores
+  RemoteApp o Python deixa de ficar no perfil de um único usuário.
+
 ## [1.15.1] - 2026-10-03
 
 ### Changed
