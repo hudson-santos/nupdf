@@ -19,3 +19,7 @@ sign/
 
 # Motor do Inno Setup, embutido no Instalador.exe (instalador\compilar_instalador.ps1)
 InstaladorInno.exe
+
+# Instaladores oficiais do Python embutidos no Instalador.exe (baixados pelo
+# instalador\compilar_instalador.ps1, SHA-256 conferido)
+instalador/python/

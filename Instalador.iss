@@ -12,6 +12,10 @@
 #expr FileClose(FileHandle)
 
 #define MyAppName "NuPDF"
+; Instaladores oficiais do Python embutidos (instalador\python\, fora do git: o
+; compilar_instalador.ps1 baixa do python.org e confere o SHA-256). Mesma versão
+; de $PYTHON_VERSION em instalar.ps1.
+#define PythonVersion "3.14.8"
 #define MyAppPublisher "Nukt Ltda"
 
 [Setup]
@@ -81,6 +85,10 @@ Source: "desinstalar.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "instalar.ps1"; DestDir: "{tmp}"; Flags: dontcopy
 Source: "criar_atalho.ps1"; DestDir: "{tmp}"; Flags: dontcopy
 Source: "criar_atalho_appid.ps1"; DestDir: "{tmp}"; Flags: dontcopy
+; Python 64 e 32 bits: extraídos só se faltar C:\Python64 / C:\Python32 (ver
+; PrepareToInstall) - a instalação não depende de baixar o Python na hora.
+Source: "instalador\python\python-{#PythonVersion}-amd64.exe"; DestDir: "{tmp}"; Flags: dontcopy nocompression
+Source: "instalador\python\python-{#PythonVersion}.exe"; DestDir: "{tmp}"; Flags: dontcopy nocompression
 
 [Dirs]
 ; Cadeias de certificados confiáveis (ICP-Brasil) para validar assinaturas.
@@ -152,6 +160,8 @@ begin
 end;
 
 // Roda uma etapa de instalar.ps1 (1-7) com a janela ESCONDIDA e espera terminar.
+// A saída do PowerShell vai para o log do Inno (%TEMP%\Setup Log*.txt) - é o que o
+// "Ver Detalhes" da janela de instalação abre quando algo falha.
 function RodarEtapaInstalador(Etapa: Integer; const ArgumentosExtras: String): Boolean;
 var
   ResultCode: Integer;
@@ -159,8 +169,8 @@ var
 begin
   Parametros := '-NoProfile -ExecutionPolicy Bypass -File "' + CaminhoInstalarPs1 +
     '" -Etapa ' + IntToStr(Etapa) + ' ' + ArgumentosExtras;
-  Result := Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
-    Parametros, '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0);
+  Result := ExecAndLogOutput(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+    Parametros, ExpandConstant('{tmp}'), SW_HIDE, ewWaitUntilTerminated, ResultCode, nil) and (ResultCode = 0);
 end;
 
 // Etapas 1 (encerrar instância aberta) e 2 (Python) antes da cópia dos arquivos.
@@ -186,11 +196,15 @@ begin
     end;
 
     PaginaProgresso.SetText('[2/7] Verificando instalação do Python...',
-      'Se precisar baixar o Python, isso pode demorar alguns minutos.');
+      'Se precisar instalar o Python, isso pode demorar alguns minutos.');
     PaginaProgresso.SetProgress(2, 7);
     Progresso(4, 24, 'Preparando o Python');
-    if not RodarEtapaInstalador(2, '') then begin
-      Result := 'Falha ao verificar/instalar o Python. Verifique sua conexão com a internet e tente novamente.';
+    if not FileExists('C:\Python64\python.exe') then
+      ExtractTemporaryFile('python-{#PythonVersion}-amd64.exe');
+    if not FileExists('C:\Python32\python.exe') then
+      ExtractTemporaryFile('python-{#PythonVersion}.exe');
+    if not RodarEtapaInstalador(2, '-PastaInstaladoresPython "' + ExpandConstant('{tmp}') + '"') then begin
+      Result := 'Falha ao instalar o Python em C:\Python64. Clique em Ver Detalhes para o log e tente novamente.';
       ProgressoErro(Result);
       Exit;
     end;

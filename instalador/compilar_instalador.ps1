@@ -18,6 +18,29 @@ $csc = Join-Path $env:WINDIR "Microsoft.NET\Framework64\v4.0.30319\csc.exe"
 if (-not (Test-Path $csc)) { $csc = Join-Path $env:WINDIR "Microsoft.NET\Framework\v4.0.30319\csc.exe" }
 if (-not (Test-Path $csc)) { throw "csc.exe do .NET Framework nao encontrado." }
 
+# Instaladores oficiais do Python embutidos no motor (Instalador.iss). Ficam em
+# instalador\python\ (fora do git); se faltarem, baixa do python.org. O SHA-256
+# fixado garante que é exatamente o arquivo oficial (assinado pela PSF).
+$pythonVersao = "3.14.8"
+$pythonHashes = @{
+    "python-$pythonVersao-amd64.exe" = "759BE887B96E736A3CA886DAF8D575F18FCAE1A09EFAB6902F42D59E8999F8EF"
+    "python-$pythonVersao.exe"       = "963DEF30C7EBC6381A1EE9056D251DDC4520B18391DA2CF0602CFB58F5B80568"
+}
+$pastaPython = Join-Path $PSScriptRoot "python"
+New-Item -ItemType Directory -Force -Path $pastaPython | Out-Null
+foreach ($nome in $pythonHashes.Keys) {
+    $arq = Join-Path $pastaPython $nome
+    if (-not (Test-Path $arq)) {
+        Write-Host "Baixando $nome (python.org)..."
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        Invoke-WebRequest -Uri "https://www.python.org/ftp/python/$pythonVersao/$nome" -OutFile $arq -UseBasicParsing
+    }
+    if ((Get-FileHash $arq -Algorithm SHA256).Hash -ne $pythonHashes[$nome]) {
+        Remove-Item $arq -Force
+        throw "SHA-256 de $nome nao confere com o oficial do python.org."
+    }
+}
+
 Write-Host "[1/2] Compilando o motor (Inno Setup)..."
 & $iscc /Q (Join-Path $raiz "Instalador.iss")
 if ($LASTEXITCODE -ne 0) { throw "Falha no Inno Setup (codigo $LASTEXITCODE)." }

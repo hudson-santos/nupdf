@@ -20,7 +20,10 @@
 param(
     [ValidateSet(0, 1, 2, 3, 4, 5, 6, 7)]
     [int]$Etapa = 0,   # 0 = todas as etapas em sequência (uso direto/manual)
-    [switch]$SoPosProcessamento
+    [switch]$SoPosProcessamento,
+    # Pasta com os instaladores do Python embutidos no Instalador.exe (o Inno extrai
+    # para {tmp} e passa aqui). Sem ela (uso manual), baixa do python.org.
+    [string]$PastaInstaladoresPython = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -77,23 +80,37 @@ function Instalar-Python([string]$pasta, [string]$arquivo, [int]$bits) {
     # pasta fixa; sem PATH, associação de .py nem atalhos - não mexe no Python
     # que a máquina já usa para outras coisas.
     $exe = Join-Path $pasta "python.exe"
-    Write-Host "      Baixando Python $PYTHON_VERSION ($bits bits) para $pasta..."
-    $installer = Join-Path $env:TEMP "nupdf_$arquivo"
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    try {
-        Invoke-WebRequest -Uri "$PYTHON_BASE_URL/$arquivo" -OutFile $installer -TimeoutSec 300 -UseBasicParsing
-    } catch {
-        Write-Host "[ERRO] Falha ao baixar o Python $bits bits."
-        Write-Host "       Verifique a conexao com a internet (www.python.org liberado no proxy/firewall)."
-        return $false
+    $embutido = if ($PastaInstaladoresPython) { Join-Path $PastaInstaladoresPython $arquivo } else { "" }
+    if ($embutido -and (Test-Path $embutido)) {
+        # embutido no Instalador.exe: instala sem depender da internet
+        Write-Host "      Instalando Python $PYTHON_VERSION ($bits bits) em $pasta..."
+        $installer = $embutido
+    } else {
+        Write-Host "      Baixando Python $PYTHON_VERSION ($bits bits) para $pasta..."
+        $installer = Join-Path $env:TEMP "nupdf_$arquivo"
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        try {
+            Invoke-WebRequest -Uri "$PYTHON_BASE_URL/$arquivo" -OutFile $installer -TimeoutSec 300 -UseBasicParsing
+        } catch {
+            Write-Host "[ERRO] Falha ao baixar o Python $bits bits."
+            Write-Host "       Verifique a conexao com a internet (www.python.org liberado no proxy/firewall)."
+            return $false
+        }
     }
     $proc = Start-Process -FilePath $installer -ArgumentList @(
         "/quiet", "InstallAllUsers=0", "TargetDir=$pasta", "PrependPath=0", "AssociateFiles=0",
         "Shortcuts=0", "Include_launcher=0", "Include_test=0", "Include_doc=0"
     ) -WorkingDirectory $env:TEMP -Wait -PassThru  # o instalador do Python deixa cópias de si na pasta atual
-    Remove-Item $installer -Force -ErrorAction SilentlyContinue
+    if ($proc.ExitCode -eq 0 -and -not (Test-Path $exe)) {
+        # A mesma versão consta como instalada, mas a pasta foi apagada: o instalador
+        # não faz nada. /repair regrava os arquivos na pasta registrada.
+        Write-Host "      Python $bits bits registrado, mas sem arquivos - reparando..."
+        $proc = Start-Process -FilePath $installer -ArgumentList @("/repair", "/quiet") `
+            -WorkingDirectory $env:TEMP -Wait -PassThru
+    }
+    if ($installer -ne $embutido) { Remove-Item $installer -Force -ErrorAction SilentlyContinue }
     if ($proc.ExitCode -ne 0 -or -not (Test-Path $exe)) {
-        # ex.: a mesma versão já instalada em outra pasta - o instalador entra em
+        # ex.: a mesma versão já instalada em OUTRA pasta - o instalador entra em
         # "reparar" e ignora o TargetDir
         Write-Host "[ERRO] A instalacao do Python $bits bits em $pasta falhou (codigo $($proc.ExitCode))."
         return $false

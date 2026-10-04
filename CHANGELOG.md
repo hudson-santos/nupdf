@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.16.1] - 2026-10-04
+
+### Changed
+- Os instaladores oficiais do Python 3.14.8 (64 e 32 bits) passam a ir embutidos no
+  Instalador.exe: a instalação do Python em C:\Python64 / C:\Python32 não depende mais de
+  baixar nada na hora. O build baixa os arquivos do python.org e confere o SHA-256.
+- A saída de cada etapa da instalação passa a ir para o log do instalador ("Ver Detalhes").
+
+### Fixed
+- Falha ao instalar o Python quando a pasta C:\Python64 ou C:\Python32 tinha sido apagada,
+  mas o Python continuava registrado no Windows: o instalador agora repara a instalação.
+
 ## [1.16.0] - 2026-10-04
 
 ### Changed
