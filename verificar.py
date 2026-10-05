@@ -272,6 +272,19 @@ def main() -> int:
             checar("assinar PDF com estrutura quebrada (reconstruída)", len(res_q) == 1 and res_q[0].integra)
         except Exception as e:
             checar("assinar PDF com estrutura quebrada (reconstruída)", False, str(e))
+        # PDF com metadados XMP malformados: o pyHanko falha ao atualizar o XMP; o
+        # NuPDF troca o XMP por um novo na própria revisão da assinatura
+        import pymupdf as _pm
+        _d = _pm.open(stream=doc.dados, filetype="pdf")
+        _d.set_xml_metadata('<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF><quebrado')
+        xmp_quebrado = _d.tobytes()
+        _d.close()
+        try:
+            ok_xmp = assinar_pdf(xmp_quebrado, ConfigAssinatura(info, impressao="TESTE", der=b"x", visivel=False))
+            res_x = validar(ok_xmp, buscar_na_internet=False)
+            checar("assinar PDF com metadados XMP malformados", len(res_x) == 1 and res_x[0].integra)
+        except Exception as e:
+            checar("assinar PDF com metadados XMP malformados", False, str(e))
         # "Confiar neste Certificado": grava o topo da cadeia e a assinatura passa a ser confiável
         from nupdf.assinatura import validador as _val
         checar("oferece 'Confiar neste Certificado'", res[0].topo_cadeia_der is not None, res[0].topo_cadeia_nome)

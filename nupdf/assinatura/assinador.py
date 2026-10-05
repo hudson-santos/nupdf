@@ -187,11 +187,18 @@ def assinar_pdf(dados: bytes, cfg: ConfigAssinatura, senha_pdf: str | None = Non
     PDF com erro de estrutura (xref/objetos malformados - comum em PDFs gerados por
     sistemas de prefeituras etc.): os leitores abrem, mas o pyHanko recusa. Nesse caso,
     se o documento ainda não tem assinaturas, a estrutura é reconstruída e a assinatura
-    é refeita sobre ela (só nesse erro de leitura - um PIN cancelado não repete)."""
+    é refeita sobre ela (só nesse erro de leitura - um PIN cancelado não repete).
+
+    PDF com metadados XMP malformados (ex.: editados por outro programa): ao assinar, o
+    pyHanko atualiza o XMP e falha ao ler o XML. Nesse caso o XMP quebrado é trocado por
+    um novo, válido, na própria atualização incremental - funciona também em PDF já
+    assinado, sem invalidar as assinaturas existentes."""
     from pyhanko.pdf_utils.misc import PdfReadError
     signer = assinante or _assinante(cfg)
     try:
         return _assinar(dados, cfg, senha_pdf, signer)
+    except _XmpInvalido:
+        return _assinar(dados, cfg, senha_pdf, signer, novo_xmp=True)
     except PdfReadError as e:
         if _ja_assinado(dados):
             raise ErroAssinatura(
@@ -207,7 +214,22 @@ def assinar_pdf(dados: bytes, cfg: ConfigAssinatura, senha_pdf: str | None = Non
             raise ErroAssinatura(f"Falha ao assinar o documento (PDF com erro de estrutura):\n{e2}") from e2
 
 
-def _assinar(dados: bytes, cfg: ConfigAssinatura, senha_pdf: str | None, signer) -> bytes:
+class _XmpInvalido(Exception):
+    """Metadados XMP do PDF malformados (assinar_pdf tenta de novo com um XMP novo)."""
+
+
+def _trocar_xmp(w):
+    """Substitui o XMP do catálogo por um novo, vazio e válido (o pyHanko o preenche
+    ao assinar). Só a referência no catálogo muda, numa revisão nova do arquivo."""
+    from pyhanko.pdf_utils.metadata import model, xmp_xml
+    stm = xmp_xml.MetadataStream.from_xmp(xmp_xml.update_xmp_with_meta(model.DocumentMetadata()))
+    w.root["/Metadata"] = w.add_object(stm)
+    w.update_root()
+
+
+def _assinar(dados: bytes, cfg: ConfigAssinatura, senha_pdf: str | None, signer,
+             novo_xmp: bool = False) -> bytes:
+    from pyhanko.pdf_utils.metadata.xmp_xml import XmpXmlProcessingError
     from pyhanko.pdf_utils.misc import PdfReadError
     carimbo = None
     try:
@@ -215,6 +237,8 @@ def _assinar(dados: bytes, cfg: ConfigAssinatura, senha_pdf: str | None, signer)
         w = IncrementalPdfFileWriter(entrada, strict=False)
         if senha_pdf and w.prev.encrypted:
             w.encrypt(senha_pdf.encode("utf-8"))
+        if novo_xmp:
+            _trocar_xmp(w)
         nome = _nome_campo(w.prev)
 
         if cfg.visivel and cfg.caixa:
@@ -249,6 +273,10 @@ def _assinar(dados: bytes, cfg: ConfigAssinatura, senha_pdf: str | None, signer)
         return saida.getvalue()
     except (ErroAssinatura, PdfReadError):
         raise  # PdfReadError: assinar_pdf tenta de novo com a estrutura reconstruída
+    except XmpXmlProcessingError as e:
+        if novo_xmp:
+            raise ErroAssinatura(f"Falha ao assinar o documento (metadados XMP inválidos):\n{e}") from e
+        raise _XmpInvalido() from e
     except Exception as e:
         raise ErroAssinatura(f"Falha ao assinar o documento:\n{e}") from e
     finally:

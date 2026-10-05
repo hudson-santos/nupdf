@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.17.1] - 2026-10-05
+
+### Fixed
+- Falha "Failed to parse XMP XML" ao assinar PDFs com metadados XMP malformados (ex.: editados
+  por outro programa): o XMP quebrado é trocado por um novo, válido, na própria revisão da
+  assinatura - funciona também em PDF já assinado, sem invalidar as assinaturas existentes.
+
 ## [1.17.0] - 2026-10-05
 
 ### Added
