@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.16.2] - 2026-10-05
+
+### Changed
+- Painel de assinaturas: avisos dos cartões mais curtos e padronizados - "Cadeia de
+  Certificação Não Reconhecida.", "Documento Modificado Após Assinatura." e "Alterações
+  Permitidas Após Assinatura.".
+
 ## [1.16.1] - 2026-10-04
 
 ### Changed

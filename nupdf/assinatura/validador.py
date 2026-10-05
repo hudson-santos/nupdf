@@ -203,11 +203,11 @@ def validar(dados: bytes, buscar_na_internet: bool = True) -> list[ResultadoAssi
             data = st.timestamp_validity.timestamp if st.timestamp_validity else st.signer_reported_dt
             obs = []
             if not confiavel:
-                obs.append("Cadeia de certificação não reconhecida neste computador.")
+                obs.append("Cadeia de Certificação Não Reconhecida.")
             if not cobre:
-                obs.append("O documento foi modificado depois desta assinatura.")
+                obs.append("Documento Modificado Após Assinatura.")
             elif nivel_mod not in (None, ModificationLevel.NONE):
-                obs.append("Houve alterações permitidas depois desta assinatura (ex.: outra assinatura).")
+                obs.append("Alterações Permitidas Após Assinatura.")
             topo = _topo_da_cadeia(sig, intermediarias + raizes) if not confiavel else None
             resultados.append(ResultadoAssinatura(
                 sig.field_name, titular, documento, emissor, data, integra, confiavel, cobre,
