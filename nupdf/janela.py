@@ -373,11 +373,18 @@ class JanelaPrincipal(QMainWindow):
         # Salvar/Imprimir só aparecem com documento aberto; o espaço deles fica
         # reservado para as ferramentas do centro não mudarem de lugar.
         self.b_salvar = ui.botao("salvar", "Salvar uma Cópia (Ctrl+S)")
+        # PDF assinado com alterações: o Salvar fica bloqueado e aparece o "Salvar Como"
+        # ao lado, que grava "<nome>-alterado.pdf" mesmo invalidando as assinaturas
+        self.b_salvar_como = ui.botao(
+            "salvar_como", "Salvar Como (Ctrl+Shift+S) - grava uma cópia com as alterações em "
+                           "\"-alterado.pdf\"; as assinaturas digitais da cópia deixam de ser válidas")
+        self.b_salvar_como.hide()
         self.b_imprimir = ui.botao("imprimir", "Imprimir (Ctrl+P)")
-        for b in (self.b_salvar, self.b_imprimir):
-            politica = b.sizePolicy()
-            politica.setRetainSizeWhenHidden(True)
-            b.setSizePolicy(politica)
+        for b in (self.b_salvar, self.b_salvar_como, self.b_imprimir):
+            if b is not self.b_salvar_como:  # o Salvar Como só ocupa espaço quando aparece
+                politica = b.sizePolicy()
+                politica.setRetainSizeWhenHidden(True)
+                b.setSizePolicy(politica)
             lay.addWidget(b)
         lay.addStretch(1)
 
@@ -410,6 +417,7 @@ class JanelaPrincipal(QMainWindow):
         self._acoes_documento.append(self.b_assinar)
 
         self.b_salvar.clicked.connect(lambda: self.salvar_copia())
+        self.b_salvar_como.clicked.connect(lambda: self.salvar_como_alterado())
         self.b_imprimir.clicked.connect(self.imprimir)
         self.b_largura.clicked.connect(lambda: self._no_visualizador(lambda v: v.ajustar("largura")))
         self.b_pagina.clicked.connect(lambda: self._no_visualizador(lambda v: v.ajustar("pagina")))
@@ -447,7 +455,9 @@ class JanelaPrincipal(QMainWindow):
 
         atalho("Ctrl+O", self.abrir_dialogo)
         atalho(["Ctrl+W", "Ctrl+F4"], lambda: self.fechar_aba(self.tabbar.currentIndex()))
-        atalho(["Ctrl+S", "Ctrl+Shift+S"], self.salvar_copia)
+        atalho("Ctrl+S", self.salvar_copia)
+        atalho("Ctrl+Shift+S", lambda: self.salvar_como_alterado() if self._salvar_bloqueado(self.aba_atual())
+               else self.salvar_copia())
         atalho("Ctrl+Z", self.desfazer)
         atalho("Ctrl+P", self.imprimir)
         atalho("Ctrl+F", self.buscar)
@@ -580,6 +590,7 @@ class JanelaPrincipal(QMainWindow):
         self.a_girar_todas.setVisible(not uma_pagina)
         bloqueado = self._salvar_bloqueado(aba)
         self.b_salvar.setEnabled(not bloqueado)
+        self.b_salvar_como.setVisible(bloqueado)
         self.b_salvar.setToolTip(
             "Documento com assinatura digital: não é possível salvar com páginas giradas ou texto "
             "destacado (as assinaturas seriam invalidadas)" if bloqueado else "Salvar uma Cópia (Ctrl+S)")
@@ -847,6 +858,36 @@ class JanelaPrincipal(QMainWindow):
         if aba:
             aba.toast("Documento salvo" if mesmo_arquivo else "Cópia salva")
         return aba
+
+    def salvar_como_alterado(self, aba=None):
+        """PDF assinado com alterações (páginas giradas, destaques): grava uma CÓPIA
+        "<nome>-alterado.pdf" com as alterações - as assinaturas dessa cópia deixam de
+        valer. O original assinado nunca é sobrescrito."""
+        aba = aba or self.aba_atual()
+        if not aba:
+            return None
+        orig = aba.doc.caminho
+        sugerido = orig.with_name(f"{orig.stem}-alterado.pdf")
+        destino, _ = QFileDialog.getSaveFileName(
+            self, "Salvar Como (as assinaturas digitais da cópia deixarão de ser válidas)",
+            str(sugerido), "Documentos PDF (*.pdf)")
+        if not destino:
+            return None
+        if Path(destino).resolve() == orig.resolve():
+            QMessageBox.warning(self, NOME_APP, "Escolha outro nome: o documento original assinado não pode "
+                                "ser substituído pela versão alterada.")
+            return None
+        try:
+            Path(destino).write_bytes(aba.doc.bytes_editados(aba.visualizador.rotacoes()))
+        except Exception as e:
+            QMessageBox.critical(self, NOME_APP, f"Não foi possível salvar:\n{e}")
+            return None
+        # as alterações estão gravadas na cópia: fechar a aba não pergunta mais
+        aba.doc.marcar_salvo()
+        aba.visualizador.marcar_rotacoes_salvas()
+        self._atualizar_estado()
+        aba.toast(f"Cópia com alterações salva: {Path(destino).name}", 3000)
+        return destino
 
     # ================================================================== busca / impressão
     def buscar(self):

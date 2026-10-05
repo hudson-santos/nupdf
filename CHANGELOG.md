@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.17.0] - 2026-10-05
+
+### Added
+- Botão "Salvar Como" ao lado do Salvar quando um PDF com assinatura digital tem alterações
+  (páginas giradas ou texto destacado): grava uma cópia "<nome>-alterado.pdf" com as
+  alterações, mesmo que as assinaturas da cópia deixem de valer. O original assinado nunca é
+  sobrescrito. Atalho Ctrl+Shift+S.
+
 ## [1.16.2] - 2026-10-05
 
 ### Changed
