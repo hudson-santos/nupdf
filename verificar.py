@@ -167,6 +167,34 @@ def main() -> int:
     checar("excluir página: salvar limpa a pendência", doc_sem.pendencias_herdadas == [])
     doc_sem.fechar()
 
+    print("Editor de PDF / Metadados:")
+    from nupdf import edicao
+    import pymupdf as _pe
+    try:
+        ed = Documento(str(pdf))
+        alvo = next(w for w in ed.palavras(0) if len(w[4]) >= 4)[4]  # uma palavra do PDF de teste
+        dados_ed, n_ed = ed.com_edicao(lambda c: edicao.substituir_todos(c, alvo, "TROCADO"), {})
+        ed2 = Documento(str(pdf), dados=dados_ed, conteudo_editado=True)
+        checar("localizar e substituir", n_ed >= 1 and "TROCADO" in ed2.texto_pagina(0)
+               and alvo not in ed2.texto_pagina(0), f"{alvo!r} x{n_ed}")
+        r_alvo = ed2.doc[0].search_for("TROCADO")[0]
+        dados_ed, _ = ed2.com_edicao(lambda c: edicao.remover_texto(c, 0, [r_alvo]), {})
+        checar("remover texto", "TROCADO" not in Documento(str(pdf), dados=dados_ed).texto_pagina(0))
+        dados_ed, _ = ed.com_edicao(lambda c: edicao.inserir_texto(c, 0, _pe.Point(72, 760), "Inclusão ç",
+                                                                    10), {})
+        checar("inserir texto (com acento)", "Inclusão ç" in Documento(str(pdf), dados=dados_ed).texto_pagina(0))
+        dados_ed, _ = ed.com_edicao(lambda c: edicao.remover_area(c, 0, _pe.Rect(0, 0, 612, 400)), {})
+        checar("remover área", Documento(str(pdf), dados=dados_ed).doc[0].get_text("text", clip=_pe.Rect(
+            0, 0, 612, 395)).strip() == "")
+        dados_ed, _ = ed.com_edicao(lambda c: edicao.alterar_metadados(c, {"title": "Título Novo",
+                                                                             "author": "Autor"}), {})
+        meta_ed = Documento(str(pdf), dados=dados_ed).doc.metadata
+        checar("alterar metadados", meta_ed["title"] == "Título Novo" and meta_ed["author"] == "Autor"
+               and meta_ed["modDate"].startswith("D:"))
+        ed.fechar()
+    except Exception as e:
+        checar("editor de PDF", False, f"{e.__class__.__name__}: {e}")
+
     print("Impressão:")
     from nupdf import impressao
     checar("intervalo de páginas", impressao.interpretar_intervalo("1-3, 5", 5) == [0, 1, 2, 4])

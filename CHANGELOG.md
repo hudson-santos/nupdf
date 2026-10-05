@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.18.0] - 2026-10-05
+
+### Added
+- Editor de Metadados (barra lateral, abaixo de Marcadores): edita Título, Autor, Assunto,
+  Palavras-chave, Aplicativo de Origem e Produtor do PDF; ao aplicar, atualiza a data de
+  modificação e remove o XMP antigo (para outros leitores não mostrarem os valores antigos).
+- Editor de PDF (barra lateral, abaixo do Editor de Metadados): Remover Área (apaga de fato
+  texto, imagens e linhas dentro da área), Remover Texto Selecionado, Inserir Texto (tamanho,
+  cor e negrito), Substituir Texto Selecionado (mesmo lugar, tamanho e cor) e Localizar /
+  Substituir Todos.
+- As edições ficam no documento aberto até Salvar, com Ctrl+Z e aviso de alterações não
+  salvas; em PDF assinado, o Salvar fica bloqueado e a versão editada é gravada pelo
+  "Salvar Como" (-alterado.pdf).
+
 ## [1.17.1] - 2026-10-05
 
 ### Fixed

@@ -57,13 +57,16 @@ def _ordenar_visual(palavras) -> list[Palavra]:
 
 class Documento:
     def __init__(self, caminho: str, senha: str | None = None, dados: bytes | None = None,
-                 pendencias: list[str] | None = None):
+                 pendencias: list[str] | None = None, conteudo_editado: bool = False):
         """`dados`: conteúdo já em memória (ex.: depois de excluir uma página), no lugar
         do arquivo em `caminho`; `pendencias`: alterações ainda não salvas que vieram
-        junto (descrições, como "páginas excluídas")."""
+        junto (descrições, como "páginas excluídas"); `conteudo_editado`: o conteúdo
+        veio do Editor de PDF/Metadados - num PDF assinado, as assinaturas já não
+        cobrem o que está na tela (o Salvar fica bloqueado, só o "Salvar Como")."""
         self.caminho = Path(caminho)
         self.dados = dados if dados is not None else self.caminho.read_bytes()
         self.pendencias_herdadas: list[str] = list(pendencias or [])
+        self.conteudo_editado = conteudo_editado
         self.doc = pymupdf.open(stream=self.dados, filetype="pdf")
         self.senha = None
         if self.doc.needs_pass:
@@ -285,6 +288,18 @@ class Documento:
             ordem.insert(para, ordem.pop(de))
             copia.select(ordem)
             return copia.tobytes()
+        finally:
+            copia.close()
+
+    def com_edicao(self, editar, rotacoes: dict[int, int]):
+        """Bytes do documento como está na tela (rotação e destaques) depois de
+        `editar(copia)` - funções de edicao.py. Devolve (bytes, retorno de editar)."""
+        copia = pymupdf.open(stream=self.bytes_editados(rotacoes), filetype="pdf")
+        try:
+            if copia.needs_pass:
+                copia.authenticate(self.senha or "")
+            retorno = editar(copia)
+            return copia.tobytes(garbage=1, deflate=True), retorno
         finally:
             copia.close()
 

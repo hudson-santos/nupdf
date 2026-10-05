@@ -438,7 +438,9 @@ class JanelaPrincipal(QMainWindow):
         for nome, ic, dica in (("miniaturas", "miniaturas", "Páginas"),
                                ("dados", "propriedades", "Propriedades do Documento"),
                                ("assinaturas", "escudo", "Assinaturas Digitais"),
-                               ("destaques", "destacar", "Marcadores")):
+                               ("destaques", "destacar", "Marcadores"),
+                               ("metadados", "metadados", "Editor de Metadados"),
+                               ("editor", "editor", "Editor de PDF")):
             b = ui.botao(ic, dica, checavel=True, tamanho=20, obj="trilho")
             b.clicked.connect(lambda _=False, n=nome: self._alternar_painel(n))
             lay.addWidget(b, 0, Qt.AlignHCenter)
@@ -667,6 +669,8 @@ class JanelaPrincipal(QMainWindow):
         aba = AbaDocumento(doc)
         aba.excluirPagina.connect(lambda i, a=aba: self.excluir_pagina(a, i))
         aba.moverPagina.connect(lambda de, para, a=aba: self.mover_pagina(a, de, para))
+        aba.acaoEditor.connect(lambda acao, params, a=aba: self._acao_editor(a, acao, params))
+        aba.aplicarMetadados.connect(lambda valores, a=aba: self._aplicar_metadados(a, valores))
         aba.painelMudou.connect(lambda _: self._atualizar_estado())
         aba.visualizador.rotacaoMudou.connect(self._atualizar_estado)
         aba.visualizador.destaqueFeito.connect(self._atualizar_estado)
@@ -734,7 +738,8 @@ class JanelaPrincipal(QMainWindow):
             dados = aba.doc.sem_pagina(i, v.rotacoes())
             pendencias = [p for p in self._pendencias(aba) if p != "páginas excluídas"] + ["páginas excluídas"]
             from .documento import Documento
-            doc = Documento(str(aba.doc.caminho), aba.doc.senha, dados=dados, pendencias=pendencias)
+            doc = Documento(str(aba.doc.caminho), aba.doc.senha, dados=dados, pendencias=pendencias,
+                            conteudo_editado=aba.doc.conteudo_editado)
         except Exception as e:
             QMessageBox.critical(self, NOME_APP, f"Não foi possível excluir a página:\n{e}")
             return
@@ -757,13 +762,120 @@ class JanelaPrincipal(QMainWindow):
             dados = aba.doc.com_pagina_movida(de, para, aba.visualizador.rotacoes())
             pendencias = [p for p in self._pendencias(aba) if p != "páginas reordenadas"] + ["páginas reordenadas"]
             from .documento import Documento
-            doc = Documento(str(aba.doc.caminho), aba.doc.senha, dados=dados, pendencias=pendencias)
+            doc = Documento(str(aba.doc.caminho), aba.doc.senha, dados=dados, pendencias=pendencias,
+                            conteudo_editado=aba.doc.conteudo_editado)
         except Exception as e:
             QMessageBox.critical(self, NOME_APP, f"Não foi possível mover a página:\n{e}")
             return
         nova = self._substituir_aba(aba, doc, aba.historico + [antes], para)
         nova.toast(f"Página {de + 1} Movida para a Posição {para + 1}")
         self._atualizar_estado()
+
+    # ================================================================== Editor de PDF / Metadados
+    def editar_documento(self, aba: AbaDocumento, editar, pendencia: str, aviso: str | None):
+        """Aplica `editar(copia)` (funções de edicao.py) numa cópia do documento como está
+        na tela. Como excluir página: fica em memória até Salvar, a aba é refeita no mesmo
+        lugar e o Ctrl+Z desfaz. Devolve o retorno de `editar` (None se falhou)."""
+        if aba not in self.abas:
+            return None
+        v = aba.visualizador
+        antes = aba.retrato()  # para o Ctrl+Z
+        try:
+            dados, retorno = aba.doc.com_edicao(editar, v.rotacoes())
+        except Exception as e:
+            QMessageBox.critical(self, NOME_APP, f"Não foi possível editar o documento:\n{e}")
+            return None
+        if retorno == 0:  # ex.: localizar e substituir sem nenhuma ocorrência
+            return 0
+        from .documento import Documento
+        pendencias = [p for p in self._pendencias(aba) if p != pendencia] + [pendencia]
+        doc = Documento(str(aba.doc.caminho), aba.doc.senha, dados=dados, pendencias=pendencias,
+                        conteudo_editado=True)
+        nova = self._substituir_aba(aba, doc, aba.historico + [antes], v.pagina_atual)
+        if aviso:
+            nova.toast(aviso, 2400)
+        if doc.tem_assinaturas:
+            nova.toast("Documento assinado: use \"Salvar Como\" para gravar a versão editada "
+                       "(as assinaturas dela deixam de valer)", 4200)
+        self._atualizar_estado()
+        return retorno
+
+    def _acao_editor(self, aba: AbaDocumento, acao: str, params):
+        from . import edicao
+        v = aba.visualizador
+        if v.modo == "posicionar":
+            v.cancelar_posicionamento()
+        if acao == "remover_area":
+            aba.ferramenta = ("remover_area", None)
+            aba.mostrar_aviso("Arraste sobre a Área a Remover   •   ESC - Cancela")
+            v.iniciar_posicionamento(tamanho_clique=(0, 0))
+        elif acao == "inserir_texto":
+            from .dialogo_texto import DialogoTexto
+            dlg = DialogoTexto(self, "Inserir Texto", "Digite o texto. Depois, clique na página onde ele deve "
+                               "começar (cada linha digitada é uma linha no PDF).", com_estilo=True,
+                               rotulo_ok="Posicionar na Página")
+            if dlg.exec() != QDialog.Accepted:
+                return
+            aba.ferramenta = ("inserir_texto", (dlg.texto(), dlg.estilo()))
+            aba.mostrar_aviso("Clique na Página onde o Texto deve Começar   •   ESC - Cancela")
+            v.iniciar_posicionamento(tamanho_clique=(0, 0))
+        elif acao in ("remover_selecao", "substituir_selecao"):
+            linhas = v.linhas_selecionadas()
+            if not linhas:
+                aba.toast("Selecione o Texto na Página Primeiro", 2400)
+                return
+            if acao == "remover_selecao":
+                def editar(copia):
+                    for i, rets in linhas.items():
+                        edicao.remover_texto(copia, i, rets)
+                self.editar_documento(aba, editar, "texto removido", "Texto Removido")
+                return
+            from .dialogo_texto import DialogoTexto
+            dlg = DialogoTexto(self, "Substituir Texto", "Novo texto - entra no lugar do texto selecionado, "
+                               "com o mesmo tamanho e cor:", texto=v.texto_selecionado(), rotulo_ok="Substituir")
+            if dlg.exec() != QDialog.Accepted:
+                return
+            novo, primeira = dlg.texto(), min(linhas)
+
+            def editar(copia):
+                for i, rets in linhas.items():  # o texto novo vai na 1ª página da seleção
+                    if i == primeira:
+                        edicao.substituir_texto(copia, i, rets, novo)
+                    else:
+                        edicao.remover_texto(copia, i, rets)
+            self.editar_documento(aba, editar, "texto alterado", "Texto Substituído")
+        elif acao == "substituir_todos":
+            busca, novo = params
+            n = self.editar_documento(aba, lambda copia: edicao.substituir_todos(copia, busca, novo),
+                                      "texto alterado", None)
+            if n == 0:
+                aba.toast(f"\"{busca}\" Não Encontrado", 2400)
+            elif n:
+                self.aba_atual().toast(f"{n} Ocorrência{'s' if n > 1 else ''} Substituída{'s' if n > 1 else ''}",
+                                       2400)
+
+    def _ferramenta_na_pagina(self, aba: AbaDocumento, pagina: int, r: pymupdf.Rect, acao: str, params):
+        """Clique/área marcados na página para a ferramenta do Editor de PDF."""
+        import pymupdf
+
+        from . import edicao
+        if acao == "remover_area":
+            if r.width < 3 or r.height < 3:
+                aba.toast("Arraste para Marcar a Área a Remover", 2400)
+                return
+            self.editar_documento(aba, lambda copia: edicao.remover_area(copia, pagina, r),
+                                  "área removida", "Área Removida")
+        elif acao == "inserir_texto":
+            texto, estilo = params
+            ponto = pymupdf.Point(r.x0, r.y0)  # o clique (caixa de tamanho zero)
+            self.editar_documento(aba, lambda copia: edicao.inserir_texto(
+                copia, pagina, ponto, texto, estilo["tamanho"], estilo["cor"], estilo["negrito"]),
+                "texto incluído", "Texto Inserido")
+
+    def _aplicar_metadados(self, aba: AbaDocumento, valores: dict):
+        from . import edicao
+        self.editar_documento(aba, lambda copia: edicao.alterar_metadados(copia, valores),
+                              "metadados alterados", "Metadados Aplicados")
 
     def _substituir_aba(self, aba: AbaDocumento, doc: Documento, historico: list, pagina: int,
                         rotacao: tuple | None = None) -> AbaDocumento:
@@ -807,7 +919,8 @@ class JanelaPrincipal(QMainWindow):
             try:
                 from .documento import Documento
                 doc = Documento(str(aba.doc.caminho), aba.doc.senha, dados=antes["dados"],
-                                pendencias=antes["pendencias"])
+                                pendencias=antes["pendencias"],
+                                conteudo_editado=antes.get("conteudo_editado", False))
                 doc.restaurar_edicao(antes["edicao"])
             except Exception as e:
                 QMessageBox.critical(self, NOME_APP, f"Não foi possível desfazer:\n{e}")
@@ -824,7 +937,8 @@ class JanelaPrincipal(QMainWindow):
 
     @staticmethod
     def _salvar_bloqueado(aba) -> bool:
-        return bool(aba and aba.doc.tem_assinaturas and (aba.visualizador.rotacoes() or aba.doc.destaques_editados))
+        return bool(aba and aba.doc.tem_assinaturas and (aba.visualizador.rotacoes() or aba.doc.destaques_editados
+                                                         or aba.doc.conteudo_editado))
 
     def salvar_copia(self, aba=None):
         """Salva a aba (a atual, por padrão). Devolve a aba com o documento salvo -
@@ -965,10 +1079,15 @@ class JanelaPrincipal(QMainWindow):
 
     def _posicionamento_cancelado(self, aba: AbaDocumento):
         aba.cfg_pendente = None
+        aba.ferramenta = None
         aba.esconder_aviso()
 
     def _posicionado(self, aba: AbaDocumento, pagina: int, r: pymupdf.Rect):
         aba.esconder_aviso()
+        if aba.ferramenta is not None:
+            ferramenta, aba.ferramenta = aba.ferramenta, None
+            self._ferramenta_na_pagina(aba, pagina, r, *ferramenta)
+            return
         cfg, aba.cfg_pendente = aba.cfg_pendente, None
         if cfg is None:
             return

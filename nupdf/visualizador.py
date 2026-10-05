@@ -409,7 +409,11 @@ class Visualizador(QScrollArea):
         self.modo = modo
         self._pag.atualizar_cursor()
 
-    def iniciar_posicionamento(self):
+    def iniciar_posicionamento(self, tamanho_clique: tuple[float, float] = (190, 60)):
+        """Clique ou arraste numa página -> retanguloDesenhado. `tamanho_clique` (pt): a
+        caixa criada por um clique simples, centrada nele (assinatura: 190 x 60; Editor
+        de PDF: (0, 0) = só o ponto clicado)."""
+        self._tamanho_clique = tamanho_clique
         self._modo_retorno = self.modo if self.modo != "posicionar" else "texto"
         self.modo = "posicionar"
         self._pag.ret_assinatura = None
@@ -950,9 +954,10 @@ class _Paginas(QWidget):
             if self.ret_assinatura:
                 i, q = self.ret_assinatura
                 if not self._arrastou or q.width() < 20 or q.height() < 10:
-                    # clique simples: caixa padrão (≈ 190 x 60 pt) centrada no clique
-                    w = 190 * v.zoom * PX_POR_PT
-                    h = 60 * v.zoom * PX_POR_PT
+                    # clique simples: caixa padrão (assinatura ≈ 190 x 60 pt) centrada no clique
+                    larg, alt = getattr(v, "_tamanho_clique", (190, 60))
+                    w = larg * v.zoom * PX_POR_PT
+                    h = alt * v.zoom * PX_POR_PT
                     pag = QRectF(v._geo[i][0])
                     x = min(max(self._press.x() - w / 2, pag.left()), pag.right() - w)
                     y = min(max(self._press.y() - h / 2, pag.top()), pag.bottom() - h)

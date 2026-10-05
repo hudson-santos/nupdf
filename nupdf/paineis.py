@@ -757,3 +757,181 @@ class PainelAssinaturas(QWidget):
             w.style().polish(w)
             if ativo:
                 QTimer.singleShot(0, lambda w=w: self._area.ensureWidgetVisible(w))
+
+
+def _area_rolavel(lay: QVBoxLayout, espacamento: int = 8) -> QVBoxLayout:
+    """Área com rolagem (fundo transparente) no layout do painel; devolve o layout dela."""
+    area = QScrollArea()
+    area.setWidgetResizable(True)
+    area.setFrameShape(QFrame.NoFrame)
+    area.setStyleSheet("QScrollArea { background: transparent; }")
+    conteudo = QWidget()
+    # só o próprio contêiner: um estilo sem seletor vale para todos os filhos
+    conteudo.setObjectName("conteudoPainel")
+    conteudo.setStyleSheet("#conteudoPainel { background: transparent; }")
+    lista = QVBoxLayout(conteudo)
+    lista.setContentsMargins(0, 4, 4, 0)
+    lista.setSpacing(espacamento)
+    area.setWidget(conteudo)
+    lay.addWidget(area, 1)
+    return lista
+
+
+class PainelMetadados(QWidget):
+    """Editor de Metadados: título, autor, assunto, palavras-chave, aplicativo e produtor.
+    "Aplicar" muda o documento em memória (como as outras edições: Salvar grava, Ctrl+Z
+    desfaz) - a janela executa (sinal aplicar)."""
+
+    aplicar = Signal(dict)
+
+    def __init__(self, doc: Documento):
+        super().__init__()
+        from .edicao import CAMPOS_METADADOS
+        self.doc = doc
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(12, 14, 12, 12)
+        lay.setSpacing(8)
+        lay.addWidget(_cabecalho("Editor de Metadados", maiusculas=False))
+        lay.addWidget(ui.separador_horizontal())
+        lista = _area_rolavel(lay)
+        self.campos: dict[str, QLineEdit] = {}
+        for chave, rotulo in CAMPOS_METADADOS:
+            r = QLabel(rotulo)
+            r.setObjectName("sub3")
+            campo = QLineEdit()
+            campo.setClearButtonEnabled(True)
+            campo.textChanged.connect(self._mudou)
+            self.campos[chave] = campo
+            bloco = QVBoxLayout()
+            bloco.setSpacing(3)
+            bloco.addWidget(r)
+            bloco.addWidget(campo)
+            lista.addLayout(bloco)
+        self.datas = QLabel()
+        self.datas.setObjectName("sub3")
+        self.datas.setWordWrap(True)
+        lista.addSpacing(4)
+        lista.addWidget(self.datas)
+        lista.addStretch(1)
+
+        limpar = QPushButton("Limpar Todos os Campos")
+        limpar.setObjectName("linkPequeno")
+        limpar.setCursor(Qt.PointingHandCursor)
+        limpar.clicked.connect(lambda: [c.clear() for c in self.campos.values()])
+        lay.addWidget(limpar, 0, Qt.AlignHCenter)
+        self.b_aplicar = QPushButton("  Aplicar Metadados")
+        self.b_aplicar.setObjectName("primario")
+        self.b_aplicar.setIcon(icone("metadados", "#ffffff", 16))
+        self.b_aplicar.setCursor(Qt.PointingHandCursor)
+        self.b_aplicar.setToolTip("Grava os metadados no documento aberto (Salvar grava no arquivo; Ctrl+Z desfaz)")
+        self.b_aplicar.clicked.connect(self._aplicar)
+        lay.addWidget(self.b_aplicar, 0, Qt.AlignHCenter)
+        self._originais: dict[str, str] = {}
+
+    def carregar(self):
+        m = self.doc.doc.metadata or {}
+        self._originais = {k: (m.get(k) or "") for k in self.campos}
+        for k, campo in self.campos.items():
+            campo.blockSignals(True)
+            campo.setText(self._originais[k])
+            campo.setCursorPosition(0)
+            campo.blockSignals(False)
+        datas = [f"{r}: {_data_pdf(m.get(k, ''))}" for k, r in (("creationDate", "Criado em"),
+                                                                 ("modDate", "Modificado em")) if m.get(k)]
+        self.datas.setText("\n".join(datas))
+        self.datas.setVisible(bool(datas))
+        self._mudou()
+
+    def _valores(self) -> dict[str, str]:
+        return {k: c.text().strip() for k, c in self.campos.items()}
+
+    def _mudou(self):
+        # some (em vez de desabilitar) quando não há o que aplicar
+        self.b_aplicar.setVisible(self._valores() != {k: v.strip() for k, v in self._originais.items()})
+
+    def _aplicar(self):
+        self.aplicar.emit(self._valores())
+
+
+class PainelEditor(QWidget):
+    """Editor de PDF: remover área/texto, inserir texto, substituir texto selecionado e
+    localizar/substituir. Cada ação é um pedido à janela (sinal acao), que aplica a
+    edição numa cópia do documento - como excluir página: fica em memória até Salvar e
+    o Ctrl+Z desfaz."""
+
+    acao = Signal(str, object)  # nome da ação, parâmetros
+
+    def __init__(self, doc: Documento):
+        super().__init__()
+        self.doc = doc
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(12, 14, 12, 12)
+        lay.setSpacing(8)
+        lay.addWidget(_cabecalho("Editor de PDF", maiusculas=False))
+        lay.addWidget(ui.separador_horizontal())
+        lista = _area_rolavel(lay)
+
+        def secao(titulo: str):
+            r = QLabel(titulo)
+            r.setObjectName("rotuloSecao")
+            lista.addSpacing(2)
+            lista.addWidget(r)
+
+        def ferramenta(texto: str, nome_icone: str, dica: str, acao: str):
+            b = QPushButton(f"  {texto}")
+            b.setObjectName("ferramenta")
+            b.setIcon(icone(nome_icone, ui.cores()["texto2"], 16))
+            b.setCursor(Qt.PointingHandCursor)
+            b.setToolTip(dica)
+            b.clicked.connect(lambda: self.acao.emit(acao, None))
+            lista.addWidget(b)
+            return b
+
+        secao("Remover")
+        ferramenta("Remover Área", "area", "Arraste sobre a página: tudo dentro da área (texto, imagens, "
+                   "linhas) é apagado e fica fundo branco", "remover_area")
+        ferramenta("Remover Texto Selecionado", "texto_remover",
+                   "Selecione o texto na página e clique aqui: o texto sai, o fundo continua", "remover_selecao")
+        secao("Incluir")
+        ferramenta("Inserir Texto", "texto", "Digite o texto e clique (ou arraste) na página onde ele deve "
+                   "começar", "inserir_texto")
+        secao("Alterar")
+        ferramenta("Substituir Texto Selecionado", "substituir",
+                   "Selecione o texto na página e clique aqui para digitar o novo texto (mesmo lugar, "
+                   "tamanho e cor)", "substituir_selecao")
+
+        lista.addSpacing(4)
+        for rotulo, attr, dica in (("Localizar", "localizar", "Texto a procurar em todas as páginas"),
+                                   ("Substituir por", "substituir", "Novo texto (vazio = só remove)")):
+            r = QLabel(rotulo)
+            r.setObjectName("sub3")
+            campo = QLineEdit(placeholderText=dica)
+            campo.setClearButtonEnabled(True)
+            setattr(self, attr, campo)
+            lista.addWidget(r)
+            lista.addWidget(campo)
+        self.b_todos = QPushButton("  Substituir Todos")
+        self.b_todos.setObjectName("primario")
+        self.b_todos.setIcon(icone("substituir", "#ffffff", 16))
+        self.b_todos.setCursor(Qt.PointingHandCursor)
+        self.b_todos.clicked.connect(self._substituir_todos)
+        self.localizar.returnPressed.connect(self._substituir_todos)
+        self.substituir.returnPressed.connect(self._substituir_todos)
+        lista.addSpacing(2)
+        lista.addWidget(self.b_todos)
+        lista.addStretch(1)
+
+        nota = QLabel("As edições ficam no documento aberto até Salvar - Ctrl+Z desfaz.")
+        nota.setObjectName("sub3")
+        nota.setWordWrap(True)
+        lay.addWidget(nota)
+
+    def carregar(self):
+        pass
+
+    def _substituir_todos(self):
+        busca = self.localizar.text()
+        if not busca.strip():
+            self.localizar.setFocus()
+            return
+        self.acao.emit("substituir_todos", (busca, self.substituir.text()))

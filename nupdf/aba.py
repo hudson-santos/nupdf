@@ -7,10 +7,11 @@ from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QLineEdit, QMenu, QS
 
 from . import ui
 from .documento import Documento
-from .paineis import PainelAssinaturas, PainelDestaques, PainelMiniaturas, PainelPropriedades
+from .paineis import (PainelAssinaturas, PainelDestaques, PainelEditor, PainelMetadados, PainelMiniaturas,
+                      PainelPropriedades)
 from .visualizador import Visualizador
 
-PAINEIS = ("miniaturas", "dados", "assinaturas", "destaques")
+PAINEIS = ("miniaturas", "dados", "assinaturas", "destaques", "metadados", "editor")
 LARGURA_PAINEL = 280
 LARGURA_MINIATURAS = 172  # só a coluna de miniaturas + rolagem, sem sobra à direita
 
@@ -195,11 +196,14 @@ class AbaDocumento(QWidget):
     painelMudou = Signal(object)
     excluirPagina = Signal(int)  # pedido pela página ou pela miniatura (a janela executa)
     moverPagina = Signal(int, int)  # reordenar pelas miniaturas (a janela executa)
+    acaoEditor = Signal(str, object)  # Editor de PDF: ação e parâmetros (a janela executa)
+    aplicarMetadados = Signal(dict)  # Editor de Metadados (a janela executa)
 
     def __init__(self, documento: Documento):
         super().__init__()
         self.doc = documento
         self.cfg_pendente = None  # assinatura aguardando posicionamento
+        self.ferramenta = None  # Editor de PDF aguardando clique/área na página: (ação, parâmetros)
         # Ctrl+Z: retratos do documento antes de cada alteração (o mais recente no fim)
         self.historico: list[dict] = []
         lay = QHBoxLayout(self)
@@ -214,7 +218,9 @@ class AbaDocumento(QWidget):
         self.dados = PainelPropriedades(documento)  # chave "dados" mantida (preferência salva)
         self.assinaturas = PainelAssinaturas(documento)
         self.destaques = PainelDestaques(documento)
-        for p in (self.miniaturas, self.dados, self.assinaturas, self.destaques):
+        self.metadados = PainelMetadados(documento)
+        self.editor = PainelEditor(documento)
+        for p in (self.miniaturas, self.dados, self.assinaturas, self.destaques, self.metadados, self.editor):
             self.lateral.addWidget(p)
         lay.addWidget(self.lateral)
 
@@ -243,6 +249,8 @@ class AbaDocumento(QWidget):
         v.destaqueRemovido.connect(lambda: self.toast("Destaque Removido"))
         v.corDestaqueAlterada.connect(lambda: self.toast("Cor do Destaque Alterada"))
         v.assinaturaClicada.connect(self._assinatura_clicada)
+        self.editor.acao.connect(self.acaoEditor)
+        self.metadados.aplicar.connect(self.aplicarMetadados)
 
     # ------------------------------------------------------------------ desfazer
     LIMITE_HISTORICO = 50
@@ -251,6 +259,7 @@ class AbaDocumento(QWidget):
         """Estado atual do documento na tela: conteúdo (muda ao excluir página),
         pendências herdadas, destaques e rotação."""
         return {"dados": self.doc.dados, "pendencias": list(self.doc.pendencias_herdadas),
+                "conteudo_editado": self.doc.conteudo_editado,
                 "edicao": self.doc.estado_edicao(), "rotacao": self.visualizador.estado_rotacao()}
 
     def registrar(self):
@@ -269,7 +278,7 @@ class AbaDocumento(QWidget):
         else:
             self._painel = nome
             w = {"miniaturas": self.miniaturas, "dados": self.dados, "assinaturas": self.assinaturas,
-                 "destaques": self.destaques}[nome]
+                 "destaques": self.destaques, "metadados": self.metadados, "editor": self.editor}[nome]
             self.lateral.setCurrentWidget(w)
             self.lateral.setFixedWidth(LARGURA_MINIATURAS if nome == "miniaturas" else LARGURA_PAINEL)
             self.lateral.show()
@@ -280,6 +289,8 @@ class AbaDocumento(QWidget):
                 self.dados.carregar()
             elif nome == "destaques":
                 self.destaques.carregar()
+            elif nome in ("metadados", "editor"):
+                w.carregar()
             else:
                 self.assinaturas.carregar()
         self.painelMudou.emit(self._painel)
