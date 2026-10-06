@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.19.3] - 2026-10-06
+
+### Fixed
+- E-mail da release (GitHub Actions): falha "Bad sender address syntax" quando o login SMTP não
+  é um endereço de e-mail (ex.: Resend). O remetente passa a vir do secret SMTP_REMETENTE
+  (opcional), sem espaços/quebras de linha, e é validado antes do envio.
+
+### Changed
+- GitHub Actions: actions/checkout e action-send-mail atualizados para versões em Node 24 (fim
+  do aviso de Node.js 20 descontinuado).
+
 ## [1.19.2] - 2026-10-06
 
 ### Added

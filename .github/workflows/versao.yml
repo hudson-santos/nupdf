@@ -22,7 +22,7 @@ jobs:
       SMTP_SERVIDOR: ${{ secrets.SMTP_SERVIDOR }}
     steps:
       - name: Baixar o código
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5  # Node 24
 
       - name: Extrair a versão da mensagem do commit
         id: versao
@@ -123,19 +123,42 @@ jobs:
       # E-mail de aviso (release gerada): changelog da versão + botão para a Release.
       # Destinatário e SMTP ficam em secrets do repositório (o repositório é público):
       #   EMAIL_DESTINO, SMTP_SERVIDOR, SMTP_PORTA, SMTP_USUARIO, SMTP_SENHA
-      # Sem SMTP_SERVIDOR configurado, os passos são pulados; falha no envio não
+      #   SMTP_REMETENTE (opcional): e-mail do remetente, quando o login SMTP não é um
+      #   endereço de e-mail (ex.: Brevo, SendGrid); sem ele, o remetente é o SMTP_USUARIO.
+      # Sem SMTP_SERVIDOR configurado, os passos são pulados; falha no e-mail não
       # desfaz a release (continue-on-error).
       - name: Montar o e-mail da release
         id: email
         if: success() && env.SMTP_SERVIDOR != ''
+        continue-on-error: true
         shell: bash
         env:
           VERSAO: ${{ steps.versao.outputs.versao }}
           TITULO: ${{ steps.changelog.outputs.titulo }}
           CORPO: ${{ steps.changelog.outputs.corpo }}
           URL_RELEASE: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ steps.versao.outputs.versao }}
+          SMTP_REMETENTE: ${{ secrets.SMTP_REMETENTE }}
+          SMTP_USUARIO: ${{ secrets.SMTP_USUARIO }}
+          SMTP_PORTA: ${{ secrets.SMTP_PORTA }}
+          EMAIL_DESTINO: ${{ secrets.EMAIL_DESTINO }}
         run: |
           set -euo pipefail
+          # Remetente/destino/porta sem espaços e quebras de linha coladas no secret. Vão
+          # por GITHUB_ENV (saídas de passo com valor de secret são descartadas pelo GitHub).
+          limpar() { printf '%s' "$1" | tr -d '\r\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
+          remetente="$(limpar "${SMTP_REMETENTE:-}")"
+          [ -n "$remetente" ] || remetente="$(limpar "$SMTP_USUARIO")"
+          if ! printf '%s' "$remetente" | grep -Eq '^[^@<> ]+@[^@<> ]+\.[^@<> ]+$'; then
+            echo "::error::Remetente inválido: o SMTP_USUARIO não é um endereço de e-mail. Cadastre o secret SMTP_REMETENTE com o e-mail que envia."
+            exit 1
+          fi
+          destino="$(limpar "$EMAIL_DESTINO")"
+          porta="$(limpar "$SMTP_PORTA")"
+          {
+            echo "EMAIL_REMETENTE=$remetente"
+            echo "EMAIL_PARA=$destino"
+            echo "SMTP_PORTA_LIMPA=${porta:-587}"
+          } >> "$GITHUB_ENV"
           # TITULO = "[1.19.1] - 2026-10-06"
           echo "assunto=GitHub Actions - Release ${TITULO} - Gerada" >> "$GITHUB_OUTPUT"
           # changelog (markdown simples do CHANGELOG.md) -> HTML: "### Added" vira título
@@ -171,14 +194,15 @@ jobs:
       - name: Enviar o e-mail da release
         if: success() && steps.email.outcome == 'success'
         continue-on-error: true
-        uses: dawidd6/action-send-mail@v3
+        uses: dawidd6/action-send-mail@v22  # Node 24
         with:
           server_address: ${{ secrets.SMTP_SERVIDOR }}
-          server_port: ${{ secrets.SMTP_PORTA }}
-          secure: ${{ secrets.SMTP_PORTA == '465' }}
+          server_port: ${{ env.SMTP_PORTA_LIMPA }}
+          secure: ${{ env.SMTP_PORTA_LIMPA == '465' }}
           username: ${{ secrets.SMTP_USUARIO }}
           password: ${{ secrets.SMTP_SENHA }}
           subject: ${{ steps.email.outputs.assunto }}
-          to: ${{ secrets.EMAIL_DESTINO }}
-          from: NuPDF - GitHub Actions <${{ secrets.SMTP_USUARIO }}>
+          to: ${{ env.EMAIL_PARA }}
+          # nome simples + endereço entre <>: "NuPDF - GitHub Actions" com hífen era recusado
+          from: NuPDF <${{ env.EMAIL_REMETENTE }}>
           html_body: file://email.html
