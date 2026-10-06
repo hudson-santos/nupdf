@@ -17,6 +17,9 @@ jobs:
   release:
     if: startsWith(github.event.head_commit.message, 'release - [')
     runs-on: windows-latest
+    env:
+      # e-mail de aviso no fim (ver "Enviar o e-mail da release"): sem o secret, não envia
+      SMTP_SERVIDOR: ${{ secrets.SMTP_SERVIDOR }}
     steps:
       - name: Baixar o código
         uses: actions/checkout@v4
@@ -116,3 +119,66 @@ jobs:
             --notes-file corpo_release.md \
             --target "${{ github.sha }}" \
             "Instalador.exe"
+
+      # E-mail de aviso (release gerada): changelog da versão + botão para a Release.
+      # Destinatário e SMTP ficam em secrets do repositório (o repositório é público):
+      #   EMAIL_DESTINO, SMTP_SERVIDOR, SMTP_PORTA, SMTP_USUARIO, SMTP_SENHA
+      # Sem SMTP_SERVIDOR configurado, os passos são pulados; falha no envio não
+      # desfaz a release (continue-on-error).
+      - name: Montar o e-mail da release
+        id: email
+        if: success() && env.SMTP_SERVIDOR != ''
+        shell: bash
+        env:
+          VERSAO: ${{ steps.versao.outputs.versao }}
+          TITULO: ${{ steps.changelog.outputs.titulo }}
+          CORPO: ${{ steps.changelog.outputs.corpo }}
+          URL_RELEASE: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ steps.versao.outputs.versao }}
+        run: |
+          set -euo pipefail
+          # TITULO = "[1.19.1] - 2026-10-06"
+          echo "assunto=GitHub Actions - Release ${TITULO} - Gerada" >> "$GITHUB_OUTPUT"
+          # changelog (markdown simples do CHANGELOG.md) -> HTML: "### Added" vira título
+          # traduzido e "- item" vira item de lista
+          printf '%s\n' "$CORPO" | awk '
+            function esc(t,   r, i, c) { r = ""; for (i = 1; i <= length(t); i++) { c = substr(t, i, 1)
+                                             if (c == "&") c = "&amp;"; else if (c == "<") c = "&lt;"
+                                             else if (c == ">") c = "&gt;"; r = r c }
+                                           return r }
+            function fecha() { if (lista) { print "</ul>"; lista = 0 } }
+            BEGIN { tr["Added"] = "Novidades"; tr["Changed"] = "Alterações"; tr["Fixed"] = "Correções"
+                    tr["Removed"] = "Removido"; tr["Security"] = "Segurança" }
+            /^#+[ \t]*/ { fecha(); t = $0; sub(/^#+[ \t]*/, "", t); if (t in tr) t = tr[t]
+                          print "<h3 style=\"margin:18px 0 6px;font-size:15px;color:#1f2023\">" esc(t) "</h3>"; next }
+            /^[ \t]*[-*][ \t]+/ { if (!lista) { print "<ul style=\"margin:0;padding-left:20px\">"; lista = 1 }
+                                  t = $0; sub(/^[ \t]*[-*][ \t]+/, "", t)
+                                  print "<li style=\"margin:0 0 6px;line-height:1.45\">" esc(t) "</li>"; next }
+            /^[ \t]*$/ { next }
+            { fecha(); print "<p style=\"margin:6px 0\">" esc($0) "</p>" }
+            END { fecha() }
+          ' > changelog.html
+          {
+            echo '<!doctype html><html><body style="margin:0;padding:24px;background:#f4f4f6;font-family:Segoe UI,Arial,sans-serif;color:#1f2023">'
+            echo '<div style="max-width:620px;margin:0 auto;background:#ffffff;border:1px solid #e3e3e8;border-radius:12px;padding:28px">'
+            echo "<h2 style=\"margin:0 0 4px;font-size:20px\">NuPDF ${VERSAO}</h2>"
+            echo "<p style=\"margin:0 0 8px;color:#6b6f76\">Release ${TITULO} gerada com sucesso.</p>"
+            cat changelog.html
+            echo '<div style="text-align:center;margin:28px 0 6px">'
+            echo "<a href=\"${URL_RELEASE}\" style=\"display:inline-block;background:#e5484d;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 26px;border-radius:8px\">Abrir a Release no GitHub</a>"
+            echo '</div></div></body></html>'
+          } > email.html
+
+      - name: Enviar o e-mail da release
+        if: success() && steps.email.outcome == 'success'
+        continue-on-error: true
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_SERVIDOR }}
+          server_port: ${{ secrets.SMTP_PORTA }}
+          secure: ${{ secrets.SMTP_PORTA == '465' }}
+          username: ${{ secrets.SMTP_USUARIO }}
+          password: ${{ secrets.SMTP_SENHA }}
+          subject: ${{ steps.email.outputs.assunto }}
+          to: ${{ secrets.EMAIL_DESTINO }}
+          from: NuPDF - GitHub Actions <${{ secrets.SMTP_USUARIO }}>
+          html_body: file://email.html

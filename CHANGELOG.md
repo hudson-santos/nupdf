@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.19.2] - 2026-10-06
+
+### Added
+- GitHub Actions: ao terminar uma release com sucesso, envia um e-mail "GitHub Actions - Release
+  [X.Y.Z] - AAAA-MM-DD - Gerada" com o changelog da versão e um botão para a Release no GitHub
+  (destinatário e SMTP configurados em secrets do repositório).
+
 ## [1.19.1] - 2026-10-06
 
 ### Changed
