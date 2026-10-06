@@ -12,7 +12,7 @@ class DialogoTexto(QDialog):
     estilo vem do texto original."""
 
     def __init__(self, parent, titulo: str, explicacao: str, texto: str = "", com_estilo: bool = False,
-                 rotulo_ok: str = "Aplicar"):
+                 rotulo_ok: str = "Aplicar", fontes_doc: list[str] | None = None, fonte_padrao: str | None = None):
         super().__init__(parent)
         self.setWindowTitle(titulo)
         self.setMinimumWidth(460)
@@ -35,7 +35,28 @@ class DialogoTexto(QDialog):
         for chave, (rotulo, _) in CORES_TEXTO.items():
             self.cor.addItem(rotulo, chave)
         self.negrito = QCheckBox("Negrito")
+        # Fonte: as do documento (uma por família, sem negrito/itálico) + Helvetica
+        from .fontes import familia_e_estilo, nome_familia
+        self.fonte = QComboBox()
+        vistas = set()
+        padrao_fam = familia_e_estilo(fonte_padrao)[0] if fonte_padrao else None
+        for nome in fontes_doc or []:
+            fam = familia_e_estilo(nome)[0]
+            if fam in vistas:
+                continue
+            vistas.add(fam)
+            self.fonte.addItem(nome_familia(nome), nome)
+            if fam == padrao_fam:
+                self.fonte.setCurrentIndex(self.fonte.count() - 1)
+        self.fonte.addItem("Helvetica (Padrão do PDF)", None)
+        self.fonte.setToolTip("Mesma fonte do documento; se não estiver instalada, o NuPDF tenta baixá-la")
         if com_estilo:
+            linha_fonte = QHBoxLayout()
+            r = QLabel("Fonte")
+            r.setObjectName("sub")
+            linha_fonte.addWidget(r)
+            linha_fonte.addWidget(self.fonte, 1)
+            lay.addLayout(linha_fonte)
             estilo = QHBoxLayout()
             estilo.setSpacing(8)
             for rotulo, w in (("Tamanho", self.tamanho), ("Cor", self.cor)):
@@ -76,4 +97,4 @@ class DialogoTexto(QDialog):
 
     def estilo(self) -> dict:
         return {"tamanho": float(self.tamanho.value()), "cor": CORES_TEXTO[self.cor.currentData()][1],
-                "negrito": self.negrito.isChecked()}
+                "negrito": self.negrito.isChecked(), "fonte": self.fonte.currentData()}

@@ -780,11 +780,16 @@ class JanelaPrincipal(QMainWindow):
             return None
         v = aba.visualizador
         antes = aba.retrato()  # para o Ctrl+Z
+        # pode levar alguns segundos: fonte do documento baixada/instalada (fontes.py)
+        QApplication.setOverrideCursor(Qt.WaitCursor)
         try:
             dados, retorno = aba.doc.com_edicao(editar, v.rotacoes())
         except Exception as e:
+            QApplication.restoreOverrideCursor()
             QMessageBox.critical(self, NOME_APP, f"Não foi possível editar o documento:\n{e}")
             return None
+        QApplication.restoreOverrideCursor()
+        avisos_fonte = list(getattr(aba.doc, "avisos_fonte", []))
         if retorno == 0:  # ex.: localizar e substituir sem nenhuma ocorrência
             return 0
         from .documento import Documento
@@ -794,11 +799,24 @@ class JanelaPrincipal(QMainWindow):
         nova = self._substituir_aba(aba, doc, aba.historico + [antes], v.pagina_atual)
         if aviso:
             nova.toast(aviso, 2400)
+        self._avisar_fontes(nova, avisos_fonte)
         if doc.tem_assinaturas:
             nova.toast("Documento assinado: use \"Salvar Como\" para gravar a versão editada "
                        "(as assinaturas dela deixam de valer)", 4200)
         self._atualizar_estado()
         return retorno
+
+    @staticmethod
+    def _avisar_fontes(aba: AbaDocumento, avisos: list):
+        """Fonte instalada agora (baixada) ou indisponível (texto saiu em Helvetica)."""
+        from .fontes import familia_e_estilo, nome_familia
+        baixadas = sorted({nome_familia(n) for n, origem in avisos if origem == "baixada"})
+        faltando = sorted({nome_familia(n) for n, origem in avisos if origem == "padrao"
+                           and familia_e_estilo(n)[0] not in ("helvetica", "times", "timesroman", "courier")})
+        if baixadas:
+            aba.toast(f"Fonte {', '.join(baixadas)} Instalada", 3200)
+        elif faltando:
+            aba.toast(f"Fonte {', '.join(faltando)} não Disponível - Texto em Helvetica", 3600)
 
     def _acao_editor(self, aba: AbaDocumento, acao: str, params):
         from . import edicao
@@ -811,9 +829,12 @@ class JanelaPrincipal(QMainWindow):
             v.iniciar_posicionamento(tamanho_clique=(0, 0))
         elif acao == "inserir_texto":
             from .dialogo_texto import DialogoTexto
+            from .fontes import familias_do_documento, fonte_predominante
+            pg_atual = aba.doc.doc[v.pagina_atual]
             dlg = DialogoTexto(self, "Inserir Texto", "Digite o texto. Depois, clique na página onde ele deve "
                                "começar (cada linha digitada é uma linha no PDF).", com_estilo=True,
-                               rotulo_ok="Posicionar na Página")
+                               rotulo_ok="Posicionar na Página", fontes_doc=familias_do_documento(aba.doc.doc),
+                               fonte_padrao=fonte_predominante(pg_atual)[0])
             if dlg.exec() != QDialog.Accepted:
                 return
             aba.ferramenta = ("inserir_texto", (dlg.texto(), dlg.estilo()))
@@ -869,7 +890,8 @@ class JanelaPrincipal(QMainWindow):
             texto, estilo = params
             ponto = pymupdf.Point(r.x0, r.y0)  # o clique (caixa de tamanho zero)
             self.editar_documento(aba, lambda copia: edicao.inserir_texto(
-                copia, pagina, ponto, texto, estilo["tamanho"], estilo["cor"], estilo["negrito"]),
+                copia, pagina, ponto, texto, estilo["tamanho"], estilo["cor"], estilo["negrito"],
+                estilo.get("fonte")),
                 "texto incluído", "Texto Inserido")
 
     def _aplicar_metadados(self, aba: AbaDocumento, valores: dict):

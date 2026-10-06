@@ -299,6 +299,13 @@ class Documento:
             if copia.needs_pass:
                 copia.authenticate(self.senha or "")
             retorno = editar(copia)
+            # origem das fontes do texto novo (embutida/windows/baixada/padrao) - aviso na tela
+            self.avisos_fonte = list(getattr(copia, "nupdf_fontes", []))
+            if getattr(copia, "nupdf_fonte_embutida", False):
+                try:  # fonte do Windows/PDF inteira (Calibri: 1,6 MB) -> só as letras usadas
+                    copia.subset_fonts()
+                except Exception:
+                    pass
             return copia.tobytes(garbage=1, deflate=True), retorno
         finally:
             copia.close()

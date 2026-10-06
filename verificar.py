@@ -192,6 +192,23 @@ def main() -> int:
         checar("alterar metadados", meta_ed["title"] == "Título Novo" and meta_ed["author"] == "Autor"
                and meta_ed["modDate"].startswith("D:"))
         ed.fechar()
+        # mesma fonte do documento: nomes do PDF -> família/estilo; Arial do Windows
+        from nupdf import fontes as _fo
+        checar("nome da fonte do PDF", [_fo.familia_e_estilo(n) for n in ("ABC+Arial-BoldMT", "TimesNewRomanPSMT")]
+               == [("arial", True, False), ("timesnewroman", False, False)]
+               and _fo.nome_familia("XYZ+OpenSans-SemiBold") == "Open Sans")
+        arial = _fo.fonte_windows("arial", False, False)
+        if arial:
+            _d = _pe.open()
+            _d.new_page().insert_text((72, 100), "Valor antigo", fontname="FA", fontfile=arial, fontsize=12)
+            _d.subset_fonts()
+            doc_a = Documento(str(pdf), dados=_d.tobytes())
+            _r = doc_a.doc[0].search_for("antigo")
+            dados_a, _ = doc_a.com_edicao(lambda c: edicao.substituir_texto(c, 0, _r, "novo çã"), {})
+            fontes_a = {s["font"] for b in _pe.open(stream=dados_a)[0].get_text("dict")["blocks"]
+                        for l in b.get("lines", []) for s in l["spans"] if "novo" in s["text"]}
+            checar("texto trocado com a mesma fonte do PDF (Arial)", any("Arial" in f for f in fontes_a),
+                   f"{fontes_a} / {doc_a.avisos_fonte}")
     except Exception as e:
         checar("editor de PDF", False, f"{e.__class__.__name__}: {e}")
 

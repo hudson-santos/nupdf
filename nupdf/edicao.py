@@ -5,13 +5,15 @@ ver Documento.com_edicao) e o altera no lugar. As coordenadas são as do resto d
 NuPDF: espaço da página NÃO rotacionado (o mesmo das palavras e dos destaques).
 
 Remoção usa "redaction" do MuPDF: o texto/imagem/desenho sob a área sai de fato do
-arquivo (não é só coberto). Texto incluído usa Helvetica (fonte padrão do PDF, com
-os acentos do português).
+arquivo (não é só coberto). O texto incluído/alterado usa a mesma fonte do documento
+quando possível (ver fontes.py); senão, Helvetica.
 """
 
 import datetime
 
 import pymupdf
+
+from . import fontes
 
 # cores do texto incluído: chave -> (rótulo, RGB 0-1)
 CORES_TEXTO = {
@@ -79,7 +81,7 @@ def estilo_em(pg: pymupdf.Page, r: pymupdf.Rect) -> dict:
         rd = (r * pg.rotation_matrix).normalize()
         origem = pymupdf.Point(rd.x0, rd.y1 - rd.height * 0.22) * pg.derotation_matrix
         return {"tamanho": max(4.0, round(rd.height / 1.25, 1)), "cor": (0, 0, 0), "negrito": False,
-                "origem": origem}
+                "origem": origem, "fonte": None, "flags": 0}
     c = melhor["color"]
     cor = ((c >> 16 & 255) / 255, (c >> 8 & 255) / 255, (c & 255) / 255)
     negrito = bool(melhor["flags"] & 16) or "bold" in melhor["font"].lower()
@@ -87,21 +89,37 @@ def estilo_em(pg: pymupdf.Page, r: pymupdf.Rect) -> dict:
     # o trecho pode começar antes do retângulo (palavra no meio da linha): começa no retângulo
     tela, rd = origem * pg.rotation_matrix, (r * pg.rotation_matrix).normalize()
     origem = pymupdf.Point(max(tela.x, rd.x0), tela.y) * pg.derotation_matrix
-    return {"tamanho": round(melhor["size"], 1), "cor": cor, "negrito": negrito, "origem": origem}
+    return {"tamanho": round(melhor["size"], 1), "cor": cor, "negrito": negrito, "origem": origem,
+            "fonte": melhor["font"], "flags": melhor["flags"]}
+
+
+def _fonte(doc: pymupdf.Document, pg: pymupdf.Page, nome_pdf: str | None, flags: int, texto: str,
+           negrito: bool | None = None) -> dict:
+    """Fonte para o texto novo (ver fontes.escolher) - anota no documento a origem
+    (para o aviso na tela) e se embutiu fonte (para gravar só as letras usadas)."""
+    f = fontes.escolher(doc, pg, nome_pdf, flags, texto, negrito=negrito)
+    if "fontfile" in f or "fontbuffer" in f:
+        doc.nupdf_fonte_embutida = True
+    if nome_pdf:
+        avisos = getattr(doc, "nupdf_fontes", None)
+        if avisos is None:
+            avisos = doc.nupdf_fontes = []
+        avisos.append((nome_pdf.split("+", 1)[-1], f["origem"]))
+    return f
 
 
 def _escrever(pg: pymupdf.Page, origem: pymupdf.Point, linhas: list[str], tamanho: float,
-              cor, negrito: bool):
+              cor, fonte: dict):
     """Escreve as linhas a partir de `origem` (início da linha de base da 1ª linha, no
     espaço não rotacionado), de pé para quem lê: em página girada (/Rotate) o texto e o
     avanço das linhas seguem a rotação."""
-    fonte = "hebo" if negrito else "helv"
+    params = {k: v for k, v in fonte.items() if k != "origem"}
     tela = pymupdf.Point(origem) * pg.rotation_matrix  # na tela, as linhas descem em y
     for n, linha in enumerate(linhas):
         if not linha:
             continue
         ponto = pymupdf.Point(tela.x, tela.y + n * tamanho * 1.2) * pg.derotation_matrix
-        pg.insert_text(ponto, linha, fontname=fonte, fontsize=tamanho, color=cor, rotate=pg.rotation)
+        pg.insert_text(ponto, linha, fontsize=tamanho, color=cor, rotate=pg.rotation, **params)
 
 
 def _linhas(texto: str) -> list[str]:
@@ -109,13 +127,14 @@ def _linhas(texto: str) -> list[str]:
 
 
 def inserir_texto(doc: pymupdf.Document, i: int, ponto: pymupdf.Point, texto: str, tamanho: float,
-                  cor=(0, 0, 0), negrito: bool = False):
+                  cor=(0, 0, 0), negrito: bool = False, fonte: str | None = None):
     """Texto novo com o canto superior esquerdo (na tela) em `ponto`; cada quebra de
-    linha do texto é uma linha."""
+    linha do texto é uma linha. `fonte`: nome de uma fonte do documento (None = Helvetica)."""
     pg = doc[i]
     tela = pymupdf.Point(ponto) * pg.rotation_matrix
     origem = pymupdf.Point(tela.x, tela.y + tamanho * 0.8) * pg.derotation_matrix
-    _escrever(pg, origem, _linhas(texto), tamanho, cor, negrito)
+    f = _fonte(doc, pg, fonte, 0, texto, negrito=negrito)
+    _escrever(pg, origem, _linhas(texto), tamanho, cor, f)
 
 
 def substituir_texto(doc: pymupdf.Document, i: int, rets: list[pymupdf.Rect], novo: str):
@@ -123,8 +142,10 @@ def substituir_texto(doc: pymupdf.Document, i: int, rets: list[pymupdf.Rect], no
     estilo (tamanho, cor, negrito) do texto original."""
     rets = [pymupdf.Rect(r) for r in rets]
     estilo = estilo_em(doc[i], rets[0])
+    # a fonte é escolhida ANTES de remover: a embutida pode só ser usada pelo texto removido
+    f = _fonte(doc, doc[i], estilo["fonte"], estilo["flags"], novo)
     remover_texto(doc, i, rets)
-    _escrever(doc[i], estilo["origem"], _linhas(novo), estilo["tamanho"], estilo["cor"], estilo["negrito"])
+    _escrever(doc[i], estilo["origem"], _linhas(novo), estilo["tamanho"], estilo["cor"], f)
 
 
 def substituir_todos(doc: pymupdf.Document, busca: str, novo: str) -> int:
@@ -136,12 +157,13 @@ def substituir_todos(doc: pymupdf.Document, busca: str, novo: str) -> int:
         if not achados:
             continue
         estilos = [estilo_em(pg, r) for r in achados]
+        fontes_usadas = [_fonte(doc, pg, e["fonte"], e["flags"], novo) if novo else None for e in estilos]
         for r in achados:
             pg.add_redact_annot(_encolher(r), fill=False)
         _aplicar_redacoes(pg, so_texto=True)
         if novo:
-            for est in estilos:
-                _escrever(pg, est["origem"], [novo], est["tamanho"], est["cor"], est["negrito"])
+            for est, f in zip(estilos, fontes_usadas):
+                _escrever(pg, est["origem"], [novo], est["tamanho"], est["cor"], f)
         total += len(achados)
     return total
 

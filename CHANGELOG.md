@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.19.0] - 2026-10-05
+
+### Added
+- Editor de PDF: texto alterado ou incluído usa a mesma fonte do documento - a fonte embutida
+  no PDF (quando tem todas as letras), a instalada no Windows com o mesmo nome ou, se não
+  houver, a fonte é baixada do catálogo de fontes livres (Fontsource / Google Fonts) e
+  instalada para o usuário, sem administrador. Sem fonte disponível, usa Helvetica e avisa.
+- Inserir Texto: escolha da fonte entre as do documento (já marcando a mais usada na página).
+
+### Changed
+- O PDF editado guarda só as letras usadas das fontes incluídas (arquivo menor).
+
 ## [1.18.0] - 2026-10-05
 
 ### Added
