@@ -4,7 +4,7 @@
 // os atalhos, o "Abrir com" do Explorer e o RemoteApp do Windows (que exige
 // um executável real, não aceita "pythonw.exe main.py").
 //
-// Não reimplementa nada: chama "venv\Scripts\pythonw.exe main.py <args>" na
+// Não reimplementa nada: chama "python\pythonw.exe main.py <args>" (Python embutido) na
 // própria pasta de instalação, repassando os arquivos recebidos, e ESPERA o
 // processo terminar (o RemoteApp considera a sessão "em uso" enquanto este
 // processo estiver vivo).
@@ -40,7 +40,10 @@ internal static class NuPDFLauncher
     private static int Main(string[] args)
     {
         string appDir = AppDomain.CurrentDomain.BaseDirectory;
-        string pythonw = Path.Combine(appDir, "venv", "Scripts", "pythonw.exe");
+        // Python embutido (C:\NuPDF\python); o venv é de instalações antigas
+        string pythonw = Path.Combine(appDir, "python", "pythonw.exe");
+        if (!File.Exists(pythonw))
+            pythonw = Path.Combine(appDir, "venv", "Scripts", "pythonw.exe");
         string mainPy = Path.Combine(appDir, "main.py");
 
         if (!File.Exists(pythonw) || !File.Exists(mainPy))

@@ -338,7 +338,7 @@ internal sealed class JanelaInstalacao : Form
             if (File.Exists(exe))
                 Process.Start(new ProcessStartInfo(exe) { WorkingDirectory = Programa.PastaApp, UseShellExecute = false });
             else
-                Process.Start(new ProcessStartInfo(Path.Combine(Programa.PastaApp, @"venv\Scripts\pythonw.exe"), "main.py")
+                Process.Start(new ProcessStartInfo(Path.Combine(Programa.PastaApp, @"python\pythonw.exe"), "main.py")
                     { WorkingDirectory = Programa.PastaApp, UseShellExecute = false });
         }
         catch { }

@@ -1,44 +1,36 @@
 ﻿<#
     Instalador/atualizador do NuPDF - sempre em C:\NuPDF, sem pedir
-    elevação (mesmo modelo do Zeebs). Python em pastas fixas da máquina:
-    C:\Python64 (64 bits - o que o NuPDF usa) e C:\Python32 (32 bits, para
-    outros sistemas); a etapa 2 instala a que faltar. C:\NuPDF fica
-    compartilhada entre os usuários da máquina (RemoteApp publica o
-    NuPDF.exe a partir dela).
+    elevação (mesmo modelo do Zeebs). O Python vem EMBUTIDO no próprio
+    NuPDF (C:\NuPDF\python: pacote "embeddable" oficial do python.org com as
+    dependências já instaladas no build - ver instalador\compilar_instalador.ps1):
+    a máquina não precisa de Python, pip nem internet. C:\NuPDF fica
+    compartilhada entre os usuários da máquina (RemoteApp publica o NuPDF.exe
+    a partir dela).
 
-    Também serve para ATUALIZAR: encerra uma instância em execução, copia
-    os arquivos novos e reinstala as dependências.
+    Também serve para ATUALIZAR: encerra uma instância em execução e copia os
+    arquivos novos (o Python embutido inclusive).
 
     Uso:
       - Direto (Instalador.bat ou "powershell -File instalar.ps1"): roda
-        TODAS as etapas em sequência, com o progresso "[N/7] ...".
+        TODAS as etapas em sequência, com o progresso "[N/7] ...". Precisa do
+        Python embutido já montado em build\python (rode antes
+        instalador\compilar_instalador.ps1).
       - Com -Etapa N: roda só a etapa N - usado pelo Instalador.exe (Inno
-        Setup, ver Instalador.iss), que mostra o progresso na própria janela
-        do assistente. A etapa 3 (copiar arquivos) é feita pelo Inno Setup;
-        só o pós-processamento roda aqui ("-Etapa 3 -SoPosProcessamento").
+        Setup, ver Instalador.iss). A etapa 3 (copiar arquivos) é feita pelo
+        Inno Setup; só o pós-processamento roda aqui ("-Etapa 3 -SoPosProcessamento").
 #>
 param(
     [ValidateSet(0, 1, 2, 3, 4, 5, 6, 7)]
     [int]$Etapa = 0,   # 0 = todas as etapas em sequência (uso direto/manual)
-    [switch]$SoPosProcessamento,
-    # Pasta com os instaladores do Python embutidos no Instalador.exe (o Inno extrai
-    # para {tmp} e passa aqui). Sem ela (uso manual), baixa do python.org.
-    [string]$PastaInstaladoresPython = ""
+    [switch]$SoPosProcessamento
 )
 
 $ErrorActionPreference = "Stop"
 
 $APP_DIR = "C:\NuPDF"
-# Versão instalada quando C:\Python64 / C:\Python32 ainda não existem.
-$PYTHON_VERSION = "3.14.8"
-$PYTHON_BASE_URL = "https://www.python.org/ftp/python/$PYTHON_VERSION"
-$PYTHON64_DIR = "C:\Python64"   # o NuPDF roda neste (o PySide6 não existe para 32 bits)
-$PYTHON32_DIR = "C:\Python32"
-$PYTHON64_EXE = Join-Path $PYTHON64_DIR "python.exe"
-# O código usa sintaxe do Python 3.10+; versões muito novas podem ainda não
-# ter wheels de todas as dependências.
-$PYTHON_MIN = 310
-$PYTHON_MAX = 314
+$PYTHON_DIR = Join-Path $APP_DIR "python"          # Python embutido
+$PYTHON_EXE = Join-Path $PYTHON_DIR "python.exe"
+$PYTHONW_EXE = Join-Path $PYTHON_DIR "pythonw.exe"
 
 
 function Garantir-PastaCompartilhada {
@@ -61,84 +53,14 @@ function Etapa1-EncerrarInstancia {
 }
 
 
-function Testar-Python([string]$exe, [int]$bits) {
-    # True se for um Python 3.10-3.14 com o número de bits pedido.
-    if (-not (Test-Path $exe)) { return $false }
-    try {
-        $saida = & $exe -c "import struct, sys; print(sys.version_info[0]*100 + sys.version_info[1]); print(struct.calcsize('P') * 8)" 2>$null
-        if ($LASTEXITCODE -ne 0 -or -not $saida -or $saida.Count -lt 2) { return $false }
-        $versao = [int]$saida[0]
-        if ($versao -ge $PYTHON_MIN -and $versao -le $PYTHON_MAX -and [int]$saida[1] -eq $bits) { return $true }
-        Write-Host "      $exe incompativel (versao $([math]::Floor($versao / 100)).$($versao % 100), $($saida[1]) bits)."
-    } catch { }
-    return $false
-}
-
-
-function Instalar-Python([string]$pasta, [string]$arquivo, [int]$bits) {
-    # Instalador oficial do python.org, silencioso e por usuário (sem UAC), na
-    # pasta fixa; sem PATH, associação de .py nem atalhos - não mexe no Python
-    # que a máquina já usa para outras coisas.
-    $exe = Join-Path $pasta "python.exe"
-    $embutido = if ($PastaInstaladoresPython) { Join-Path $PastaInstaladoresPython $arquivo } else { "" }
-    if ($embutido -and (Test-Path $embutido)) {
-        # embutido no Instalador.exe: instala sem depender da internet
-        Write-Host "      Instalando Python $PYTHON_VERSION ($bits bits) em $pasta..."
-        $installer = $embutido
-    } else {
-        Write-Host "      Baixando Python $PYTHON_VERSION ($bits bits) para $pasta..."
-        $installer = Join-Path $env:TEMP "nupdf_$arquivo"
-        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-        try {
-            Invoke-WebRequest -Uri "$PYTHON_BASE_URL/$arquivo" -OutFile $installer -TimeoutSec 300 -UseBasicParsing
-        } catch {
-            Write-Host "[ERRO] Falha ao baixar o Python $bits bits."
-            Write-Host "       Verifique a conexao com a internet (www.python.org liberado no proxy/firewall)."
-            return $false
-        }
-    }
-    $proc = Start-Process -FilePath $installer -ArgumentList @(
-        "/quiet", "InstallAllUsers=0", "TargetDir=$pasta", "PrependPath=0", "AssociateFiles=0",
-        "Shortcuts=0", "Include_launcher=0", "Include_test=0", "Include_doc=0"
-    ) -WorkingDirectory $env:TEMP -Wait -PassThru  # o instalador do Python deixa cópias de si na pasta atual
-    if ($proc.ExitCode -eq 0 -and -not (Test-Path $exe)) {
-        # A mesma versão consta como instalada, mas a pasta foi apagada: o instalador
-        # não faz nada. /repair regrava os arquivos na pasta registrada.
-        Write-Host "      Python $bits bits registrado, mas sem arquivos - reparando..."
-        $proc = Start-Process -FilePath $installer -ArgumentList @("/repair", "/quiet") `
-            -WorkingDirectory $env:TEMP -Wait -PassThru
-    }
-    if ($installer -ne $embutido) { Remove-Item $installer -Force -ErrorAction SilentlyContinue }
-    if ($proc.ExitCode -ne 0 -or -not (Test-Path $exe)) {
-        # ex.: a mesma versão já instalada em OUTRA pasta - o instalador entra em
-        # "reparar" e ignora o TargetDir
-        Write-Host "[ERRO] A instalacao do Python $bits bits em $pasta falhou (codigo $($proc.ExitCode))."
-        return $false
-    }
-    Write-Host "      Python $bits bits instalado em $pasta."
-    return $true
-}
-
-
-function Etapa2-VerificarPython {
-    Write-Host "[2/7] Verificando o Python (C:\Python64 e C:\Python32)..."
-
-    # 64 bits: obrigatório - é o Python do NuPDF
-    if (Testar-Python $PYTHON64_EXE 64) {
-        Write-Host "      Python 64 bits encontrado em $PYTHON64_DIR."
-    } elseif (Test-Path $PYTHON64_EXE) {
-        Write-Host "[ERRO] $PYTHON64_DIR tem um Python incompativel com o NuPDF (precisa ser 3.10 a 3.14, 64 bits)."
-        exit 1
-    } elseif (-not (Instalar-Python $PYTHON64_DIR "python-$PYTHON_VERSION-amd64.exe" 64)) {
+function Etapa2-VerificarSistema {
+    # Antes o NuPDF instalava o Python na máquina aqui; agora ele vem embutido.
+    Write-Host "[2/7] Verificando o sistema..."
+    if (-not [Environment]::Is64BitOperatingSystem) {
+        Write-Host "[ERRO] O NuPDF precisa do Windows 64 bits."
         exit 1
     }
-
-    # 32 bits: só garante que exista (o NuPDF não usa); falha aqui é só aviso
-    if (Test-Path (Join-Path $PYTHON32_DIR "python.exe")) {
-        Write-Host "      Python 32 bits encontrado em $PYTHON32_DIR."
-    } elseif (-not (Instalar-Python $PYTHON32_DIR "python-$PYTHON_VERSION.exe" 32)) {
-        Write-Host "[AVISO] Python 32 bits nao instalado - o NuPDF nao depende dele."
-    }
+    Write-Host "      Windows 64 bits - Python embutido no NuPDF (nao precisa instalar)."
 }
 
 
@@ -147,9 +69,17 @@ function Etapa3-CopiarArquivos {
     Write-Host "[3/7] Copiando arquivos para $APP_DIR..."
     Garantir-PastaCompartilhada
     $origem = $PSScriptRoot
+    $pythonBuild = Join-Path $origem "build\python"
+    if (-not (Test-Path (Join-Path $pythonBuild "python.exe"))) {
+        Write-Host "[ERRO] Python embutido nao encontrado em $pythonBuild."
+        Write-Host "       Rode antes: powershell -ExecutionPolicy Bypass -File instalador\compilar_instalador.ps1"
+        exit 1
+    }
     foreach ($arq in "main.py", "NuPDF.cs") {
         Copy-Item -Path (Join-Path $origem $arq) -Destination $APP_DIR -Force
     }
+    if (Test-Path $PYTHON_DIR) { Remove-Item $PYTHON_DIR -Recurse -Force }  # sem sobras da versão anterior
+    Copy-Item -Path $pythonBuild -Destination $PYTHON_DIR -Recurse -Force
     foreach ($pasta in "nupdf", "assets") {
         $origemPasta = Join-Path $origem $pasta
         $destPasta = Join-Path $APP_DIR $pasta
@@ -174,72 +104,38 @@ function Etapa3b-PosProcessamento {
     # assinaturas - ver nupdf/assinatura/validador.py.
     New-Item -ItemType Directory -Force -Path (Join-Path $APP_DIR "cadeias") | Out-Null
     Get-ChildItem -Path $APP_DIR -Recurse -Directory -Filter "__pycache__" -ErrorAction SilentlyContinue |
-        Where-Object { $_.FullName -notlike "$APP_DIR\venv\*" } |
+        Where-Object { $_.FullName -notlike "$PYTHON_DIR\*" } |
         Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
-}
-
-
-function Venv-UsaPython64([string]$venvPath) {
-    # pyvenv.cfg "home = <pasta do Python>" - venvs antigos apontam para
-    # %LOCALAPPDATA%\Programs\Python\... (Python por usuário)
-    $cfg = Join-Path $venvPath "pyvenv.cfg"
-    if (-not (Test-Path $cfg)) { return $false }
-    $pastaPython = (Get-Content $cfg | Where-Object { $_ -match '^\s*home\s*=' } | Select-Object -First 1)
-    if (-not $pastaPython) { return $false }
-    $pastaPython = ($pastaPython -split '=', 2)[1].Trim().TrimEnd('\')
-    return [string]::Equals($pastaPython, $PYTHON64_DIR, [StringComparison]::OrdinalIgnoreCase)
-}
-
-
-function Etapa4-CriarVenv {
-    Write-Host "[4/7] Criando ambiente virtual..."
-    $venvPath = Join-Path $APP_DIR "venv"
-    if (Test-Path (Join-Path $venvPath "Scripts\python.exe")) {
-        if (Venv-UsaPython64 $venvPath) {
-            Write-Host "      Ambiente virtual ja existe ($PYTHON64_DIR)."
-            return
-        }
-        # criado com outro Python (instalações antigas): recria a partir do C:\Python64
-        Write-Host "      Ambiente virtual de outro Python - recriando a partir de $PYTHON64_DIR..."
-        Remove-Item $venvPath -Recurse -Force
+    # Instalações antigas: o ambiente virtual (venv) do Python do sistema não é mais usado
+    $venvAntigo = Join-Path $APP_DIR "venv"
+    if (Test-Path $venvAntigo) {
+        Remove-Item $venvAntigo -Recurse -Force -ErrorAction SilentlyContinue
+        Write-Host "      Ambiente antigo (venv) removido."
     }
-    & $PYTHON64_EXE -m venv $venvPath
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "[ERRO] Falha ao criar o ambiente virtual."
+}
+
+
+function Etapa4-PrepararPython {
+    # Pré-compila o bytecode (dependências e o próprio NuPDF): sem isso a primeira
+    # abertura depois de instalar/atualizar compila tudo na hora.
+    Write-Host "[4/7] Preparando o Python embutido..."
+    if (-not (Test-Path $PYTHON_EXE)) {
+        Write-Host "[ERRO] Python embutido nao encontrado em $PYTHON_DIR."
         exit 1
     }
+    & $PYTHON_EXE -m compileall -q -j 0 (Join-Path $PYTHON_DIR "Lib\site-packages") (Join-Path $APP_DIR "nupdf") | Out-Null
+    $global:LASTEXITCODE = 0  # um arquivo que não compila não impede o NuPDF de rodar
+    Write-Host "      Python embutido pronto."
 }
 
 
-function Etapa5-InstalarDependencias {
-    Write-Host "[5/7] Instalando dependencias (pode demorar alguns minutos)..."
-    $pythonVenv = Join-Path $APP_DIR "venv\Scripts\python.exe"
-    & $pythonVenv -m pip install --upgrade pip -q --disable-pip-version-check
-
-    # Lista embutida aqui (mesma de requirements.txt, usado no desenvolvimento).
-    & $pythonVenv -m pip install -q --disable-pip-version-check `
-        "PySide6-Essentials>=6.8" `
-        "pymupdf>=1.26" `
-        "pyHanko>=0.29" `
-        "pyhanko-certvalidator>=0.27" `
-        "cryptography>=43"
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "[ERRO] Falha ao instalar as dependencias."
-        exit 1
-    }
-
-    Write-Host "      Dependencias instaladas."
-
-    # Pré-compila o bytecode do NuPDF (a etapa 3 apaga os __pycache__): sem isso a
-    # primeira abertura depois de instalar/atualizar compila tudo na hora - e, se o
-    # usuário não puder gravar na pasta, toda abertura compilaria de novo.
-    & $pythonVenv -m compileall -q (Join-Path $APP_DIR "nupdf") | Out-Null
-
+function Etapa5-CadeiaICP {
     # Cadeia oficial ICP-Brasil (raízes + ACs, pacote do ITI) para validar assinaturas.
     # Falha aqui (sem internet) não interrompe a instalação: dá para baixar depois no
     # painel de assinaturas ("Atualizar Cadeia ICP-Brasil").
+    Write-Host "[5/7] Baixando a cadeia ICP-Brasil..."
     Push-Location $APP_DIR
-    & $pythonVenv -m nupdf.assinatura.cadeia_icp (Join-Path $APP_DIR "cadeias\icp-brasil")
+    & $PYTHON_EXE -m nupdf.assinatura.cadeia_icp (Join-Path $APP_DIR "cadeias\icp-brasil")
     Pop-Location
     if ($LASTEXITCODE -ne 0) {
         Write-Host "[AVISO] Cadeia ICP-Brasil nao baixada - atualize depois pelo painel de assinaturas."
@@ -252,7 +148,7 @@ function Etapa6-CompilarLauncher {
     # NuPDF.exe: launcher nativo (C#) - dá ao NuPDF um .exe de verdade, com
     # ícone e nome próprios, usado nos atalhos, no "Abrir com" do Explorer e
     # no RemoteApp. Falha aqui vira só um aviso (os atalhos caem para o
-    # pythonw.exe).
+    # pythonw.exe embutido).
     Write-Host "[6/7] Compilando NuPDF.exe..."
     $csc = Join-Path $env:WINDIR "Microsoft.NET\Framework64\v4.0.30319\csc.exe"
     if (-not (Test-Path $csc)) {
@@ -334,7 +230,6 @@ function Etapa7-CriarAtalhos {
     Write-Host "[7/7] Criando atalhos..."
     $iconPath = Join-Path $APP_DIR "assets\nupdf.ico"
     $launcher = Join-Path $APP_DIR "NuPDF.exe"
-    $pythonw = Join-Path $APP_DIR "venv\Scripts\pythonw.exe"
     $mainPy = Join-Path $APP_DIR "main.py"
     $criarAtalho = Join-Path $PSScriptRoot "criar_atalho.ps1"
     $definirAppId = Join-Path $PSScriptRoot "criar_atalho_appid.ps1"
@@ -343,8 +238,8 @@ function Etapa7-CriarAtalhos {
         $alvo, $argumentos = $launcher, ""
         $comandoAbrir = "`"$launcher`" `"%1`""
     } else {
-        $alvo, $argumentos = $pythonw, $mainPy
-        $comandoAbrir = "`"$pythonw`" `"$mainPy`" `"%1`""
+        $alvo, $argumentos = $PYTHONW_EXE, $mainPy
+        $comandoAbrir = "`"$PYTHONW_EXE`" `"$mainPy`" `"%1`""
     }
 
     # Área de Trabalho e Menu Iniciar do usuário atual - o atalho do Menu
@@ -370,10 +265,10 @@ function Etapa7-CriarAtalhos {
 
 switch ($Etapa) {
     1 { Etapa1-EncerrarInstancia }
-    2 { Etapa2-VerificarPython }
+    2 { Etapa2-VerificarSistema }
     3 { if ($SoPosProcessamento) { Etapa3b-PosProcessamento } else { Etapa3-CopiarArquivos } }
-    4 { Etapa4-CriarVenv }
-    5 { Etapa5-InstalarDependencias }
+    4 { Etapa4-PrepararPython }
+    5 { Etapa5-CadeiaICP }
     6 { Etapa6-CompilarLauncher }
     7 { Etapa7-CriarAtalhos }
     0 {
@@ -383,10 +278,10 @@ switch ($Etapa) {
         Write-Host " =============================================="
         Write-Host ""
         Etapa1-EncerrarInstancia
-        Etapa2-VerificarPython
+        Etapa2-VerificarSistema
         Etapa3-CopiarArquivos
-        Etapa4-CriarVenv
-        Etapa5-InstalarDependencias
+        Etapa4-PrepararPython
+        Etapa5-CadeiaICP
         Etapa6-CompilarLauncher
         Etapa7-CriarAtalhos
 

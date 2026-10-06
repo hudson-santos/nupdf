@@ -30,9 +30,9 @@ Leitor de PDF leve para uso corporativo interno: **ler**, **copiar dados** e
 
 Execute o `Instalador.exe` (ou `Instalador.bat`). Instala em `C:\NuPDF` sem
 pedir administrador, cria atalho na Área de Trabalho e no Menu Iniciar e
-registra o NuPDF em "Abrir com" para .pdf. Usa o Python de `C:\Python64`; se a
-máquina não tiver `C:\Python64` e `C:\Python32`, instala o Python 3.14.8 (64 e
-32 bits) nessas pastas. Para torná-lo o leitor padrão:
+registra o NuPDF em "Abrir com" para .pdf. Não precisa de Python na máquina: ele
+vem embutido no próprio NuPDF (`C:\NuPDF\python`), com todas as dependências - a
+instalação não baixa nada. Para torná-lo o leitor padrão:
 botão direito num PDF → Abrir com → NuPDF → "Sempre usar este aplicativo".
 
 Para desinstalar: Configurações → Aplicativos → Aplicativos instalados (ou

@@ -98,6 +98,13 @@ jobs:
         shell: powershell
         run: choco install innosetup -y --no-progress
 
+      # pip do build: monta o Python embutido do NuPDF (build/python) com as
+      # dependências do requirements.txt - ver instalador/compilar_instalador.ps1
+      - name: Python do build
+        uses: actions/setup-python@v6  # Node 24
+        with:
+          python-version: "3.14"
+
       # Inno Setup (motor, InstaladorInno.exe) + janela de instalação própria
       # (instalador/Setup.cs) com o motor embutido -> Instalador.exe
       - name: Compilar o Instalador.exe

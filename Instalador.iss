@@ -12,10 +12,6 @@
 #expr FileClose(FileHandle)
 
 #define MyAppName "NuPDF"
-; Instaladores oficiais do Python embutidos (instalador\python\, fora do git: o
-; compilar_instalador.ps1 baixa do python.org e confere o SHA-256). Mesma versão
-; de $PYTHON_VERSION em instalar.ps1.
-#define PythonVersion "3.14.8"
 #define MyAppPublisher "Nukt Ltda"
 
 [Setup]
@@ -33,7 +29,7 @@ DisableDirPage=yes
 DisableProgramGroupPage=yes
 ; Desinstalador em "Aplicativos instalados" / "Programas e Recursos" do
 ; usuário (instalação sem admin -> entrada em HKCU). Remove também o que os
-; scripts criam fora do controle do Inno (venv, NuPDF.exe, atalhos, "Abrir
+; scripts criam fora do controle do Inno (NuPDF.exe, atalhos, "Abrir
 ; com") - ver [UninstallRun] (desinstalar.ps1) e [UninstallDelete].
 ; As preferências do usuário (%APPDATA%\NuPDF) são mantidas.
 Uninstallable=yes
@@ -77,6 +73,10 @@ Source: "main.py"; DestDir: "{app}"; Flags: ignoreversion
 Source: "NuPDF.cs"; DestDir: "{app}"; Flags: ignoreversion
 Source: "nupdf\*"; DestDir: "{app}\nupdf"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "__pycache__,.claude"
 Source: "assets\*"; DestDir: "{app}\assets"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Python EMBUTIDO (pacote embeddable oficial + dependências já instaladas), montado em
+; build\python pelo instalador\compilar_instalador.ps1: a máquina não precisa de
+; Python, pip nem internet para instalar o NuPDF.
+Source: "build\python\*"; DestDir: "{app}\python"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; Limpeza executada pelo desinstalador (ver [UninstallRun])
 Source: "desinstalar.ps1"; DestDir: "{app}"; Flags: ignoreversion
 
@@ -85,10 +85,12 @@ Source: "desinstalar.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "instalar.ps1"; DestDir: "{tmp}"; Flags: dontcopy
 Source: "criar_atalho.ps1"; DestDir: "{tmp}"; Flags: dontcopy
 Source: "criar_atalho_appid.ps1"; DestDir: "{tmp}"; Flags: dontcopy
-; Python 64 e 32 bits: extraídos só se faltar C:\Python64 / C:\Python32 (ver
-; PrepareToInstall) - a instalação não depende de baixar o Python na hora.
-Source: "instalador\python\python-{#PythonVersion}-amd64.exe"; DestDir: "{tmp}"; Flags: dontcopy nocompression
-Source: "instalador\python\python-{#PythonVersion}.exe"; DestDir: "{tmp}"; Flags: dontcopy nocompression
+[InstallDelete]
+; Antes de copiar: o Python embutido da versão anterior (sem sobras de pacotes que
+; mudaram) e o ambiente virtual (venv) das instalações antigas, que usavam o Python
+; do sistema.
+Type: filesandordirs; Name: "{app}\python"
+Type: filesandordirs; Name: "{app}\venv"
 
 [Dirs]
 ; Cadeias de certificados confiáveis (ICP-Brasil) para validar assinaturas.
@@ -99,7 +101,7 @@ Name: "{app}\cadeias"
 Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\desinstalar.ps1"""; Flags: runhidden waituntilterminated; RunOnceId: "LimpezaNuPDF"
 
 [UninstallDelete]
-; Tudo o que ficou em C:\NuPDF e não foi copiado pelo Inno (venv, NuPDF.exe,
+; Tudo o que ficou em C:\NuPDF e não foi copiado pelo Inno (NuPDF.exe, __pycache__ do Python,
 ; Instalador.exe baixado pela atualização, cadeias, __pycache__...)
 Type: filesandordirs; Name: "{app}"
 
@@ -155,7 +157,7 @@ begin
   if FileExists(ExpandConstant('{app}\NuPDF.exe')) then
     Exec(ExpandConstant('{app}\NuPDF.exe'), '', ExpandConstant('{app}'), SW_SHOW, ewNoWait, ResultCode)
   else
-    Exec(ExpandConstant('{app}\venv\Scripts\pythonw.exe'), '"' + ExpandConstant('{app}\main.py') + '"',
+    Exec(ExpandConstant('{app}\python\pythonw.exe'), '"' + ExpandConstant('{app}\main.py') + '"',
       ExpandConstant('{app}'), SW_SHOW, ewNoWait, ResultCode);
 end;
 
@@ -195,16 +197,11 @@ begin
       Exit;
     end;
 
-    PaginaProgresso.SetText('[2/7] Verificando instalação do Python...',
-      'Se precisar instalar o Python, isso pode demorar alguns minutos.');
+    PaginaProgresso.SetText('[2/7] Verificando o sistema...', '');
     PaginaProgresso.SetProgress(2, 7);
-    Progresso(4, 24, 'Preparando o Python');
-    if not FileExists('C:\Python64\python.exe') then
-      ExtractTemporaryFile('python-{#PythonVersion}-amd64.exe');
-    if not FileExists('C:\Python32\python.exe') then
-      ExtractTemporaryFile('python-{#PythonVersion}.exe');
-    if not RodarEtapaInstalador(2, '-PastaInstaladoresPython "' + ExpandConstant('{tmp}') + '"') then begin
-      Result := 'Falha ao instalar o Python em C:\Python64. Clique em Ver Detalhes para o log e tente novamente.';
+    Progresso(4, 8, 'Verificando o sistema');
+    if not RodarEtapaInstalador(2, '') then begin
+      Result := 'O NuPDF precisa do Windows 64 bits.';
       ProgressoErro(Result);
       Exit;
     end;
@@ -217,7 +214,7 @@ end;
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssInstall then
-    Progresso(24, 32, 'Copiando os arquivos');
+    Progresso(8, 62, 'Copiando os arquivos');
   if CurStep <> ssPostInstall then
     Exit;
 
@@ -225,33 +222,30 @@ begin
 
   PaginaProgresso.Show;
   try
-    PaginaProgresso.SetText('[4/7] Criando ambiente virtual...', '');
+    PaginaProgresso.SetText('[4/7] Preparando o Python embutido...', '');
     PaginaProgresso.SetProgress(4, 7);
-    Progresso(32, 40, 'Criando o ambiente do NuPDF');
+    Progresso(62, 82, 'Preparando o NuPDF');
     if not RodarEtapaInstalador(4, '') then begin
-      ProgressoErro('Falha ao criar o ambiente virtual do NuPDF.');
-      SuppressibleMsgBox('Falha ao criar o ambiente virtual do NuPDF.', mbCriticalError, MB_OK, IDOK);
+      ProgressoErro('Falha ao preparar o Python embutido do NuPDF. Tente novamente.');
+      SuppressibleMsgBox('Falha ao preparar o Python embutido do NuPDF.', mbCriticalError, MB_OK, IDOK);
       Abort;
     end;
 
-    PaginaProgresso.SetText('[5/7] Instalando dependências...', 'Isso pode demorar alguns minutos.');
+    // Cadeia ICP-Brasil: sem internet é só aviso (dá para baixar depois pelo app)
+    PaginaProgresso.SetText('[5/7] Baixando a cadeia ICP-Brasil...', '');
     PaginaProgresso.SetProgress(5, 7);
-    Progresso(40, 88, 'Instalando os componentes, isso pode levar alguns minutos');
-    if not RodarEtapaInstalador(5, '') then begin
-      ProgressoErro('Falha ao instalar os componentes do NuPDF. Verifique a conexão com a internet e tente novamente.');
-      SuppressibleMsgBox('Falha ao instalar as dependências do NuPDF.', mbCriticalError, MB_OK, IDOK);
-      Abort;
-    end;
+    Progresso(82, 90, 'Baixando a cadeia ICP-Brasil');
+    RodarEtapaInstalador(5, '');
 
     // Falha aqui é só aviso: os atalhos caem para o pythonw.exe.
     PaginaProgresso.SetText('[6/7] Compilando NuPDF.exe...', '');
     PaginaProgresso.SetProgress(6, 7);
-    Progresso(88, 94, 'Finalizando');
+    Progresso(90, 95, 'Finalizando');
     RodarEtapaInstalador(6, '');
 
     PaginaProgresso.SetText('[7/7] Criando atalhos...', '');
     PaginaProgresso.SetProgress(7, 7);
-    Progresso(94, 99, 'Criando os atalhos');
+    Progresso(95, 99, 'Criando os atalhos');
     if not RodarEtapaInstalador(7, '') then
       SuppressibleMsgBox('Falha ao criar os atalhos do NuPDF.', mbError, MB_OK, IDOK);
   finally

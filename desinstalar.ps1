@@ -7,7 +7,7 @@
       2. remove os atalhos da Área de Trabalho e do Menu Iniciar;
       3. remove o registro em "Abrir com" para .pdf (HKCU).
 
-    A pasta C:\NuPDF (venv, NuPDF.exe etc.) é apagada pelo próprio Inno
+    A pasta C:\NuPDF (Python embutido, NuPDF.exe etc.) é apagada pelo próprio Inno
     ([UninstallDelete]). As preferências do usuário em %APPDATA%\NuPDF são
     mantidas.
 #>
@@ -18,7 +18,7 @@ $procs = Get-CimInstance Win32_Process -Filter "Name='python.exe' or Name='pytho
     Where-Object { $_.Name -eq "NuPDF.exe" -or ($_.CommandLine -and $_.CommandLine -like "*NuPDF*main.py*") }
 if ($procs) {
     $procs | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
-    Start-Sleep -Seconds 2  # libera os arquivos em uso (dlls do venv)
+    Start-Sleep -Seconds 2  # libera os arquivos em uso (dlls do Python embutido)
 }
 
 # 2) Atalhos

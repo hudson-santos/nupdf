@@ -23,3 +23,6 @@ InstaladorInno.exe
 # Instaladores oficiais do Python embutidos no Instalador.exe (baixados pelo
 # instalador\compilar_instalador.ps1, SHA-256 conferido)
 instalador/python/
+
+# Python embutido montado pelo instalador\compilar_instalador.ps1
+build/

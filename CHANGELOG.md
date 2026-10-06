@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.20.0] - 2026-10-06
+
+### Changed
+- Python embutido no NuPDF (C:\NuPDF\python): o pacote oficial do Python 3.14.8 com todas as
+  dependências já vem no Instalador.exe - a máquina não precisa de Python instalado, pip nem
+  internet para instalar ou atualizar. Instalação/atualização bem mais rápida (sem o pip) e
+  Instalador.exe menor (~44 MB). O ambiente fica isolado dos pacotes Python do usuário.
+- O instalador não instala mais o Python em C:\Python64 / C:\Python32 (quem já tem as pastas
+  continua com elas); na atualização, o ambiente antigo (venv) é removido.
+
 ## [1.19.3] - 2026-10-06
 
 ### Fixed
