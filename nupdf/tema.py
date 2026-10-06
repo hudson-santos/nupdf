@@ -111,6 +111,7 @@ QPushButton#ferramenta { background: $superficie2; border: 1px solid $borda; bor
     color: $texto; text-align: left; padding: 8px 10px; }
 QPushButton#ferramenta:hover { background: $hover; }
 #rotuloSecao { font-weight: 700; color: $texto2; }
+#cartaoCarregando { background: $superficie; border: 1px solid $borda; border-radius: 12px; }
 QPushButton#fechar { background: #4b4d53; border: 1px solid #4b4d53; color: #ffffff; font-weight: 600; }
 QPushButton#fechar:hover { background: #5b5d64; }
 QPushButton#preto { background: #111214; border: 1px solid #2e3035; color: #ffffff; font-weight: 600; }

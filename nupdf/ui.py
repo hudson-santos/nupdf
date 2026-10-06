@@ -95,6 +95,33 @@ class Spinner(QWidget):
         p.drawArc(r, -self._angulo * 16, 100 * 16)
 
 
+class CartaoCarregando(QFrame):
+    """Cartão flutuante com spinner laranja e uma mensagem (ex.: "Carregando
+    Certificados..."), centralizado sobre a janela enquanto algo demora."""
+
+    def __init__(self, parent: QWidget, texto: str):
+        super().__init__(parent)
+        from PySide6.QtWidgets import QHBoxLayout
+        self.setObjectName("cartaoCarregando")
+        self.setAttribute(Qt.WA_StyledBackground, True)
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(22, 16, 26, 16)
+        lay.setSpacing(14)
+        self.spinner = Spinner(26)
+        lay.addWidget(self.spinner)
+        self.rotulo = QLabel(texto)
+        self.rotulo.setObjectName("cartaoTitulo")
+        lay.addWidget(self.rotulo)
+        self.hide()
+
+    def mostrar(self):
+        self.adjustSize()
+        p = self.parentWidget()
+        self.move((p.width() - self.width()) // 2, (p.height() - self.height()) // 2)
+        self.show()
+        self.raise_()
+
+
 class BotaoRedondo(QAbstractButton):
     """Botão circular com ícone branco (ações sobre miniaturas e marcadores).
 

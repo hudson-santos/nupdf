@@ -54,7 +54,9 @@ class _CartaoCertificado(QFrame):
 
 
 class DialogoAssinatura(QDialog):
-    def __init__(self, config: Config, parent=None):
+    def __init__(self, config: Config, parent=None, certificados: list[CertificadoWindows] | None = None):
+        """`certificados`: lista já carregada (a janela carrega em segundo plano, com o
+        spinner "Carregando Certificados...", antes de abrir esta tela)."""
         super().__init__(parent)
         self.config = config
         self.setWindowTitle("Assinar Documento")
@@ -79,7 +81,7 @@ class DialogoAssinatura(QDialog):
         self.lista.setCursor(Qt.PointingHandCursor)
         self.lista.currentIndexChanged.connect(self._escolhido)
         atualizar = ui.botao("girar", "Atualizar a lista de certificados", tamanho=16)
-        atualizar.clicked.connect(self._carregar_lista)
+        atualizar.clicked.connect(lambda: self._carregar_lista())
         linha.addWidget(self.lista, 1)
         linha.addWidget(atualizar)
         gl.addLayout(linha)
@@ -121,15 +123,16 @@ class DialogoAssinatura(QDialog):
         botoes.addWidget(cancelar)
         botoes.addWidget(self.ok)
         lay.addLayout(botoes)
-        self._carregar_lista()
+        self._carregar_lista(certificados)
 
     # ------------------------------------------------------------------ certificado
-    def _carregar_lista(self):
-        QGuiApplication.setOverrideCursor(Qt.WaitCursor)
-        try:
-            todos = listar_certificados()
-        finally:
-            QGuiApplication.restoreOverrideCursor()
+    def _carregar_lista(self, todos: list[CertificadoWindows] | None = None):
+        if todos is None:
+            QGuiApplication.setOverrideCursor(Qt.WaitCursor)
+            try:
+                todos = listar_certificados()
+            finally:
+                QGuiApplication.restoreOverrideCursor()
         self._certs = [c for c in todos if not c.info.expirado]
         self.lista.blockSignals(True)
         self.lista.clear()

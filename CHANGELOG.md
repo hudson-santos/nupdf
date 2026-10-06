@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.19.1] - 2026-10-06
+
+### Changed
+- Botão "Assinar com Certificado Digital": sem a dica ao passar o mouse; ao clicar, os
+  certificados do Windows são carregados em segundo plano com o spinner laranja
+  "Carregando Certificados..." no centro da janela, até abrir a tela de assinatura (antes
+  a janela ficava parada em máquinas com muitos certificados).
+
 ## [1.19.0] - 2026-10-05
 
 ### Added

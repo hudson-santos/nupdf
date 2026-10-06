@@ -412,7 +412,6 @@ class JanelaPrincipal(QMainWindow):
         self.b_assinar.setObjectName("primario")
         self.b_assinar.setIcon(icone("assinar", "#ffffff", 16))
         self.b_assinar.setCursor(Qt.PointingHandCursor)
-        self.b_assinar.setToolTip("Assinar digitalmente com certificado ICP-Brasil")
         lay.addWidget(self.b_assinar)
         self._acoes_documento.append(self.b_assinar)
 
@@ -1084,11 +1083,41 @@ class JanelaPrincipal(QMainWindow):
 
     # ================================================================== assinatura
     def assinar(self):
+        """Carrega os certificados do Windows em segundo plano (com muitos certificados
+        demora) mostrando "Carregando Certificados..." e só então abre a tela de assinatura."""
         aba = self.aba_atual()
         if not aba:
             return
+        tarefa = getattr(self, "_tarefa_certificados", None)
+        if tarefa is not None and tarefa.isRunning():
+            return  # já carregando: ignora cliques repetidos
+        from .assinatura.windows import listar_certificados
+        if getattr(self, "_carregando_certificados", None) is None:
+            self._carregando_certificados = ui.CartaoCarregando(self, "Carregando Certificados...")
+        self._carregando_certificados.mostrar()
+        self.b_assinar.setCursor(Qt.BusyCursor)
+        self._tarefa_certificados = ui.Tarefa(listar_certificados)
+
+        def fim():
+            self._carregando_certificados.hide()
+            self.b_assinar.setCursor(Qt.PointingHandCursor)
+
+        def carregados(certificados):
+            fim()
+            if aba in self.abas:
+                self._abrir_assinatura(aba, certificados)
+
+        def falhou(erro: str):
+            fim()
+            QMessageBox.critical(self, NOME_APP, f"Não foi possível ler os certificados do Windows:\n{erro}")
+
+        self._tarefa_certificados.concluida.connect(carregados)
+        self._tarefa_certificados.falhou.connect(falhou)
+        self._tarefa_certificados.start()
+
+    def _abrir_assinatura(self, aba: AbaDocumento, certificados: list):
         from .dialogos import DialogoAssinatura
-        dlg = DialogoAssinatura(self.config, self)
+        dlg = DialogoAssinatura(self.config, self, certificados=certificados)
         if dlg.exec() != DialogoAssinatura.Accepted:
             return
         cfg = dlg.config_assinatura()
