@@ -6,8 +6,11 @@ escolha - com uma impressora de rede/WSD fora do ar, o Windows fica
 "Aguardando conexão de impressora…" e o app inteiro congela. Aqui:
 
 - a janela é própria e só LISTA as impressoras (instantâneo, sem conectar);
-- a conexão e o envio das páginas acontecem numa thread (QPainter pode
-  desenhar num QPrinter fora da thread da interface), com progresso.
+- as configurações do driver (DEVMODE) e o que a impressora suporta (cor, frente e
+  verso) são lidos numa thread ao escolher a impressora; "Propriedades" abre a
+  janela do próprio driver (papel, bandeja, qualidade...) - ver impressora_win.py;
+- a conexão e o envio das páginas acontecem numa thread, com progresso: no Windows
+  pela API do Windows com essas configurações; fora dele, pelo QPrinter.
 """
 
 import re
@@ -20,6 +23,7 @@ from PySide6.QtGui import QIntValidator
 from PySide6.QtWidgets import (QButtonGroup, QComboBox, QDialog, QFormLayout, QHBoxLayout, QLabel,
                                QLineEdit, QPushButton, QRadioButton, QVBoxLayout, QWidget)
 
+from . import impressora_win as win
 from . import ui
 
 DPI_MAXIMO = 300
@@ -113,7 +117,37 @@ class DialogoImpressao(QDialog):
         escolha = impressora_salva if impressora_salva in nomes else padrao
         if escolha in nomes:
             self.impressora.setCurrentIndex(nomes.index(escolha))
-        form.addRow("Impressora:", self.impressora)
+        linha_imp = QHBoxLayout()
+        linha_imp.setSpacing(8)
+        linha_imp.addWidget(self.impressora, 1)
+        # janela de propriedades do DRIVER (mesma do Word/Adobe): cor, frente e verso,
+        # papel, bandeja, qualidade - o que a impressora oferecer
+        self.b_propriedades = QPushButton("Propriedades")
+        self.b_propriedades.setObjectName("fechar")  # cinza escuro (botão secundário do app)
+        self.b_propriedades.setCursor(Qt.PointingHandCursor)
+        self.b_propriedades.setToolTip("Abrir as Propriedades da Impressora (configurações do driver)")
+        self.b_propriedades.clicked.connect(self._abrir_propriedades)
+        self.b_propriedades.setVisible(win.disponivel())
+        linha_imp.addWidget(self.b_propriedades)
+        form.addRow("Impressora:", linha_imp)
+
+        # atalhos das opções mais usadas - só aparecem se a impressora tiver o recurso
+        self.cor = QComboBox()
+        self.cor.addItem("Colorido", win.DMCOLOR_COLORIDO)
+        self.cor.addItem("Preto e Branco", win.DMCOLOR_PRETO_E_BRANCO)
+        self.duplex = QComboBox()
+        self.duplex.addItem("Imprimir um Lado", win.DMDUP_UM_LADO)
+        self.duplex.addItem("Frente e Verso ( Borda Longa )", win.DMDUP_BORDA_LONGA)
+        self.duplex.addItem("Frente e Verso ( Borda Curta )", win.DMDUP_BORDA_CURTA)
+        self._rotulo_cor, self._rotulo_duplex = QLabel("Cor:"), QLabel("Frente e Verso:")
+        form.addRow(self._rotulo_cor, self.cor)
+        form.addRow(self._rotulo_duplex, self.duplex)
+        for w in (self._rotulo_cor, self.cor, self._rotulo_duplex, self.duplex):
+            w.hide()
+        self.devmode: bytearray | None = None  # configurações do driver da impressora escolhida
+        self.capacidades = {"cor": False, "duplex": False, "copias": 1}
+        self._leitura = None
+        self.impressora.currentIndexChanged.connect(lambda _: self._ler_impressora())
 
         grupo = QButtonGroup(self)
         self.rb_todas = QRadioButton(f"Todas ({n_paginas})")
@@ -165,6 +199,89 @@ class DialogoImpressao(QDialog):
             self.erro.setText("Nenhuma impressora instalada no Windows.")
             self.erro.show()
         self.paginas: list[int] = []
+        if nomes:
+            self._ler_impressora()
+
+    # ------------------------------------------------------------------ driver da impressora
+    def _ler_impressora(self):
+        """Configurações e capacidades do driver numa thread: impressora de rede fora do
+        ar não trava a janela (as opções só aparecem quando a resposta chega)."""
+        self.devmode = None
+        self.capacidades = {"cor": False, "duplex": False, "copias": 1}
+        self._mostrar_opcoes()
+        if not win.disponivel():
+            return
+        nome = self.nome_impressora
+
+        def ler():
+            dm = win.devmode_padrao(nome)
+            return nome, dm, win.capacidades(nome, dm)
+
+        self._leitura = ui.Tarefa(ler)
+        self._leitura.concluida.connect(self._impressora_lida)
+        self._leitura.start()
+
+    def _impressora_lida(self, resultado):
+        nome, dm, caps = resultado
+        if nome != self.nome_impressora:
+            return  # resposta de uma impressora que já não está escolhida
+        self.devmode, self.capacidades = dm, caps
+        self._sincronizar_opcoes()
+        self._mostrar_opcoes()
+
+    def _sincronizar_opcoes(self):
+        """Combos Cor / Frente e Verso refletem o DEVMODE (padrão ou da janela Propriedades)."""
+        if self.devmode is None:
+            return
+        for combo, valor in ((self.cor, win.cor(self.devmode)), (self.duplex, win.duplex(self.devmode))):
+            i = combo.findData(valor) if valor is not None else -1
+            combo.setCurrentIndex(i if i >= 0 else 0)
+
+    def _mostrar_opcoes(self):
+        tem_cor = self.devmode is not None and self.capacidades["cor"]
+        tem_duplex = self.devmode is not None and self.capacidades["duplex"]
+        for w in (self._rotulo_cor, self.cor):
+            w.setVisible(tem_cor)
+        for w in (self._rotulo_duplex, self.duplex):
+            w.setVisible(tem_duplex)
+        self.adjustSize()
+
+    def _abrir_propriedades(self):
+        nome = self.nome_impressora
+        if not nome:
+            return
+        try:
+            if self.devmode is None:
+                self.devmode = win.devmode_padrao(nome)
+                self.capacidades = win.capacidades(nome, self.devmode)
+            novo = win.propriedades(int(self.winId()), nome, self.devmode_final())
+        except OSError as e:
+            self.erro.setText(str(e))
+            self.erro.show()
+            return
+        if novo is not None:
+            self.devmode = novo
+            self._sincronizar_opcoes()
+            self._mostrar_opcoes()
+
+    def devmode_final(self) -> bytearray | None:
+        """DEVMODE com as escolhas dos atalhos Cor e Frente e Verso aplicadas."""
+        if self.devmode is None:
+            return None
+        dm = bytearray(self.devmode)
+        if self.capacidades["cor"]:
+            win.definir_cor(dm, self.cor.currentData())
+        if self.capacidades["duplex"]:
+            win.definir_duplex(dm, self.duplex.currentData())
+        return dm
+
+    @property
+    def preto_e_branco(self) -> bool:
+        if self.devmode is None:
+            return False
+        if self.capacidades["cor"]:
+            return self.cor.currentData() == win.DMCOLOR_PRETO_E_BRANCO
+        return win.cor(self.devmode) == win.DMCOLOR_PRETO_E_BRANCO
 
     def _aceitar(self):
         try:
@@ -193,10 +310,15 @@ class TrabalhoImpressao(QThread):
     falhou = Signal(str)
 
     def __init__(self, dados_pdf: bytes, senha: str | None, paginas: list[int], impressora: str,
-                 copias: int, nome_documento: str):
+                 copias: int, nome_documento: str, devmode: bytearray | None = None,
+                 capacidades: dict | None = None, preto_e_branco: bool = False):
+        """`devmode`: configurações do driver (diálogo de impressão); com ele, imprime pela
+        API do Windows respeitando cor, frente e verso, papel, bandeja..."""
         super().__init__()
         self.dados, self.senha, self.paginas = dados_pdf, senha, paginas
         self.impressora, self.copias, self.nome = impressora, copias, nome_documento
+        self.devmode, self.capacidades = devmode, capacidades or {}
+        self.preto_e_branco = preto_e_branco
         self._cancelar = False
 
     def cancelar(self):
@@ -208,6 +330,9 @@ class TrabalhoImpressao(QThread):
             doc = pymupdf.open(stream=self.dados, filetype="pdf")
             if doc.needs_pass:
                 doc.authenticate(self.senha or "")
+            if self.devmode is not None and win.disponivel():
+                self._imprimir_windows(doc)
+                return
             printer = QPrinter(QPrinterInfo.printerInfo(self.impressora), QPrinter.HighResolution)
             printer.setDocName(self.nome)
             printer.setCopyCount(self.copias)
@@ -246,3 +371,39 @@ class TrabalhoImpressao(QThread):
         finally:
             if doc is not None:
                 doc.close()
+
+    def _imprimir_windows(self, doc):
+        """Pela API do Windows, com o DEVMODE do diálogo. Cópias: pelo driver quando ele
+        suporta (agrupadas); senão, um trabalho por cópia (frente e verso não mistura
+        o fim de uma cópia com o começo da outra)."""
+        dm = bytearray(self.devmode)
+        copias_driver = self.copias <= int(self.capacidades.get("copias", 1))
+        if copias_driver:
+            win.definir_copias(dm, self.copias)
+        rodadas = 1 if copias_driver else self.copias
+        total = len(self.paginas) * rodadas
+        feitas = 0
+        for _ in range(rodadas):
+            trabalho = win.Trabalho(self.impressora, dm, self.nome, getattr(self, "arquivo_saida", None))
+            try:
+                dpi = min(trabalho.dpi, DPI_MAXIMO)
+                for i in self.paginas:
+                    if self._cancelar:
+                        trabalho.fechar(cancelar=True)
+                        return
+                    pg = doc[i]
+                    # preto e branco: a página já vai em tons de cinza (spool menor)
+                    cs = pymupdf.csGRAY if self.preto_e_branco else pymupdf.csRGB
+                    pm = pg.get_pixmap(dpi=dpi, alpha=False, colorspace=cs)
+                    fmt = QImage.Format_Grayscale8 if self.preto_e_branco else QImage.Format_RGB888
+                    img = QImage(pm.samples, pm.width, pm.height, pm.stride, fmt).convertToFormat(
+                        QImage.Format_RGB32)
+                    trabalho.pagina(bytes(img.constBits()), img.width(), img.height(),
+                                    paisagem=pg.rect.width > pg.rect.height)
+                    feitas += 1
+                    self.progresso.emit(feitas, total)
+            except Exception:
+                trabalho.fechar(cancelar=True)
+                raise
+            trabalho.fechar()
+        self.concluido.emit()

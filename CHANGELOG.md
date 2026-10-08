@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.21.0] - 2026-10-08
+
+### Added
+- Imprimir: botão "Propriedades" que abre a janela do driver da impressora (cor, frente e
+  verso, papel, bandeja, qualidade... conforme a impressora) e atalhos "Cor" (Colorido / Preto
+  e Branco) e "Frente e Verso" (um lado, borda longa, borda curta), que só aparecem quando a
+  impressora tem o recurso.
+
+### Changed
+- A impressão passa a usar a API de impressão do Windows com as configurações do driver
+  (antes as opções da impressora não eram aplicadas); preto e branco já envia as páginas em
+  tons de cinza; cópias agrupadas pela impressora.
+
 ## [1.20.0] - 2026-10-06
 
 ### Changed

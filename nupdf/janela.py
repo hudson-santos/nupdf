@@ -1045,7 +1045,8 @@ class JanelaPrincipal(QMainWindow):
         self.config.set("impressao/impressora", dlg.nome_impressora)
         trabalho = TrabalhoImpressao(
             aba.doc.bytes_editados(v.rotacoes()),  # imprime como está na tela
-            aba.doc.senha, dlg.paginas, dlg.nome_impressora, dlg.copias.value(), aba.doc.nome)
+            aba.doc.senha, dlg.paginas, dlg.nome_impressora, dlg.copias.value(), aba.doc.nome,
+            devmode=dlg.devmode_final(), capacidades=dlg.capacidades, preto_e_branco=dlg.preto_e_branco)
         prog = QProgressDialog(f"Conectando à impressora {dlg.nome_impressora}…", "Cancelar",
                                0, len(dlg.paginas), self)
         prog.setWindowTitle("Imprimir")

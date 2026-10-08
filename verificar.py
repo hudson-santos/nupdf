@@ -213,6 +213,13 @@ def main() -> int:
         checar("editor de PDF", False, f"{e.__class__.__name__}: {e}")
 
     print("Impressão:")
+    from nupdf import impressora_win as _iw
+    _dm = bytearray(220)  # DEVMODE sintético: só os campos usados pelo NuPDF
+    _iw.definir_cor(_dm, _iw.DMCOLOR_PRETO_E_BRANCO)
+    _iw.definir_duplex(_dm, _iw.DMDUP_BORDA_LONGA)
+    _iw.definir_orientacao(_dm, _iw.DMORIENT_PAISAGEM)
+    checar("configurações do driver (cor, frente e verso, orientação)",
+           _iw.cor(_dm) == 1 and _iw.duplex(_dm) == 2 and _iw.cor(bytearray(220)) is None)
     from nupdf import impressao
     checar("intervalo de páginas", impressao.interpretar_intervalo("1-3, 5", 5) == [0, 1, 2, 4])
     try:
