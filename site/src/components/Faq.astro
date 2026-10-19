@@ -1,0 +1,37 @@
+---
+const faqs = [
+  { q: 'Preciso ser administrador para instalar?', a: 'Não. O nupdf instala em C:\\NuPDF para o seu usuário, sem pedir permissão de administrador, e já traz tudo o que precisa para funcionar.' },
+  { q: 'Em quais versões do Windows funciona?', a: 'No Windows 10 e no Windows 11, em 64 bits.' },
+  { q: 'Quais certificados digitais posso usar?', a: 'Certificados ICP-Brasil A1 (arquivo) e A3 (token ou cartão) instalados no Windows. O nupdf lista os certificados válidos para você escolher na hora de assinar.' },
+  { q: 'A assinatura tem validade jurídica?', a: 'Sim. O nupdf gera assinaturas PAdES com certificado ICP-Brasil, que podem ser conferidas no validador oficial do ITI (validar.iti.gov.br).' },
+  { q: 'Meus documentos são enviados para algum servidor?', a: 'Não. Os PDFs são abertos, editados e assinados no seu computador.' },
+  { q: 'Como recebo as atualizações?', a: 'Automaticamente: quando sai uma versão nova, o nupdf baixa em segundo plano e instala no próximo acesso.' },
+];
+---
+
+<section id="faq" class="soft">
+  <div class="container narrow">
+    <div class="section-head">
+      <span class="eyebrow">FAQ</span>
+      <h2>Perguntas frequentes</h2>
+    </div>
+    {faqs.map((f) => (
+      <details>
+        <summary>{f.q}</summary>
+        <p>{f.a}</p>
+      </details>
+    ))}
+  </div>
+</section>
+
+<style>
+  .soft { background: var(--bg-soft); }
+  .narrow { max-width: 780px; }
+  details { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 4px 22px; margin-bottom: 12px; transition: border-color .2s; }
+  details[open] { border-color: var(--red-200); }
+  summary { cursor: pointer; font-weight: 600; padding: 16px 0; list-style: none; display: flex; justify-content: space-between; gap: 16px; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: '+'; color: var(--red-500); font-size: 1.4rem; line-height: 1; transition: transform .2s; }
+  details[open] summary::after { transform: rotate(45deg); }
+  p { color: var(--muted); padding-bottom: 18px; }
+</style>

@@ -1,0 +1,18 @@
+---
+// Ícone + "nupdf" em Comfortaa ("nu" na cor do texto, "pdf" no vermelho da marca),
+// o mesmo padrão dos logos nukt, nusign, qiponto e flow.
+const { light = false } = Astro.props;
+---
+
+<span class:list={['logo', { light }]}>
+  <img src="/favicon.svg" alt="" width="34" height="34" />
+  <span class="nome" role="img" aria-label="nupdf">nu<b>pdf</b></span>
+</span>
+
+<style>
+  .logo { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); }
+  .nome { font-family: "Comfortaa", ui-rounded, system-ui, sans-serif; font-weight: 700; font-size: 1.55rem; line-height: 1; letter-spacing: 0; }
+  .nome b { font-weight: 700; color: var(--red-500); }
+  .logo.light { color: #fff; }
+  .logo.light .nome b { color: var(--red-100); }
+</style>

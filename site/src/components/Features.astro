@@ -1,0 +1,40 @@
+---
+const items = [
+  { i: '📖', t: 'Leitura rápida', d: 'Abre na hora, com abas, miniaturas, busca e zoom. Sem as dezenas de ferramentas que ninguém usa.' },
+  { i: '📋', t: 'Copie com um clique', d: 'Selecione qualquer texto do PDF e clique em "Copiar", que aparece logo ao lado da seleção.' },
+  { i: '✍️', t: 'Assinatura ICP-Brasil', d: 'Assinatura digital PAdES com o certificado A1 ou A3 instalado no Windows, visível ou invisível na página.' },
+  { i: '🛡️', t: 'Validação de assinaturas', d: 'Confira quem assinou, quando e se o documento foi alterado, com a cadeia oficial ICP-Brasil e acesso ao validador do ITI.' },
+  { i: '🖍️', t: 'Marcadores por prioridade', d: 'Destaque trechos em cores por prioridade e encontre tudo depois no painel de Marcadores.' },
+  { i: '📝', t: 'Editor de PDF', d: 'Remova áreas e textos, inclua ou substitua informações e edite os metadados, mantendo a fonte do documento.' },
+];
+---
+
+<section id="recursos">
+  <div class="container">
+    <div class="section-head">
+      <span class="eyebrow">Recursos</span>
+      <h2>Tudo o que você precisa para trabalhar com PDF</h2>
+      <p>Um leitor leve para o dia a dia, com assinatura e validação ICP-Brasil e edição quando precisar.</p>
+    </div>
+    <div class="grid">
+      {items.map((f) => (
+        <article>
+          <div class="ico">{f.i}</div>
+          <h3>{f.t}</h3>
+          <p>{f.d}</p>
+        </article>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  article { padding: 28px; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; transition: transform .2s, box-shadow .2s, border-color .2s; }
+  article:hover { transform: translateY(-4px); box-shadow: var(--shadow); border-color: var(--red-200); }
+  .ico { width: 48px; height: 48px; display: grid; place-items: center; font-size: 1.4rem; background: var(--red-50); border-radius: 12px; margin-bottom: 18px; }
+  h3 { font-size: 1.15rem; font-weight: 700; }
+  p { margin-top: 10px; color: var(--muted); font-size: .98rem; }
+  @media (max-width: 920px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } }
+</style>

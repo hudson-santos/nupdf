@@ -1,0 +1,108 @@
+---
+import { DOWNLOAD } from '../dados';
+// Maquete do painel "Assinaturas Digitais" do NuPDF (nomes fictícios)
+const rows = [
+  { n: 'Ana Souza', e: 'AC Certisign RFB G5', s: 'Válida', c: 'ok' },
+  { n: 'Bruno Lima', e: 'AC SOLUTI Multipla v5', s: 'Válida', c: 'ok' },
+  { n: 'Carla Mendes', e: 'AC Serasa RFB v5', s: 'Alterações permitidas', c: 'warn' },
+  { n: 'Diego Rocha', e: 'AC VALID RFB v5', s: 'Válida', c: 'ok' },
+];
+---
+
+<section id="top" class="hero">
+  <div class="glow" aria-hidden="true"></div>
+  <div class="container grid">
+    <div class="copy">
+      <span class="eyebrow">Leitor de PDF leve para Windows</span>
+      <h1>Leia, copie e assine PDFs com <span class="grad">ICP-Brasil</span>.</h1>
+      <p class="lead">
+        O nupdf abre seus PDFs na hora, copia qualquer texto com um clique e assina digitalmente com o certificado
+        instalado no Windows, além de validar as assinaturas do documento. Tudo no seu computador, sem complicação.
+      </p>
+      <div class="actions">
+        <a class="btn btn-primary" href={DOWNLOAD} data-download>
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 3v12m0 0-5-5m5 5 5-5M5 21h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Baixar para Windows
+        </a>
+        <a class="btn btn-ghost" href="#como-funciona">Ver como funciona</a>
+      </div>
+      <p class="meta" data-meta>Windows 10 e 11 · 64 bits</p>
+      <ul class="trust">
+        <li>✓ Assinatura PAdES ICP-Brasil</li>
+        <li>✓ Sem administrador</li>
+        <li>✓ Atualização automática</li>
+      </ul>
+    </div>
+
+    <div class="mock" aria-hidden="true">
+      <div class="card main">
+        <div class="top">
+          <strong>Assinaturas Digitais</strong>
+          <span class="pill">4 assinaturas</span>
+        </div>
+        {rows.map((r) => (
+          <div class="row">
+            <div class="avatar">{r.n[0]}</div>
+            <div class="info"><b>{r.n}</b><small>{r.e}</small></div>
+            <span class={`tag ${r.c}`}>{r.s}</span>
+          </div>
+        ))}
+      </div>
+      <div class="card float f1">
+        <small>Cadeia ICP-Brasil</small>
+        <b>179 certificados</b>
+        <div class="bar"><i style="width:100%"></i></div>
+      </div>
+      <div class="card float f2">
+        <span class="dot"></span>
+        <div><b>Texto copiado</b><small>pronto para colar</small></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .hero { position: relative; overflow: hidden; padding: 72px 0 96px; background: linear-gradient(180deg, var(--red-50), #fff 80%); }
+  .glow { position: absolute; width: 640px; height: 640px; right: -200px; top: -240px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(229,72,77,.22), transparent 65%); pointer-events: none; }
+  .grid { position: relative; display: grid; grid-template-columns: 1.05fr 1fr; gap: 56px; align-items: center; }
+  h1 { font-size: clamp(2.3rem, 5.2vw, 3.7rem); font-weight: 800; }
+  .grad { background: linear-gradient(90deg, var(--red-500), var(--red-700)); -webkit-background-clip: text; background-clip: text; color: transparent; white-space: nowrap; }
+  .lead { margin-top: 22px; font-size: 1.15rem; color: var(--ink-2); max-width: 540px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
+  .actions svg { flex: none; }
+  .meta { margin-top: 12px; font-size: .85rem; color: var(--muted); }
+  .trust { list-style: none; display: flex; flex-wrap: wrap; gap: 8px 22px; padding: 0; margin: 20px 0 0; color: var(--muted); font-size: .92rem; font-weight: 500; }
+
+  .mock { position: relative; padding: 24px 0 30px; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+  .main { padding: 20px; }
+  .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .pill { background: var(--red-50); color: var(--red-700); font-size: .75rem; font-weight: 600; padding: 4px 10px; border-radius: 999px; }
+  .row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
+  .avatar { width: 38px; height: 38px; flex: none; border-radius: 50%; background: var(--red-100); color: var(--red-700); display: grid; place-items: center; font-weight: 700; }
+  .info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .info b { font-size: .92rem; }
+  .info small { color: var(--muted); font-size: .8rem; }
+  .tag { font-size: .72rem; font-weight: 600; padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+  .tag.ok { background: #dcfce7; color: #15803d; }
+  .tag.warn { background: #fef3c7; color: #b45309; }
+
+  .float { position: absolute; padding: 14px 18px; animation: bob 6s ease-in-out infinite; }
+  .f1 { left: -28px; bottom: 0; display: flex; flex-direction: column; gap: 2px; white-space: nowrap; }
+  .f1 small, .f2 small { color: var(--muted); font-size: .75rem; }
+  .f1 b { font-size: 1.25rem; }
+  .bar { height: 6px; background: var(--red-100); border-radius: 99px; margin-top: 6px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--red-500); border-radius: 99px; }
+  .f2 { right: -12px; top: 0; display: flex; gap: 10px; align-items: center; animation-delay: -3s; }
+  .f2 div { display: flex; flex-direction: column; }
+  .f2 b { font-size: .85rem; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 0 5px #dcfce7; }
+  @keyframes bob { 50% { transform: translateY(-8px); } }
+  @media (prefers-reduced-motion: reduce) { .float { animation: none; } }
+
+  @media (max-width: 920px) {
+    .grid { grid-template-columns: 1fr; }
+    .f1 { left: 0; } .f2 { right: 0; }
+  }
+</style>

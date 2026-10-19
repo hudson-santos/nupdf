@@ -1,0 +1,23 @@
+---
+import { DOWNLOAD, REPO } from '../dados';
+---
+
+<section id="baixar">
+  <div class="container">
+    <div class="box">
+      <h2>Pronto para ler e assinar seus PDFs sem complicação?</h2>
+      <p>Baixe o nupdf e assine seu primeiro documento com certificado ICP-Brasil em poucos minutos.</p>
+      <a class="btn btn-light" href={DOWNLOAD} data-download>Baixar para Windows</a>
+      <small><span data-meta>Windows 10 e 11 · 64 bits</span> · <a href={REPO} target="_blank" rel="noopener">Código-fonte no GitHub</a></small>
+    </div>
+  </div>
+</section>
+
+<style>
+  .box { text-align: center; padding: 72px 28px; border-radius: 28px; color: #fff; position: relative; overflow: hidden;
+    background: radial-gradient(circle at 80% 0%, var(--red-400), transparent 50%), linear-gradient(145deg, var(--red-500), var(--red-700)); box-shadow: var(--shadow-red); }
+  h2 { font-size: clamp(1.7rem, 4vw, 2.5rem); font-weight: 800; max-width: 680px; margin: 0 auto; }
+  p { margin: 16px auto 30px; max-width: 520px; opacity: .92; font-size: 1.08rem; }
+  small { display: block; margin-top: 18px; opacity: .85; }
+  small a { text-decoration: underline; text-underline-offset: 3px; }
+</style>

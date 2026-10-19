@@ -1,0 +1,37 @@
+---
+const steps = [
+  { n: '1', t: 'Baixe o instalador', d: 'Baixe o Instalador.exe da versão mais recente. Funciona no Windows 10 e 11 (64 bits).' },
+  { n: '2', t: 'Instale em segundos', d: 'Execute e aguarde. Não precisa ser administrador nem ter nada instalado antes.' },
+  { n: '3', t: 'Abra e assine', d: 'Abra seus PDFs pelo atalho nupdf e assine com o seu certificado digital ICP-Brasil.' },
+];
+---
+
+<section id="como-funciona" class="soft">
+  <div class="container">
+    <div class="section-head">
+      <span class="eyebrow">Como funciona</span>
+      <h2>Do download à primeira assinatura em 3 passos</h2>
+      <p>Instalação simples, sem configuração, e atualizações automáticas depois.</p>
+    </div>
+    <ol>
+      {steps.map((s) => (
+        <li>
+          <span class="num">{s.n}</span>
+          <h3>{s.t}</h3>
+          <p>{s.d}</p>
+        </li>
+      ))}
+    </ol>
+  </div>
+</section>
+
+<style>
+  .soft { background: var(--bg-soft); }
+  ol { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
+  li { position: relative; text-align: center; padding: 0 12px; }
+  li:not(:last-child)::after { content: ''; position: absolute; top: 28px; left: calc(50% + 40px); right: calc(-50% + 40px); border-top: 2px dashed var(--red-200); }
+  .num { display: inline-grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; background: var(--red-500); color: #fff; font-weight: 800; font-size: 1.3rem; box-shadow: var(--shadow-red); }
+  h3 { margin-top: 20px; font-size: 1.2rem; font-weight: 700; }
+  p { margin-top: 10px; color: var(--muted); }
+  @media (max-width: 760px) { ol { grid-template-columns: 1fr; } li::after { display: none; } }
+</style>

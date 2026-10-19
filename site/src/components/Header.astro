@@ -1,0 +1,35 @@
+---
+import Logo from './Logo.astro';
+import { DOWNLOAD } from '../dados';
+const links = [
+  { href: '#recursos', label: 'Recursos' },
+  { href: '#como-funciona', label: 'Como funciona' },
+  { href: '#beneficios', label: 'Benefícios' },
+  { href: '#faq', label: 'Perguntas' },
+];
+---
+
+<header>
+  <div class="container bar">
+    <a href="#top" aria-label="nupdf"><Logo /></a>
+    <nav aria-label="Principal">
+      {links.map((l) => <a href={l.href}>{l.label}</a>)}
+    </nav>
+    <a class="btn btn-primary cta" href={DOWNLOAD} data-download>Baixar para Windows</a>
+  </div>
+</header>
+
+<style>
+  header {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(255, 255, 255, 0.82); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--line);
+  }
+  .bar { display: flex; align-items: center; justify-content: space-between; height: 72px; gap: 24px; }
+  nav { display: flex; gap: 28px; }
+  nav a { font-weight: 500; color: var(--ink-2); font-size: 0.95rem; transition: color .2s; }
+  nav a:hover { color: var(--red-600); }
+  .cta { padding: 10px 20px; font-size: 0.92rem; }
+  @media (max-width: 860px) { nav { display: none; } }
+  @media (max-width: 420px) { .cta { padding: 9px 14px; font-size: 0.85rem; } }
+</style>
