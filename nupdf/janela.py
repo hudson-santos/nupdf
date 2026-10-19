@@ -49,6 +49,16 @@ def _disco_local(caminho: str) -> bool:
         return True
 
 
+def _logo_nome(nome_objeto: str) -> QLabel:
+    """Logo "nupdf" em Comfortaa: "nu" na cor do texto e "pdf" no vermelho da marca -
+    o mesmo padrão dos logos nukt, nusign, qiponto e flow (fonte em assets/fonts)."""
+    rotulo = QLabel(f'nu<span style="color:{ui.cores().get("destaque", "#e5484d")}">pdf</span>')
+    rotulo.setObjectName(nome_objeto)
+    rotulo.setTextFormat(Qt.RichText)
+    rotulo.setAccessibleName(NOME_APP)
+    return rotulo
+
+
 class _LinhaRecente(QFrame):
     """Item da lista de recentes: mostra só o nome do arquivo; clique abre.
     Ao passar o mouse aparecem "abrir pasta" (Explorer com o arquivo
@@ -140,8 +150,7 @@ class TelaInicial(QWidget):
         logo.setPixmap(pixmap_logo(56))
         logo.setAlignment(Qt.AlignCenter)
         lay.addWidget(logo)
-        titulo = QLabel(NOME_APP)
-        titulo.setObjectName("tituloInicio")
+        titulo = _logo_nome("tituloInicio")
         titulo.setAlignment(Qt.AlignCenter)
         lay.addWidget(titulo)
         sub = QLabel("Leia PDFs, Copie Dados e Assine Digitalmente com Certificado ICP-Brasil")
@@ -301,19 +310,8 @@ class JanelaPrincipal(QMainWindow):
         lay = QHBoxLayout(topo)
         lay.setContentsMargins(14, 0, 10, 0)
         lay.setSpacing(6)
-        logo = QLabel()
-        logo.setPixmap(pixmap_logo(24))
-        lay.addWidget(logo)
-        nome = QLabel("Nu")
-        nome.setObjectName("logoTexto")
-        nome2 = QLabel("PDF")
-        nome2.setObjectName("logoTexto")
-        nome2.setProperty("destaque", True)
-        caixa_nome = QHBoxLayout()
-        caixa_nome.setSpacing(0)
-        caixa_nome.addWidget(nome)
-        caixa_nome.addWidget(nome2)
-        lay.addLayout(caixa_nome)
+        # só o texto "nupdf" (Comfortaa, "pdf" no vermelho) - mesmo logo do site
+        lay.addWidget(_logo_nome("logoTexto"))
         lay.addSpacing(18)
 
         self.tabbar = QTabBar()

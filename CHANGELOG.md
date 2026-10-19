@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.21.1] - 2026-10-19
+
+### Changed
+- Novo logo "nupdf" em Comfortaa ("nu" na cor do texto e "pdf" no vermelho da marca), no mesmo
+  padrão dos logos nukt, nusign, qiponto e flow: no topo da janela (só o texto, sem o ícone),
+  na tela inicial e nos títulos da janela do instalador. Fonte Comfortaa (licença OFL)
+  incluída no app e embutida no instalador.
+
 ## [1.21.0] - 2026-10-08
 
 ### Added

@@ -97,6 +97,7 @@ Write-Host "[3/3] Compilando a janela de instalacao ($versao)..."
 & $csc /nologo /target:winexe /optimize+ /out:"$raiz\Instalador.exe" `
     /win32icon:"$raiz\assets\nupdf.ico" /win32manifest:"$PSScriptRoot\instalador.manifest" `
     /resource:"$motor,NuPDF.Motor.exe" /resource:"$PSScriptRoot\logo.png,NuPDF.Logo.png" `
+    /resource:"$raiz\assets\fonts\Comfortaa-Bold.ttf,NuPDF.Comfortaa.ttf" `
     /r:System.dll /r:System.Core.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll `
     "$PSScriptRoot\Setup.cs" $assemblyInfo
 $codigo = $LASTEXITCODE

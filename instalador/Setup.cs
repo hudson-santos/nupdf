@@ -490,8 +490,7 @@ internal sealed class JanelaInstalacao : Form
         {
             var centro = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Near,
                                             Trimming = StringTrimming.EllipsisCharacter };
-            using (var b = new SolidBrush(Texto))
-                g.DrawString(titulo, fTitulo, b, new RectangleF(E(20), E(118), w - E(40), E(32)), centro);
+            DesenharTitulo(g, titulo, fTitulo, E(118), w);
             using (var b = new SolidBrush(corSub))
                 g.DrawString(sub, fSub, b, new RectangleF(E(36), E(152), w - E(72), E(48)), centro);
         }
@@ -514,6 +513,85 @@ internal sealed class JanelaInstalacao : Form
         if (largura > trilho.Height)
             using (var b = new SolidBrush(Destaque))
                 PreencherArredondado(g, b, new RectangleF(trilho.X, trilho.Y, largura, trilho.Height));
+    }
+
+    // Título centralizado com "NuPDF" desenhado como o logo "nupdf": Comfortaa, "nu" na cor
+    // do texto e "pdf" no vermelho da marca (mesmo padrão do app e do site). O resto do
+    // texto continua em Segoe UI.
+    private void DesenharTitulo(Graphics g, string titulo, Font fonte, int y, int largura)
+    {
+        var fmt = (StringFormat)StringFormat.GenericTypographic.Clone();
+        fmt.FormatFlags |= StringFormatFlags.MeasureTrailingSpaces;
+        string[] partes = titulo.Split(new[] { "NuPDF" }, StringSplitOptions.None);
+        Font fLogo = FonteLogo(fonte.SizeInPoints + 1.5f);
+        try
+        {
+            // pedaços: texto comum, e entre eles o logo ("nu" + "pdf")
+            var pedacos = new System.Collections.Generic.List<Tuple<string, Font, Color>>();
+            for (int i = 0; i < partes.Length; i++)
+            {
+                if (partes[i].Length > 0) pedacos.Add(Tuple.Create(partes[i], fonte, Texto));
+                if (i < partes.Length - 1)
+                {
+                    pedacos.Add(Tuple.Create("nu", fLogo ?? fonte, Texto));
+                    pedacos.Add(Tuple.Create("pdf", fLogo ?? fonte, Destaque));
+                }
+            }
+            float total = 0, alto = 0;
+            var tamanhos = new System.Collections.Generic.List<SizeF>();
+            foreach (var p in pedacos)
+            {
+                SizeF t = g.MeasureString(p.Item1, p.Item2, PointF.Empty, fmt);
+                tamanhos.Add(t);
+                total += t.Width;
+                alto = Math.Max(alto, t.Height);
+            }
+            float x = (largura - total) / 2f;
+            for (int i = 0; i < pedacos.Count; i++)
+            {
+                // alinha pela linha de base: fontes diferentes têm alturas diferentes
+                float yLinha = y + (alto - tamanhos[i].Height) * 0.75f;
+                using (var b = new SolidBrush(pedacos[i].Item3))
+                    g.DrawString(pedacos[i].Item1, pedacos[i].Item2, b, x, yLinha, fmt);
+                x += tamanhos[i].Width;
+            }
+        }
+        finally
+        {
+            if (fLogo != null) fLogo.Dispose();
+        }
+    }
+
+    private static System.Drawing.Text.PrivateFontCollection _fontesLogo;
+    private static IntPtr _memoriaFonte = IntPtr.Zero;
+
+    // Comfortaa embutida no Instalador.exe (assets\fonts\Comfortaa-Bold.ttf), carregada só
+    // para esta janela - nada é instalado no Windows. Sem ela, o título fica em Segoe UI.
+    private static Font FonteLogo(float pontos)
+    {
+        try
+        {
+            if (_fontesLogo == null)
+            {
+                using (Stream st = Assembly.GetExecutingAssembly().GetManifestResourceStream("NuPDF.Comfortaa.ttf"))
+                {
+                    if (st == null) return null;
+                    var dados = new byte[st.Length];
+                    st.Read(dados, 0, dados.Length);
+                    _memoriaFonte = Marshal.AllocCoTaskMem(dados.Length);  // fica viva enquanto a janela existir
+                    Marshal.Copy(dados, 0, _memoriaFonte, dados.Length);
+                    _fontesLogo = new System.Drawing.Text.PrivateFontCollection();
+                    _fontesLogo.AddMemoryFont(_memoriaFonte, dados.Length);
+                }
+            }
+            FontFamily familia = _fontesLogo.Families[0];
+            FontStyle estilo = familia.IsStyleAvailable(FontStyle.Bold) ? FontStyle.Bold : FontStyle.Regular;
+            return new Font(familia, pontos, estilo, GraphicsUnit.Point);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private void DesenharBotaoJanela(Graphics g, Rectangle r, string nome)

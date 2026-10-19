@@ -88,8 +88,7 @@ QToolTip { background: $superficie2; color: $texto; border: 1px solid $borda; pa
 #topo { background: $barra; border-bottom: 1px solid $borda; }
 #ferramentas { background: $barra; border-bottom: 1px solid $borda; }
 #sep { background: $borda; }
-#logoTexto { font-size: 16px; font-weight: 700; }
-#logoTexto[destaque="true"] { color: $destaque; }
+#logoTexto { font-family: "Comfortaa"; font-size: 19px; font-weight: 700; }
 
 QTabBar { background: transparent; }
 QTabBar::tab { background: transparent; color: $texto2; padding: 7px 10px 7px 14px; margin: 0 2px;
@@ -191,7 +190,7 @@ QScrollBar::add-page, QScrollBar::sub-page { background: transparent; }
 #inicio { background: $janela; }
 #cartaoInicio { background: $superficie; border: 1px solid $borda; border-radius: 16px; }
 #zonaSoltar { border: 2px dashed $borda; border-radius: 12px; }
-#tituloInicio { font-size: 22px; font-weight: 700; }
+#tituloInicio { font-family: "Comfortaa"; font-size: 30px; font-weight: 700; }
 #sub { color: $texto2; }
 #sub3 { color: $texto3; font-size: 12px; }
 
