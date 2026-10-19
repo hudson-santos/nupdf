@@ -146,10 +146,7 @@ class TelaInicial(QWidget):
         lay.setContentsMargins(36, 32, 36, 28)
         lay.setSpacing(10)
 
-        logo = QLabel()
-        logo.setPixmap(pixmap_logo(56))
-        logo.setAlignment(Qt.AlignCenter)
-        lay.addWidget(logo)
+        # só o texto "nupdf" (Comfortaa, "pdf" no vermelho), sem o ícone - como no site
         titulo = _logo_nome("tituloInicio")
         titulo.setAlignment(Qt.AlignCenter)
         lay.addWidget(titulo)
@@ -310,9 +307,7 @@ class JanelaPrincipal(QMainWindow):
         lay = QHBoxLayout(topo)
         lay.setContentsMargins(14, 0, 10, 0)
         lay.setSpacing(6)
-        # só o texto "nupdf" (Comfortaa, "pdf" no vermelho) - mesmo logo do site
-        lay.addWidget(_logo_nome("logoTexto"))
-        lay.addSpacing(18)
+        # sem logo no topo: o "nupdf" fica só na tela inicial; as abas começam à esquerda
 
         self.tabbar = QTabBar()
         self.tabbar.setDocumentMode(True)

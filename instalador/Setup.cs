@@ -139,7 +139,7 @@ internal sealed class JanelaInstalacao : Form
         try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
         FormBorderStyle = FormBorderStyle.None;
         StartPosition = FormStartPosition.Manual;  // centralizada em OnLoad
-        ClientSize = new Size(E(460), E(280));
+        ClientSize = new Size(E(460), E(300));
         BackColor = Fundo;
         DoubleBuffered = true;
         KeyPreview = true;
@@ -358,9 +358,9 @@ internal sealed class JanelaInstalacao : Form
     // ------------------------------------------------------------------ áreas clicáveis
     private Rectangle RetFechar { get { return new Rectangle(ClientSize.Width - E(44), E(8), E(36), E(30)); } }
     private Rectangle RetMinimizar { get { return new Rectangle(ClientSize.Width - E(82), E(8), E(36), E(30)); } }
-    private Rectangle RetTentar { get { return new Rectangle(ClientSize.Width / 2 - E(156), E(204), E(150), E(36)); } }
-    private Rectangle RetSair { get { return new Rectangle(ClientSize.Width / 2 + E(6), E(204), E(150), E(36)); } }
-    private Rectangle RetLog { get { return new Rectangle(ClientSize.Width / 2 - E(50), E(250), E(100), E(20)); } }
+    private Rectangle RetTentar { get { return new Rectangle(ClientSize.Width / 2 - E(156), E(228), E(150), E(36)); } }
+    private Rectangle RetSair { get { return new Rectangle(ClientSize.Width / 2 + E(6), E(228), E(150), E(36)); } }
+    private Rectangle RetLog { get { return new Rectangle(ClientSize.Width / 2 - E(50), E(272), E(100), E(20)); } }
 
     private string AreaEm(Point p)
     {
@@ -463,36 +463,39 @@ internal sealed class JanelaInstalacao : Form
         DesenharBotaoJanela(g, RetMinimizar, "minimizar");
         DesenharBotaoJanela(g, RetFechar, "fechar");
 
-        int tamLogo = E(64);
-        g.DrawImage(_logo, new Rectangle((w - tamLogo) / 2, E(40), tamLogo, tamLogo));
+        int tamLogo = E(60);
+        g.DrawImage(_logo, new Rectangle((w - tamLogo) / 2, E(34), tamLogo, tamLogo));
 
-        string titulo, sub;
+        // Três linhas: ação ("Instalando"/"Atualizando"...), o logo "nupdf" e o detalhe
+        string acao, sub;
         Color corSub = Texto2;
         if (_estado == Estado.Concluido)
         {
-            titulo = _atualizacao ? "NuPDF atualizado" : "NuPDF instalado";
+            acao = _atualizacao ? "Atualização concluída" : "Instalação concluída";
             sub = "Abrindo o NuPDF…";
         }
         else if (_estado == Estado.Erro)
         {
-            titulo = _atualizacao ? "Não foi possível atualizar o NuPDF" : "Não foi possível instalar o NuPDF";
+            acao = _atualizacao ? "Não foi possível atualizar" : "Não foi possível instalar";
             sub = _erro;
         }
         else
         {
             // as etapas (_status) só movem a barra; o texto fica fixo, sem detalhes técnicos
-            titulo = _atualizacao ? "Atualizando NuPDF" : "Instalando NuPDF";
+            acao = _atualizacao ? "Atualizando" : "Instalando";
             sub = "Isso pode levar alguns minutos…";
         }
 
-        using (var fTitulo = new Font("Segoe UI", 14.5f, FontStyle.Regular, GraphicsUnit.Point))
+        using (var fAcao = new Font("Segoe UI", 13f, FontStyle.Regular, GraphicsUnit.Point))
         using (var fSub = new Font("Segoe UI", 9.5f, FontStyle.Regular, GraphicsUnit.Point))
         {
             var centro = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Near,
                                             Trimming = StringTrimming.EllipsisCharacter };
-            DesenharTitulo(g, titulo, fTitulo, E(118), w);
+            using (var b = new SolidBrush(Texto))
+                g.DrawString(acao, fAcao, b, new RectangleF(E(20), E(104), w - E(40), E(28)), centro);
+            DesenharLogoNome(g, E(130), w, 24f);
             using (var b = new SolidBrush(corSub))
-                g.DrawString(sub, fSub, b, new RectangleF(E(36), E(152), w - E(72), E(48)), centro);
+                g.DrawString(sub, fSub, b, new RectangleF(E(36), E(180), w - E(72), E(44)), centro);
         }
 
         if (_estado == Estado.Erro)
@@ -506,7 +509,7 @@ internal sealed class JanelaInstalacao : Form
         }
 
         // barra de progresso fina, nas cores do NuPDF
-        var trilho = new RectangleF(E(56), E(218), w - E(112), E(5));
+        var trilho = new RectangleF(E(56), E(240), w - E(112), E(5));
         using (var b = new SolidBrush(Trilho))
             PreencherArredondado(g, b, trilho);
         float largura = (float)(trilho.Width * Math.Min(100, Math.Max(0, _exibido)) / 100.0);
@@ -515,50 +518,25 @@ internal sealed class JanelaInstalacao : Form
                 PreencherArredondado(g, b, new RectangleF(trilho.X, trilho.Y, largura, trilho.Height));
     }
 
-    // Título centralizado com "NuPDF" desenhado como o logo "nupdf": Comfortaa, "nu" na cor
-    // do texto e "pdf" no vermelho da marca (mesmo padrão do app e do site). O resto do
-    // texto continua em Segoe UI.
-    private void DesenharTitulo(Graphics g, string titulo, Font fonte, int y, int largura)
+    // Logo "nupdf" centralizado: Comfortaa, "nu" na cor do texto e "pdf" no vermelho da
+    // marca (mesmo padrão do app e do site). Sem a fonte, cai para Segoe UI Semibold.
+    private void DesenharLogoNome(Graphics g, int y, int largura, float pontos)
     {
         var fmt = (StringFormat)StringFormat.GenericTypographic.Clone();
-        fmt.FormatFlags |= StringFormatFlags.MeasureTrailingSpaces;
-        string[] partes = titulo.Split(new[] { "NuPDF" }, StringSplitOptions.None);
-        Font fLogo = FonteLogo(fonte.SizeInPoints + 1.5f);
+        Font fLogo = FonteLogo(pontos) ?? new Font("Segoe UI Semibold", pontos, FontStyle.Regular, GraphicsUnit.Point);
         try
         {
-            // pedaços: texto comum, e entre eles o logo ("nu" + "pdf")
-            var pedacos = new System.Collections.Generic.List<Tuple<string, Font, Color>>();
-            for (int i = 0; i < partes.Length; i++)
-            {
-                if (partes[i].Length > 0) pedacos.Add(Tuple.Create(partes[i], fonte, Texto));
-                if (i < partes.Length - 1)
-                {
-                    pedacos.Add(Tuple.Create("nu", fLogo ?? fonte, Texto));
-                    pedacos.Add(Tuple.Create("pdf", fLogo ?? fonte, Destaque));
-                }
-            }
-            float total = 0, alto = 0;
-            var tamanhos = new System.Collections.Generic.List<SizeF>();
-            foreach (var p in pedacos)
-            {
-                SizeF t = g.MeasureString(p.Item1, p.Item2, PointF.Empty, fmt);
-                tamanhos.Add(t);
-                total += t.Width;
-                alto = Math.Max(alto, t.Height);
-            }
-            float x = (largura - total) / 2f;
-            for (int i = 0; i < pedacos.Count; i++)
-            {
-                // alinha pela linha de base: fontes diferentes têm alturas diferentes
-                float yLinha = y + (alto - tamanhos[i].Height) * 0.75f;
-                using (var b = new SolidBrush(pedacos[i].Item3))
-                    g.DrawString(pedacos[i].Item1, pedacos[i].Item2, b, x, yLinha, fmt);
-                x += tamanhos[i].Width;
-            }
+            SizeF nu = g.MeasureString("nu", fLogo, PointF.Empty, fmt);
+            SizeF pdf = g.MeasureString("pdf", fLogo, PointF.Empty, fmt);
+            float x = (largura - nu.Width - pdf.Width) / 2f;
+            using (var b = new SolidBrush(Texto))
+                g.DrawString("nu", fLogo, b, x, y, fmt);
+            using (var b = new SolidBrush(Destaque))
+                g.DrawString("pdf", fLogo, b, x + nu.Width, y, fmt);
         }
         finally
         {
-            if (fLogo != null) fLogo.Dispose();
+            fLogo.Dispose();
         }
     }
 

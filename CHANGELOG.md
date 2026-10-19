@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.21.2] - 2026-10-19
+
+### Changed
+- Janela do instalador em três linhas: "Instalando" / "Atualizando", o logo "nupdf" maior e
+  "Isso pode levar alguns minutos..." (o mesmo nas telas de concluído e de erro).
+- Topo da janela sem o logo (as abas começam à esquerda); tela inicial só com o texto "nupdf",
+  sem o ícone.
+
 ## [1.21.1] - 2026-10-19
 
 ### Changed
