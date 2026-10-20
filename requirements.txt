@@ -1,5 +1,9 @@
-PySide6-Essentials>=6.8
-pymupdf>=1.26
-pyHanko>=0.29
-pyhanko-certvalidator>=0.27
-cryptography>=43
+# Versões FIXAS: as mesmas do venv de desenvolvimento, testadas pelo verificar.py.
+# O instalador embute exatamente estas (instalador\compilar_instalador.ps1) - uma
+# versão nova só entra depois de testada aqui (ex.: PyMuPDF 2.0 trouxe ~150 MB de
+# dependências novas e mudanças de API).
+PySide6-Essentials==6.11.2
+pymupdf==1.28.2
+pyHanko==0.37.0
+pyhanko-certvalidator==0.32.1
+cryptography==50.0.2

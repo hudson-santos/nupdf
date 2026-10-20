@@ -75,7 +75,7 @@ function Etapa3-CopiarArquivos {
         Write-Host "       Rode antes: powershell -ExecutionPolicy Bypass -File instalador\compilar_instalador.ps1"
         exit 1
     }
-    foreach ($arq in "main.py", "NuPDF.cs") {
+    foreach ($arq in "main.py", "NuPDF.cs", "impressora.ps1") {
         Copy-Item -Path (Join-Path $origem $arq) -Destination $APP_DIR -Force
     }
     if (Test-Path $PYTHON_DIR) { Remove-Item $PYTHON_DIR -Recurse -Force }  # sem sobras da versão anterior
@@ -219,6 +219,16 @@ function Registrar-AbrirCom([string]$exe, [string]$icone) {
     Set-ItemProperty -Path "$cap\FileAssociations" -Name ".pdf" -Value $progId
     New-Item -Path "HKCU:\Software\RegisteredApplications" -Force | Out-Null
     Set-ItemProperty -Path "HKCU:\Software\RegisteredApplications" -Name "NuPDF" -Value "Software\NuPDF\Capabilities"
+
+    # Menu de contexto dos PDFs: "Juntar PDFs com o NuPDF" (vários arquivos selecionados).
+    # O Explorer chama o NuPDF uma vez por arquivo; o main.py (--juntar) reúne tudo
+    # numa só tela. Só para este usuário (HKCU), sem administrador.
+    $verbo = "$classes\SystemFileAssociations\.pdf\shell\NuPDF.Juntar"
+    New-Item -Path "$verbo\command" -Force | Out-Null
+    Set-ItemProperty -Path $verbo -Name "(default)" -Value "Juntar PDFs com o NuPDF"
+    Set-ItemProperty -Path $verbo -Name "Icon" -Value $icone
+    Set-ItemProperty -Path $verbo -Name "MultiSelectModel" -Value "Player"
+    Set-ItemProperty -Path "$verbo\command" -Name "(default)" -Value ($exe -replace '"%1"$', '--juntar "%1"')
 
     # avisa o Explorer que as associações mudaram
     Add-Type -Namespace NuPDF -Name Shell -MemberDefinition '[DllImport("shell32.dll")] public static extern void SHChangeNotify(int e, int f, IntPtr a, IntPtr b);' -ErrorAction SilentlyContinue

@@ -292,6 +292,7 @@ class JanelaPrincipal(QMainWindow):
         self._release_nova = None
         self._mostrar_nova_versao(self.config.get("atualizacao/versao_disponivel", ""))
         if verificar_atualizacao:
+            QTimer.singleShot(2500, self._garantir_agente_impressora)
             # consulta discreta, no máximo 1x por dia (a hora é conferida de hora em
             # hora, para o NuPDF que fica aberto por dias); nunca abre janela sozinha
             QTimer.singleShot(4000, self._checar_atualizacao_diaria)
@@ -343,6 +344,12 @@ class JanelaPrincipal(QMainWindow):
         self.b_nova_versao.clicked.connect(self._atualizar_agora)
         self.b_nova_versao.hide()
         lay.addWidget(self.b_nova_versao)
+        b_juntar = ui.botao("juntar", "Juntar PDFs")
+        b_juntar.clicked.connect(lambda: self.juntar_pdfs())
+        lay.addWidget(b_juntar)
+        b_impressora = ui.botao("imprimir", "Impressora NuPDF")
+        b_impressora.clicked.connect(self.impressora_nupdf)
+        lay.addWidget(b_impressora)
         self.b_atualizacao = ui.botao("atualizar", "Verificar Atualizações")
         self.b_atualizacao.clicked.connect(self.verificar_atualizacoes)
         lay.addWidget(self.b_atualizacao)
@@ -1198,6 +1205,34 @@ class JanelaPrincipal(QMainWindow):
     def verificar_atualizacoes(self):
         from .dialogo_atualizacao import DialogoAtualizacao
         DialogoAtualizacao(self).exec()
+
+    # ------------------------------------------------------------------ juntar / impressora
+    def juntar_pdfs(self, arquivos: list[str] | None = None):
+        """Tela "Juntar PDFs" (botão do topo ou menu de contexto do Windows): ordena e
+        une os arquivos; o PDF gerado abre numa aba."""
+        if self.isMinimized():
+            self.showNormal()
+        self.raise_()
+        self.activateWindow()
+        from .juntar import DialogoJuntar
+        dlg = DialogoJuntar(arquivos, self)
+        if dlg.exec() != QDialog.Accepted or not dlg.destino:
+            return
+        aba = self.abrir_arquivo(dlg.destino)
+        if aba:
+            aba.toast("PDFs Juntados", 2400)
+
+    @staticmethod
+    def _garantir_agente_impressora():
+        try:
+            from . import impressora_virtual
+            impressora_virtual.iniciar_agente()
+        except Exception:
+            pass
+
+    def impressora_nupdf(self):
+        from .dialogo_impressora import DialogoImpressora
+        DialogoImpressora(self).exec()
 
     # ------------------------------------------------------------------ leitor padrão
     def _conferir_leitor_padrao(self):

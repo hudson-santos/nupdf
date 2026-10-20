@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.22.0] - 2026-10-19
+
+### Added
+- Juntar PDFs: item "Juntar PDFs com o NuPDF" no menu de contexto do Windows (vários PDFs
+  selecionados) e botão "Juntar PDFs" no topo do app. A tela lista os arquivos em ordem de
+  nome e permite arrastar para reordenar, subir/descer, ordenar, adicionar e remover; o PDF
+  juntado ganha um marcador por arquivo de origem e abre no NuPDF.
+- Impressora NuPDF (como a do PDF24): imprimir de qualquer programa na impressora "NuPDF"
+  gera um PDF em Documentos\NuPDF Impressões, que abre no NuPDF. Instalada/removida pelo
+  botão "Impressora NuPDF" no topo do app (pede administrador uma vez); um agente leve recebe
+  as impressões e inicia com o Windows.
+
+### Changed
+- Versões das dependências fixadas (PySide6 6.11.2, PyMuPDF 1.28.2, pyHanko 0.37.0,
+  pyhanko-certvalidator 0.32.1, cryptography 50.0.2): o instalador embute sempre as versões
+  testadas.
+
 ## [1.21.2] - 2026-10-19
 
 ### Changed

@@ -1,6 +1,8 @@
 """NuPDF - leitor de PDF leve com cópia de dados e assinatura ICP-Brasil.
 
 Uso: pythonw main.py [arquivo.pdf ...]
+     pythonw main.py --juntar arquivo.pdf ...   (menu de contexto "Juntar PDFs com o NuPDF")
+     pythonw main.py --impressora               (agente da Impressora NuPDF, sem janela)
 
 Instância única por usuário: se o NuPDF já estiver aberto, os arquivos
 recebidos são enviados para a janela existente (abrem em abas novas) e este
@@ -8,11 +10,19 @@ processo termina - é o que acontece ao dar duplo clique em vários PDFs no
 Explorer.
 """
 
+import sys
+
+if __name__ == "__main__" and "--impressora" in sys.argv:
+    # agente da Impressora NuPDF: só escuta o pipe da impressora - sem Qt (leve)
+    from nupdf.impressora_virtual import agente
+    agente()
+    sys.exit(0)
+
 import getpass
 import json
 import logging
 import os
-import sys
+import time
 import traceback
 
 from PySide6.QtCore import QByteArray, Qt, QTimer
@@ -40,7 +50,57 @@ def _arquivos_da_linha_de_comando() -> list[str]:
     return [os.path.abspath(a) for a in sys.argv[1:] if a.lower().endswith(".pdf")]
 
 
-def _enviar_para_instancia_aberta(arquivos: list[str]) -> bool:
+MARCA_JUNTAR = "#JUNTAR"  # 1ª linha da mensagem para a instância aberta: abrir a tela de juntar
+_FILA_JUNTAR = os.path.join(os.environ.get("TEMP", "."), f"nupdf_juntar_{getpass.getuser()}.txt")
+
+
+def _reunir_para_juntar(arquivos: list[str]) -> list[str] | None:
+    """Menu de contexto "Juntar PDFs com o NuPDF": o Explorer abre um NuPDF POR ARQUIVO
+    selecionado, quase ao mesmo tempo. Cada um anota o seu arquivo numa fila; o primeiro
+    (que pega o mutex) espera a fila parar de crescer e devolve todos - os outros
+    terminam (None)."""
+    import ctypes
+    for _ in range(50):  # anota na fila (outro processo pode estar gravando)
+        try:
+            with open(_FILA_JUNTAR, "a", encoding="utf-8") as f:
+                f.write("".join(a + "\n" for a in arquivos))
+            break
+        except OSError:
+            time.sleep(0.02)
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.CreateMutexW.restype = ctypes.c_void_p
+    k32.CreateMutexW.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_wchar_p]
+    k32.CloseHandle.argtypes = [ctypes.c_void_p]
+    mutex = k32.CreateMutexW(None, False, "Local\\NuPDF-Juntar")
+    if ctypes.get_last_error() == 183:  # ERROR_ALREADY_EXISTS: outro processo reúne a lista
+        k32.CloseHandle(mutex)
+        return None
+    try:
+        tamanho, parado_desde, inicio = -1, time.monotonic(), time.monotonic()
+        while time.monotonic() - inicio < 6:
+            atual = os.path.getsize(_FILA_JUNTAR) if os.path.exists(_FILA_JUNTAR) else 0
+            if atual != tamanho:
+                tamanho, parado_desde = atual, time.monotonic()
+            elif time.monotonic() - parado_desde > 0.8:
+                break
+            time.sleep(0.1)
+        try:
+            with open(_FILA_JUNTAR, encoding="utf-8") as f:
+                linhas = [l.strip() for l in f if l.strip()]
+            os.remove(_FILA_JUNTAR)
+        except OSError:
+            linhas = list(arquivos)
+    finally:
+        k32.CloseHandle(mutex)
+    vistos, saida = set(), []
+    for c in linhas:
+        if os.path.normcase(c) not in vistos:
+            vistos.add(os.path.normcase(c))
+            saida.append(c)
+    return saida
+
+
+def _enviar_para_instancia_aberta(arquivos: list[str], juntar: bool = False) -> bool:
     sock = QLocalSocket()
     sock.connectToServer(SERVIDOR)
     if not sock.waitForConnected(400):
@@ -50,7 +110,8 @@ def _enviar_para_instancia_aberta(arquivos: list[str]) -> bool:
         ctypes.windll.user32.AllowSetForegroundWindow(-1)  # deixa a janela existente vir para a frente
     except Exception:
         pass
-    sock.write(QByteArray(("\n".join(arquivos) + "\n").encode("utf-8")))
+    linhas = ([MARCA_JUNTAR] if juntar else []) + arquivos
+    sock.write(QByteArray(("\n".join(linhas) + "\n").encode("utf-8")))
     sock.waitForBytesWritten(1500)
     sock.disconnectFromServer()
     return True
@@ -74,9 +135,12 @@ def _iniciar_servidor(janela) -> QLocalServer:
                 janela.showNormal()
             janela.raise_()
             janela.activateWindow()
-            for caminho in buffer.decode("utf-8", "ignore").splitlines():
-                if caminho.strip():
-                    janela.abrir_arquivo(caminho.strip())
+            linhas = [l.strip() for l in buffer.decode("utf-8", "ignore").splitlines() if l.strip()]
+            if linhas and linhas[0] == MARCA_JUNTAR:
+                QTimer.singleShot(0, lambda: janela.juntar_pdfs(linhas[1:]))
+            else:
+                for caminho in linhas:
+                    janela.abrir_arquivo(caminho)
             sock.deleteLater()
 
         sock.readyRead.connect(ler)
@@ -139,7 +203,12 @@ def main() -> int:
     QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
     app = QApplication(sys.argv)
     arquivos = _arquivos_da_linha_de_comando()
-    if _enviar_para_instancia_aberta(arquivos):
+    juntar = "--juntar" in sys.argv
+    if juntar:
+        arquivos = _reunir_para_juntar(arquivos)
+        if arquivos is None:
+            return 0  # outro processo do mesmo clique reúne os arquivos
+    if _enviar_para_instancia_aberta(arquivos, juntar):
         return 0
     if _instalar_atualizacao_pendente(arquivos):
         return 0
@@ -158,7 +227,9 @@ def main() -> int:
     janela = JanelaPrincipal(verificar_atualizacao=True)
     _iniciar_servidor(janela)
     janela.showMaximized()
-    if arquivos:
+    if juntar:
+        QTimer.singleShot(0, lambda: janela.juntar_pdfs(arquivos))
+    elif arquivos:
         # abre depois do primeiro desenho: a janela aparece na hora e o PDF entra em seguida
         QTimer.singleShot(0, lambda: [janela.abrir_arquivo(arq) for arq in arquivos])
     else:
