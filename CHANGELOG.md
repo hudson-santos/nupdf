@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.23.1] - 2026-10-21
+
+### Changed
+- Inclui as mudanças da 1.23.0, cuja Release não chegou a ser publicada: item "Abrir" no
+  menu de contexto NuPDF, "Juntar" sem reticências e as correções do Juntar pelo menu.
+- Commit de release agora é "Versão - [X.Y.Z]" e a Release do GitHub se chama só "X.Y.Z".
+
+### Fixed
+- Compilação do instalador no GitHub Actions: o download do Python embutido tenta de novo
+  (até 5 vezes) quando o python.org derruba a conexão.
+
 ## [1.23.0] - 2026-10-21
 
 ### Added

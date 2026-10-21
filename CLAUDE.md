@@ -38,12 +38,12 @@ execute por conta própria, mesmo que a mudança pareça pronta para liberar.
 7. Commit com mensagem no formato exato:
 
    ```
-   release - [X.Y.Z]
+   Versão - [X.Y.Z]
 
    <resumo curto do que mudou nesta versão>
    ```
 
-   A primeira linha precisa começar com `release - [` - é o gatilho do
+   A primeira linha precisa começar com `Versão - [` - é o gatilho do
    workflow que cria a tag/Release e compila o `Instalador.exe`. Sem linha
    `Co-Authored-By` (nem outra atribuição) - em nenhum commit do repositório.
 8. `git push origin main`.
@@ -60,7 +60,7 @@ mudança, e avise que está pronta para o changelog.
 **Exceção - site de apresentação** (https://nupdf.com.br): mudanças que
 alteram SOMENTE a pasta `site/` (e o `wrangler.jsonc` da raiz, que faz o
 deploy dele) podem ter commit + push direto, logo após verificadas, com
-mensagem simples (nunca começando com `release - [`) - o Cloudflare
+mensagem simples (nunca começando com `Versão - [`) - o Cloudflare
 republica o site sozinho a cada push na `main`. Sem bump de versão nem
 entrada no CHANGELOG. Se a mudança também tocar o app, vale a regra acima.
 

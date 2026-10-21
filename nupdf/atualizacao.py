@@ -1,7 +1,7 @@
 """Verificação e download de atualizações (releases do GitHub).
 
 A release é criada pelo workflow .github/workflows/versao.yml a cada commit
-"release - [X.Y.Z]", com o Instalador.exe anexado e as notas copiadas do
+"Versão - [X.Y.Z]", com o Instalador.exe anexado e as notas copiadas do
 CHANGELOG.md. Só a biblioteca padrão é usada: urllib respeita o proxy
 configurado no Windows e o ssl usa o repositório de certificados do sistema
 (inclusive certificados de inspeção SSL corporativos).

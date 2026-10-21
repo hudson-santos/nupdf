@@ -51,6 +51,6 @@ venv\Scripts\python.exe verificar.py       # verificação de integridade
 
 Tecnologias: PySide6 (Qt), PyMuPDF, pyHanko, cryptography.
 Release: ver `CLAUDE.md` (o GitHub Actions compila o `Instalador.exe` a cada
-commit `release - [X.Y.Z]`). O `Instalador.exe` é a janela de instalação própria
+commit `Versão - [X.Y.Z]`). O `Instalador.exe` é a janela de instalação própria
 (`instalador/Setup.cs`) com o motor do Inno Setup (`Instalador.iss`) embutido;
 para gerar localmente: `powershell -ExecutionPolicy Bypass -File instalador\compilar_instalador.ps1`.

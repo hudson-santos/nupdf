@@ -33,7 +33,18 @@ New-Item -ItemType Directory -Force -Path $cache | Out-Null
 $zip = Join-Path $cache $pythonZip
 if (-not (Test-Path $zip)) {
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    Invoke-WebRequest -Uri "https://www.python.org/ftp/python/$pythonVersao/$pythonZip" -OutFile $zip -UseBasicParsing
+    # o python.org às vezes derruba a conexão no runner do GitHub: tenta de novo
+    for ($tentativa = 1; ; $tentativa++) {
+        try {
+            Invoke-WebRequest -Uri "https://www.python.org/ftp/python/$pythonVersao/$pythonZip" -OutFile $zip -UseBasicParsing
+            break
+        } catch {
+            Remove-Item $zip -Force -ErrorAction SilentlyContinue
+            if ($tentativa -ge 5) { throw }
+            Write-Host "      download falhou ($($_.Exception.Message)) - nova tentativa em $(5 * $tentativa)s"
+            Start-Sleep -Seconds (5 * $tentativa)
+        }
+    }
 }
 if ((Get-FileHash $zip -Algorithm SHA256).Hash -ne $pythonZipHash) {
     Remove-Item $zip -Force

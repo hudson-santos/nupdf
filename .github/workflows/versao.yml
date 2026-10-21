@@ -1,9 +1,9 @@
 name: versao
 
-# Dispara ao subir um commit cuja mensagem comece com "release - [X.Y.Z]"
-# (mesmo padrão já usado nos commits de release deste projeto, ex.:
-# "release - [1.10.1]") - cria a tag e a Release do GitHub dessa versão,
-# com título/descrição copiados direto do CHANGELOG.md (a mesma fonte
+# Dispara ao subir um commit cuja mensagem comece com "Versão - [X.Y.Z]"
+# (ex.: "Versão - [1.23.1]"; até a 1.23.0 era "release - [X.Y.Z]") - cria a
+# tag e a Release do GitHub dessa versão (nome da Release = só "X.Y.Z"),
+# com a descrição copiada direto do CHANGELOG.md (a mesma fonte
 # única já usada em todo o resto do projeto - nada aqui fica hardcoded
 # por versão) e o Instalador.exe recém-compilado como anexo.
 "on":
@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   release:
-    if: startsWith(github.event.head_commit.message, 'release - [')
+    if: startsWith(github.event.head_commit.message, 'Versão - [')
     runs-on: windows-latest
     env:
       # e-mail de aviso no fim (ver "Enviar o e-mail da release"): sem o secret, não envia
@@ -31,8 +31,8 @@ jobs:
           MENSAGEM_COMMIT: ${{ github.event.head_commit.message }}
         run: |
           set -euo pipefail
-          if [[ ! "$MENSAGEM_COMMIT" =~ ^release\ -\ \[([^]]+)\] ]]; then
-            echo "Mensagem de commit não bate com 'release - [X.Y.Z]': $MENSAGEM_COMMIT"
+          if [[ ! "$MENSAGEM_COMMIT" =~ ^Versão\ -\ \[([^]]+)\] ]]; then
+            echo "Mensagem de commit não bate com 'Versão - [X.Y.Z]': $MENSAGEM_COMMIT"
             exit 1
           fi
           VERSAO="${BASH_REMATCH[1]}"
@@ -122,7 +122,7 @@ jobs:
           set -euo pipefail
           printf '%s' "$CORPO" > corpo_release.md
           gh release create "$VERSAO" \
-            --title "$TITULO" \
+            --title "$VERSAO" \
             --notes-file corpo_release.md \
             --target "${{ github.sha }}" \
             "Instalador.exe"
