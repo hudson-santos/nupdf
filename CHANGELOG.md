@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.23.0] - 2026-10-21
+
+### Added
+- Menu de contexto dos PDFs: item "Abrir" no submenu "NuPDF", que abre todos os PDFs
+  selecionados numa só janela (uma aba por arquivo).
+
+### Changed
+- Item "Juntar..." do menu de contexto renomeado para "Juntar".
+
+### Fixed
+- "Juntar" pelo menu de contexto abria cada PDF numa janela separada em vez da tela de
+  juntar: o NuPDF.exe transformava a opção --juntar em caminho de arquivo.
+- Vários PDFs abertos ao mesmo tempo pelo Explorer (duplo clique/Enter em vários) podiam
+  abrir várias janelas do NuPDF: agora o primeiro abre a janela e os outros entregam os
+  arquivos a ela.
+
 ## [1.22.1] - 2026-10-20
 
 ### Changed

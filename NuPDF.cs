@@ -59,8 +59,8 @@ internal static class NuPDFLauncher
         }
 
         var linha = new StringBuilder("main.py");
-        foreach (string a in args)
-            linha.Append(' ').Append(Citar(Path.GetFullPath(a)));
+        foreach (string a in args)  // opções (--juntar) passam como estão; arquivos viram caminho completo
+            linha.Append(' ').Append(Citar(a.StartsWith("--") ? a : Path.GetFullPath(a)));
 
         var info = new ProcessStartInfo
         {

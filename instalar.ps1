@@ -220,9 +220,9 @@ function Registrar-AbrirCom([string]$exe, [string]$icone) {
     New-Item -Path "HKCU:\Software\RegisteredApplications" -Force | Out-Null
     Set-ItemProperty -Path "HKCU:\Software\RegisteredApplications" -Name "NuPDF" -Value "Software\NuPDF\Capabilities"
 
-    # Menu de contexto dos PDFs: submenu "NuPDF" > "Juntar..." (como o do PDF24). O
-    # Explorer chama o NuPDF uma vez por arquivo selecionado; o main.py (--juntar) reúne
-    # tudo numa só tela. Só para este usuário (HKCU), sem administrador.
+    # Menu de contexto dos PDFs: submenu "NuPDF" > "Abrir" / "Juntar" (como o do PDF24). O
+    # Explorer chama o NuPDF uma vez por arquivo selecionado; o main.py reúne tudo numa
+    # só janela (Abrir: uma aba por PDF; --juntar: uma só tela de juntar). Só para este usuário (HKCU), sem administrador.
     $menuPdf = "$classes\SystemFileAssociations\.pdf\shell"
     Remove-Item "$menuPdf\NuPDF.Juntar" -Recurse -Force -ErrorAction SilentlyContinue  # item antigo (1.22.0)
     $raizMenu = "$menuPdf\NuPDF"
@@ -231,9 +231,16 @@ function Registrar-AbrirCom([string]$exe, [string]$icone) {
     Set-ItemProperty -Path $raizMenu -Name "Icon" -Value $icone
     Set-ItemProperty -Path $raizMenu -Name "SubCommands" -Value ""   # vazio: os itens vêm de \shell
     Set-ItemProperty -Path $raizMenu -Name "MultiSelectModel" -Value "Player"
+    # os itens aparecem na ordem alfabética das chaves: Abrir, Juntar
+    $abrir = "$raizMenu\shell\Abrir"
+    New-Item -Path "$abrir\command" -Force | Out-Null
+    Set-ItemProperty -Path $abrir -Name "MUIVerb" -Value "Abrir"
+    Set-ItemProperty -Path $abrir -Name "Icon" -Value $icone
+    Set-ItemProperty -Path $abrir -Name "MultiSelectModel" -Value "Player"
+    Set-ItemProperty -Path "$abrir\command" -Name "(default)" -Value $exe
     $juntar = "$raizMenu\shell\Juntar"
     New-Item -Path "$juntar\command" -Force | Out-Null
-    Set-ItemProperty -Path $juntar -Name "MUIVerb" -Value "Juntar..."
+    Set-ItemProperty -Path $juntar -Name "MUIVerb" -Value "Juntar"
     Set-ItemProperty -Path $juntar -Name "Icon" -Value $icone
     Set-ItemProperty -Path $juntar -Name "MultiSelectModel" -Value "Player"
     Set-ItemProperty -Path "$juntar\command" -Name "(default)" -Value ($exe -replace '"%1"$', '--juntar "%1"')

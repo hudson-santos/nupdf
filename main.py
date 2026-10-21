@@ -1,7 +1,7 @@
 """NuPDF - leitor de PDF leve com cópia de dados e assinatura ICP-Brasil.
 
 Uso: pythonw main.py [arquivo.pdf ...]
-     pythonw main.py --juntar arquivo.pdf ...   (menu de contexto "Juntar PDFs com o NuPDF")
+     pythonw main.py --juntar arquivo.pdf ...   (menu de contexto NuPDF > Juntar)
      pythonw main.py --impressora               (agente da Impressora NuPDF, sem janela)
 
 Instância única por usuário: se o NuPDF já estiver aberto, os arquivos
@@ -48,6 +48,37 @@ def _definir_app_id():
 
 def _arquivos_da_linha_de_comando() -> list[str]:
     return [os.path.abspath(a) for a in sys.argv[1:] if a.lower().endswith(".pdf")]
+
+
+def _pediu_juntar() -> bool:
+    # o NuPDF.exe até a 1.22.1 transformava "--juntar" em caminho (C:\NuPDF\--juntar)
+    return any(os.path.basename(a) == "--juntar" for a in sys.argv[1:])
+
+
+def _aguardar_primeira_instancia(arquivos: list[str], juntar: bool) -> bool:
+    """Vários NuPDFs iniciados juntos (o Explorer abre um por PDF selecionado): o primeiro
+    pega o mutex e o segura até fechar; os outros esperam a janela dele ficar pronta e
+    entregam os arquivos a ela (True). False: este processo é o primeiro e abre a janela."""
+    import ctypes
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.CreateMutexW.restype = ctypes.c_void_p
+    k32.CreateMutexW.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_wchar_p]
+    k32.WaitForSingleObject.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
+    k32.WaitForSingleObject.restype = ctypes.c_uint32
+    global _MUTEX_INICIO  # fica aberto (e nosso) enquanto este processo viver
+    _MUTEX_INICIO = k32.CreateMutexW(None, True, f"Local\\NuPDF-Inicio-{getpass.getuser()}")
+    if not _MUTEX_INICIO or ctypes.get_last_error() != 183:  # ERROR_ALREADY_EXISTS
+        return False
+    inicio = time.monotonic()
+    while time.monotonic() - inicio < 20:
+        if _enviar_para_instancia_aberta(arquivos, juntar):
+            return True
+        if k32.WaitForSingleObject(_MUTEX_INICIO, 200) in (0, 0x80):
+            break  # o primeiro terminou sem abrir a janela (ex.: foi instalar atualização)
+    return False
+
+
+_MUTEX_INICIO = None
 
 
 MARCA_JUNTAR = "#JUNTAR"  # 1ª linha da mensagem para a instância aberta: abrir a tela de juntar
@@ -203,12 +234,14 @@ def main() -> int:
     QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
     app = QApplication(sys.argv)
     arquivos = _arquivos_da_linha_de_comando()
-    juntar = "--juntar" in sys.argv
+    juntar = _pediu_juntar()
     if juntar:
         arquivos = _reunir_para_juntar(arquivos)
         if arquivos is None:
             return 0  # outro processo do mesmo clique reúne os arquivos
     if _enviar_para_instancia_aberta(arquivos, juntar):
+        return 0
+    if _aguardar_primeira_instancia(arquivos, juntar):
         return 0
     if _instalar_atualizacao_pendente(arquivos):
         return 0

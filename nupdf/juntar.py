@@ -1,7 +1,7 @@
 """Juntar PDFs: tela para ordenar os arquivos e unificá-los num só PDF.
 
 Aberta pelo botão "Juntar PDFs" do NuPDF ou pelo menu de contexto do Windows
-("Juntar PDFs com o NuPDF", registrado pelo instalar.ps1): o Explorer chama o
+(NuPDF > Juntar, registrado pelo instalar.ps1): o Explorer chama o
 NuPDF uma vez por arquivo selecionado e o main.py reúne as chamadas numa só tela.
 """
 

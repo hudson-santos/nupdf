@@ -41,12 +41,11 @@ execute por conta própria, mesmo que a mudança pareça pronta para liberar.
    release - [X.Y.Z]
 
    <resumo curto do que mudou nesta versão>
-
-   Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
    ```
 
    A primeira linha precisa começar com `release - [` - é o gatilho do
-   workflow que cria a tag/Release e compila o `Instalador.exe`.
+   workflow que cria a tag/Release e compila o `Instalador.exe`. Sem linha
+   `Co-Authored-By` (nem outra atribuição) - em nenhum commit do repositório.
 8. `git push origin main`.
 9. Confirme para o usuário a nova versão com o link do commit
    (`https://github.com/hudson-santos/nupdf/commit/<hash>`) e o da página
