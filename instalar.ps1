@@ -220,15 +220,23 @@ function Registrar-AbrirCom([string]$exe, [string]$icone) {
     New-Item -Path "HKCU:\Software\RegisteredApplications" -Force | Out-Null
     Set-ItemProperty -Path "HKCU:\Software\RegisteredApplications" -Name "NuPDF" -Value "Software\NuPDF\Capabilities"
 
-    # Menu de contexto dos PDFs: "Juntar PDFs com o NuPDF" (vários arquivos selecionados).
-    # O Explorer chama o NuPDF uma vez por arquivo; o main.py (--juntar) reúne tudo
-    # numa só tela. Só para este usuário (HKCU), sem administrador.
-    $verbo = "$classes\SystemFileAssociations\.pdf\shell\NuPDF.Juntar"
-    New-Item -Path "$verbo\command" -Force | Out-Null
-    Set-ItemProperty -Path $verbo -Name "(default)" -Value "Juntar PDFs com o NuPDF"
-    Set-ItemProperty -Path $verbo -Name "Icon" -Value $icone
-    Set-ItemProperty -Path $verbo -Name "MultiSelectModel" -Value "Player"
-    Set-ItemProperty -Path "$verbo\command" -Name "(default)" -Value ($exe -replace '"%1"$', '--juntar "%1"')
+    # Menu de contexto dos PDFs: submenu "NuPDF" > "Juntar..." (como o do PDF24). O
+    # Explorer chama o NuPDF uma vez por arquivo selecionado; o main.py (--juntar) reúne
+    # tudo numa só tela. Só para este usuário (HKCU), sem administrador.
+    $menuPdf = "$classes\SystemFileAssociations\.pdf\shell"
+    Remove-Item "$menuPdf\NuPDF.Juntar" -Recurse -Force -ErrorAction SilentlyContinue  # item antigo (1.22.0)
+    $raizMenu = "$menuPdf\NuPDF"
+    New-Item -Path $raizMenu -Force | Out-Null
+    Set-ItemProperty -Path $raizMenu -Name "MUIVerb" -Value "NuPDF"
+    Set-ItemProperty -Path $raizMenu -Name "Icon" -Value $icone
+    Set-ItemProperty -Path $raizMenu -Name "SubCommands" -Value ""   # vazio: os itens vêm de \shell
+    Set-ItemProperty -Path $raizMenu -Name "MultiSelectModel" -Value "Player"
+    $juntar = "$raizMenu\shell\Juntar"
+    New-Item -Path "$juntar\command" -Force | Out-Null
+    Set-ItemProperty -Path $juntar -Name "MUIVerb" -Value "Juntar..."
+    Set-ItemProperty -Path $juntar -Name "Icon" -Value $icone
+    Set-ItemProperty -Path $juntar -Name "MultiSelectModel" -Value "Player"
+    Set-ItemProperty -Path "$juntar\command" -Name "(default)" -Value ($exe -replace '"%1"$', '--juntar "%1"')
 
     # avisa o Explorer que as associações mudaram
     Add-Type -Namespace NuPDF -Name Shell -MemberDefinition '[DllImport("shell32.dll")] public static extern void SHChangeNotify(int e, int f, IntPtr a, IntPtr b);' -ErrorAction SilentlyContinue

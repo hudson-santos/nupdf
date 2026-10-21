@@ -35,7 +35,8 @@ Remove-ItemProperty -Path "$classes\.pdf\OpenWithProgids" -Name "NuPDF.Documento
 Remove-Item "HKCU:\Software\NuPDF" -Recurse -Force
 Remove-ItemProperty -Path "HKCU:\Software\RegisteredApplications" -Name "NuPDF" -Force
 # menu de contexto "Juntar PDFs com o NuPDF"
-Remove-Item "$classes\SystemFileAssociations\.pdf\shell\NuPDF.Juntar" -Recurse -Force
+Remove-Item "$classes\SystemFileAssociations\.pdf\shell\NuPDF" -Recurse -Force
+Remove-Item "$classes\SystemFileAssociations\.pdf\shell\NuPDF.Juntar" -Recurse -Force  # item da 1.22.0
 # agente da Impressora NuPDF (o processo já foi encerrado no passo 1). A impressora em si
 # exige administrador para sair: "Remover Impressora" no NuPDF antes de desinstalar.
 Remove-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "NuPDF Impressora" -Force

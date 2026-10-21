@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.22.1] - 2026-10-20
+
+### Changed
+- Menu de contexto dos PDFs: submenu "NuPDF" com o item "Juntar..." (como o do PDF24), no lugar
+  de "Juntar PDFs com o NuPDF".
+
 ## [1.22.0] - 2026-10-19
 
 ### Added
