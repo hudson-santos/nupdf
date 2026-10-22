@@ -1150,14 +1150,41 @@ class JanelaPrincipal(QMainWindow):
         cfg.caixa = (pdf.x0, pdf.y0, pdf.x1, pdf.y1)
         self._executar_assinatura(aba, cfg)
 
-    def _executar_assinatura(self, aba: AbaDocumento, cfg):
+    def _destino_assinatura(self, aba: AbaDocumento) -> Path | None:
+        """Pergunta onde gravar o PDF assinado: por cima do PDF aberto ou num PDF novo
+        "<nome> - Assinado.pdf" na mesma pasta. None = cancelado."""
         orig = aba.doc.caminho
-        sugerido = orig.with_name(f"{orig.stem}_assinado.pdf")
-        destino, _ = QFileDialog.getSaveFileName(self, "Salvar documento assinado", str(sugerido),
-                                                 "Documentos PDF (*.pdf)")
-        if not destino:
+        caixa = QMessageBox(self)
+        caixa.setWindowTitle("Salvar Documento Assinado")
+        caixa.setIcon(QMessageBox.NoIcon)
+        caixa.setText(f"Como deseja salvar o documento <b>{aba.doc.nome}</b> assinado ?<br><br>"
+                      "<b>Atualizar PDF Atual</b>: grava a assinatura no próprio arquivo.<br>"
+                      f"<b>Gerar Novo PDF</b>: cria o arquivo <b>{orig.stem} - Assinado.pdf</b>.")
+        atualizar = caixa.addButton("Atualizar PDF Atual", QMessageBox.AcceptRole)
+        novo = caixa.addButton("Gerar Novo PDF", QMessageBox.AcceptRole)
+        cancelar = caixa.addButton("Cancelar", QMessageBox.RejectRole)
+        for botao, nome in ((atualizar, "primario"), (novo, "fechar"), (cancelar, "perigo")):
+            botao.setObjectName(nome)
+            botao.setCursor(Qt.PointingHandCursor)
+            botao.style().unpolish(botao)  # reaplica o QSS com o novo objectName
+            botao.style().polish(botao)
+        caixa.setDefaultButton(atualizar)
+        caixa.setEscapeButton(cancelar)
+        caixa.exec()
+        clicado = caixa.clickedButton()
+        if clicado is atualizar:
+            return orig
+        if clicado is not novo:
+            return None
+        destino, n = orig.with_name(f"{orig.stem} - Assinado.pdf"), 2
+        while destino.exists():  # nunca sobrescreve outro PDF já assinado
+            destino, n = orig.with_name(f"{orig.stem} - Assinado ({n}).pdf"), n + 1
+        return destino
+
+    def _executar_assinatura(self, aba: AbaDocumento, cfg):
+        destino = self._destino_assinatura(aba)
+        if destino is None:
             return
-        destino = Path(destino)
         prog = QProgressDialog("Assinando documento…", None, 0, 0, self)
         prog.setWindowTitle(NOME_APP)
         prog.setWindowModality(Qt.WindowModal)

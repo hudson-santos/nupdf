@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.24.0] - 2026-10-22
+
+### Added
+- Ao assinar, o NuPDF pergunta como salvar: "Atualizar PDF Atual" grava a assinatura no
+  próprio arquivo; "Gerar Novo PDF" cria "<nome> - Assinado.pdf" na mesma pasta (sem
+  sobrescrever um já existente). Nos dois casos o documento assinado abre em seguida.
+
+### Changed
+- O PDF assinado novo passa a se chamar "<nome> - Assinado.pdf" (antes "<nome>_assinado.pdf"),
+  no lugar da janela "Salvar como".
+
 ## [1.23.2] - 2026-10-22
 
 ### Fixed

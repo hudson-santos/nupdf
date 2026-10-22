@@ -441,36 +441,44 @@ def main() -> int:
 
         # fluxo completo: posicionar o retângulo na tela -> assinar -> reabrir (inclui página com /Rotate)
         import pymupdf
-        from PySide6.QtWidgets import QFileDialog
+        from PySide6.QtWidgets import QMessageBox
         drot = pymupdf.open(str(pdf))
         drot[1].set_rotation(90)
         drot.save(str(pasta / "rot.pdf"))
-        for nome_pdf, pagina in (("teste.pdf", 0), ("rot.pdf", 1)):
+        exec_original = QMessageBox.exec
+        # "Gerar Novo PDF" -> "<nome> - Assinado.pdf"; "Atualizar PDF Atual" -> sobrescreve o aberto
+        for nome_pdf, pagina, escolha, nome_destino in (
+                ("teste.pdf", 0, "Gerar Novo PDF", "teste - Assinado.pdf"),
+                ("rot.pdf", 1, "Atualizar PDF Atual", "rot.pdf")):
             aba = jan.abrir_arquivo(str(pasta / nome_pdf))
             app.processEvents()
             # retângulo como o usuário vê na tela (espaço visual) -> espaço não rotacionado
             visual = pymupdf.Rect(320, 100, 530, 160)
             alvo = (visual * aba.doc.doc[pagina].derotation_matrix).normalize()
-            destino = pasta / f"gui_{nome_pdf}"
-            QFileDialog.getSaveFileName = staticmethod(lambda *a, **k: (str(destino), ""))
+            destino = pasta / nome_destino
+            antes = destino.stat().st_mtime_ns if destino.exists() else None
+            QMessageBox.exec = lambda caixa, e=escolha: next(
+                b for b in caixa.buttons() if b.text() == e).click()
             cfg = ConfigAssinatura(info, impressao="TESTE", der=b"x", visivel=True)
             aba.cfg_pendente = cfg
             aba.visualizador.iniciar_posicionamento()
             aba.visualizador.retanguloDesenhado.emit(pagina, alvo)
+            QMessageBox.exec = exec_original
             import time
             t0 = time.time()
-            while not destino.exists() and time.time() - t0 < 20:
+            while (not destino.exists() or destino.stat().st_mtime_ns == antes) and time.time() - t0 < 20:
                 app.processEvents()
             for _ in range(20):
                 app.processEvents()
-            ok = destino.exists()
+            ok = destino.exists() and destino.stat().st_mtime_ns != antes
             if ok:
                 dd = pymupdf.open(str(destino))
                 ws = [w for w in dd[pagina].widgets() if w.field_type == pymupdf.PDF_WIDGET_TYPE_SIGNATURE]
                 r = pymupdf.Rect(ws[0].rect) if ws else None
                 ok = r is not None and abs(r.x0 - alvo.x0) < 2 and abs(r.y0 - alvo.y0) < 2 and abs(r.x1 - alvo.x1) < 2
-            checar(f"assinatura via interface na posição certa ({nome_pdf})", ok, str(r if destino.exists() else "sem arquivo"))
-            if destino.exists():
+            checar(f"assinatura via interface na posição certa ({escolha}: {nome_destino})", ok,
+                   str(r) if ok else "sem arquivo")
+            if ok:
                 dd[pagina].get_pixmap(dpi=110).save(str(pasta / f"gui_{nome_pdf}.png"))
             checar(f"aba reaberta com painel de assinaturas ({nome_pdf})",
                    jan.aba_atual() is not None and jan.aba_atual().painel == "assinaturas")
