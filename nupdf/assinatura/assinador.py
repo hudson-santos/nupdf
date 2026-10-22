@@ -14,7 +14,7 @@ from io import BytesIO
 from pathlib import Path
 
 from pyhanko import stamp
-from pyhanko.pdf_utils import generic
+from pyhanko.pdf_utils import generic, layout
 from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
 from pyhanko.pdf_utils.reader import PdfFileReader
 from pyhanko.sign import fields, signers, timestamps
@@ -251,7 +251,13 @@ def _assinar(dados: bytes, cfg: ConfigAssinatura, senha_pdf: str | None, signer,
             if area and not ja_assinado:  # carimbo (origem em cima) -> página (origem embaixo)
                 _adicionar_link(w, cfg.pagina, (x0 + area[0], y1 - area[3], x0 + area[2], y1 - area[1]),
                                 URL_VALIDAR)
-            estilo = stamp.StaticStampStyle.from_pdf_file(carimbo, border_width=0)
+            # o carimbo já tem o tamanho da caixa: sem a margem de 5 pt e o encolhimento
+            # proporcional padrão do pyHanko, ele ocupa exatamente a área selecionada
+            estilo = stamp.StaticStampStyle.from_pdf_file(
+                carimbo, border_width=0,
+                background_layout=layout.SimpleBoxLayoutRule(
+                    x_align=layout.AxisAlignment.ALIGN_MIN, y_align=layout.AxisAlignment.ALIGN_MIN,
+                    inner_content_scaling=layout.InnerScaling.STRETCH_FILL))
         else:
             spec = fields.SigFieldSpec(sig_field_name=nome)
             estilo = None

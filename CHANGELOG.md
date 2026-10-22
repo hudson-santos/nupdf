@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.23.2] - 2026-10-22
+
+### Fixed
+- Assinatura visível ocupa exatamente a área selecionada no PDF: antes o carimbo ficava menor e
+  centralizado dentro dela (margem e redução proporcional padrão do pyHanko), principalmente
+  em áreas largas e baixas. O link "validar.iti.gov.br" passa a ficar exatamente sobre o texto.
+
 ## [1.23.1] - 2026-10-21
 
 ### Changed
