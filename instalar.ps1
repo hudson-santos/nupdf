@@ -285,6 +285,22 @@ function Etapa7-CriarAtalhos {
         Write-Host "      [AVISO] Nao foi possivel registrar o NuPDF em `"Abrir com`": $_"
     }
     Write-Host "      Atalhos criados."
+
+    # Impressora NuPDF já instalada: o agente (encerrado na etapa 1) volta a rodar e a
+    # iniciar com o Windows - inclusive nas atualizações em /VERYSILENT, que não abrem o
+    # NuPDF. Instalar a impressora pede administrador: é feito pelo Instalador.exe na
+    # instalação manual (instalador\Setup.cs) ou pelo botão "Impressora NuPDF" do app.
+    if (Test-Path "HKLM:\SYSTEM\CurrentControlSet\Control\Print\Printers\NuPDF") {
+        try {
+            $run = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+            Set-ItemProperty -Path $run -Name "NuPDF Impressora" `
+                -Value "`"$PYTHONW_EXE`" `"$mainPy`" `"--impressora`""
+            Start-Process -FilePath $PYTHONW_EXE -ArgumentList "`"$mainPy`"", "--impressora" -WorkingDirectory $APP_DIR
+            Write-Host "      Agente da Impressora NuPDF iniciado."
+        } catch {
+            Write-Host "      [AVISO] Nao foi possivel iniciar o agente da Impressora NuPDF: $_"
+        }
+    }
 }
 
 

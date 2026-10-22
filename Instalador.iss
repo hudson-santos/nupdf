@@ -71,7 +71,8 @@ Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortugue
 [Files]
 Source: "main.py"; DestDir: "{app}"; Flags: ignoreversion
 Source: "NuPDF.cs"; DestDir: "{app}"; Flags: ignoreversion
-; Impressora NuPDF: instalada/removida pelo app, com administrador (nupdf/impressora_virtual.py)
+; Impressora NuPDF: instalada pelo Instalador.exe na instalação manual (instalador\Setup.cs) ou
+; pelo app (nupdf/impressora_virtual.py), sempre com a confirmação de administrador
 Source: "impressora.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "nupdf\*"; DestDir: "{app}\nupdf"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "__pycache__,.claude"
 Source: "assets\*"; DestDir: "{app}\assets"; Flags: ignoreversion recursesubdirs createallsubdirs

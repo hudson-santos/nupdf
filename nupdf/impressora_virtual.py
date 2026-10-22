@@ -96,8 +96,13 @@ def remover_inicio():
 
 
 def iniciar_agente():
-    """Garante o agente rodando (chamado ao abrir o NuPDF e depois de instalar)."""
-    if not instalada() or agente_rodando():
+    """Garante o agente rodando e iniciando com o Windows (chamado ao abrir o NuPDF e depois
+    de instalar). A impressora é da máquina e o agente é por usuário: cobre a impressora
+    instalada pelo Instalador.exe e os outros usuários do mesmo computador."""
+    if not instalada():
+        return
+    registrar_inicio()
+    if agente_rodando():
         return
     flags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
     subprocess.Popen(_comando_agente(), cwd=str(APP_DIR), creationflags=flags, close_fds=True)

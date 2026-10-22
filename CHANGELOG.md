@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.25.0] - 2026-10-22
+
+### Added
+- Instalador.exe aberto manualmente instala também a Impressora NuPDF, se ainda não existir
+  (com a confirmação de administrador do Windows; recusando, a instalação segue sem ela). A
+  atualização automática nunca pede a confirmação.
+
+### Changed
+- Ícone do botão "Impressora NuPDF" no topo (documento com engrenagem), para não ser
+  confundido com o de imprimir.
+
+### Fixed
+- Agente da Impressora NuPDF parava depois de cada atualização até reiniciar o Windows: o
+  instalador o religa, e o NuPDF ao abrir o registra para iniciar com o Windows (inclusive
+  para outros usuários do mesmo computador).
+
 ## [1.24.0] - 2026-10-22
 
 ### Added

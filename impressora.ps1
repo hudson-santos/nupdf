@@ -1,6 +1,7 @@
 ﻿<#
     Impressora NuPDF - instala ou remove (executado com administrador, pela
-    confirmação do Windows, a partir do NuPDF: nupdf/impressora_virtual.py).
+    confirmação do Windows, a partir do NuPDF - nupdf/impressora_virtual.py - ou do
+    Instalador.exe na instalação manual - instalador\Setup.cs).
 
     Mesmo modelo do PDF24: impressora "NuPDF" com o driver "Microsoft Print To PDF"
     do Windows e, como porta, o pipe \\.\pipe\NuPDFPrint - o agente do NuPDF

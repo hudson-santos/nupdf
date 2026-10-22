@@ -347,7 +347,7 @@ class JanelaPrincipal(QMainWindow):
         b_juntar = ui.botao("juntar", "Juntar PDFs")
         b_juntar.clicked.connect(lambda: self.juntar_pdfs())
         lay.addWidget(b_juntar)
-        b_impressora = ui.botao("imprimir", "Impressora NuPDF")
+        b_impressora = ui.botao("impressora_pdf", "Impressora NuPDF")
         b_impressora.clicked.connect(self.impressora_nupdf)
         lay.addWidget(b_impressora)
         self.b_atualizacao = ui.botao("atualizar", "Verificar Atualizações")

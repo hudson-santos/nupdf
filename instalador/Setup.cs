@@ -9,7 +9,9 @@
 // Modos:
 //   (sem parâmetros) ou /SILENT  -> esta janela (instalação manual e a atualização
 //                                   automática do NuPDF, que passa /SILENT); no fim
-//                                   abre o NuPDF.
+//                                   abre o NuPDF. Só na instalação manual (sem /SILENT)
+//                                   instala também a Impressora NuPDF, se ainda não
+//                                   existir (pede a confirmação de administrador).
 //   /VERYSILENT                  -> sem janela nenhuma: repassa os parâmetros ao Inno
 //                                   e devolve o código de saída dele (Microsoft Store,
 //                                   implantações automatizadas).
@@ -36,6 +38,8 @@ using System.Windows.Forms;
 internal static class Programa
 {
     internal const string PastaApp = @"C:\NuPDF";
+    // aberto pelo usuário (sem /SILENT, que é a atualização automática do NuPDF)
+    internal static bool InstalacaoManual;
 
     [DllImport("user32.dll")]
     private static extern bool SetProcessDPIAware();
@@ -47,6 +51,7 @@ internal static class Programa
         if (muitoSilencioso)
             return Motor.Executar(string.Join(" ", args.Select(Citar)), null);
 
+        InstalacaoManual = !args.Any(a => string.Equals(a, "/SILENT", StringComparison.OrdinalIgnoreCase));
         try { SetProcessDPIAware(); } catch { }
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
@@ -306,17 +311,23 @@ internal sealed class JanelaInstalacao : Form
         try { File.Delete(_arquivoProgresso); } catch { }
         if (codigo == 0)
         {
-            _estado = Estado.Concluido;
-            _status = "";
-            Invalidate();
-            if (_escondida)
+            // Impressora NuPDF: só na instalação manual (a atualização automática nunca pede a
+            // confirmação de administrador) e só se ainda não existir. Pedida daqui, com esta
+            // janela em primeiro plano, para a confirmação do Windows aparecer na frente.
+            if (Programa.InstalacaoManual && !_escondida && !ImpressoraInstalada())
             {
-                Close();  // o usuário fechou a janela: termina em segundo plano, sem abrir o NuPDF
+                _status = "Instalando a Impressora NuPDF";
+                _inicio = Math.Max(_exibido, 99); _fim = 100;
+                _inicioEtapa = _relogio.Elapsed.TotalSeconds;
+                var t = new Thread(() =>
+                {
+                    InstalarImpressora();
+                    BeginInvoke(new Action(Concluir));
+                }) { IsBackground = true };
+                t.Start();
                 return;
             }
-            var fechar = new System.Windows.Forms.Timer { Interval = 1400 };
-            fechar.Tick += (o, e) => { fechar.Stop(); AbrirNuPDF(); Close(); };
-            fechar.Start();
+            Concluir();
         }
         else
         {
@@ -328,6 +339,53 @@ internal sealed class JanelaInstalacao : Form
             if (_escondida) { Close(); return; }
             Invalidate();
         }
+    }
+
+    private static bool ImpressoraInstalada()
+    {
+        try
+        {
+            using (var k = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(
+                       @"SYSTEM\CurrentControlSet\Control\Print\Printers\NuPDF"))
+                return k != null;
+        }
+        catch { return false; }
+    }
+
+    // impressora.ps1 com a confirmação do Windows (UAC); recusada, segue sem a impressora
+    // (dá para instalar depois pelo botão "Impressora NuPDF" do app). O agente que recebe as
+    // impressões é ligado pelo próprio NuPDF ao abrir (nupdf/impressora_virtual.py).
+    private static void InstalarImpressora()
+    {
+        string script = Path.Combine(Programa.PastaApp, "impressora.ps1");
+        if (!File.Exists(script)) return;
+        string sistema = Environment.Is64BitOperatingSystem && !Environment.Is64BitProcess
+            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "Sysnative")
+            : Environment.SystemDirectory;
+        try
+        {
+            var info = new ProcessStartInfo(Path.Combine(sistema, @"WindowsPowerShell\v1.0\powershell.exe"),
+                "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"" + script + "\" -Acao instalar")
+                { UseShellExecute = true, Verb = "runas", WindowStyle = ProcessWindowStyle.Hidden };
+            using (Process p = Process.Start(info))
+                p.WaitForExit();
+        }
+        catch { }  // Win32Exception 1223: o usuário recusou a confirmação
+    }
+
+    private void Concluir()
+    {
+        _estado = Estado.Concluido;
+        _status = "";
+        Invalidate();
+        if (_escondida)
+        {
+            Close();  // o usuário fechou a janela: termina em segundo plano, sem abrir o NuPDF
+            return;
+        }
+        var fechar = new System.Windows.Forms.Timer { Interval = 1400 };
+        fechar.Tick += (o, e) => { fechar.Stop(); AbrirNuPDF(); Close(); };
+        fechar.Start();
     }
 
     private static void AbrirNuPDF()
