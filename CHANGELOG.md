@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.25.1] - 2026-10-23
+
+### Changed
+- Janela do instalador sem o botão de minimizar: só o de fechar no canto.
+
 ## [1.25.0] - 2026-10-22
 
 ### Added

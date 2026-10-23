@@ -415,7 +415,6 @@ internal sealed class JanelaInstalacao : Form
 
     // ------------------------------------------------------------------ áreas clicáveis
     private Rectangle RetFechar { get { return new Rectangle(ClientSize.Width - E(44), E(8), E(36), E(30)); } }
-    private Rectangle RetMinimizar { get { return new Rectangle(ClientSize.Width - E(82), E(8), E(36), E(30)); } }
     private Rectangle RetTentar { get { return new Rectangle(ClientSize.Width / 2 - E(156), E(228), E(150), E(36)); } }
     private Rectangle RetSair { get { return new Rectangle(ClientSize.Width / 2 + E(6), E(228), E(150), E(36)); } }
     private Rectangle RetLog { get { return new Rectangle(ClientSize.Width / 2 - E(50), E(272), E(100), E(20)); } }
@@ -423,7 +422,6 @@ internal sealed class JanelaInstalacao : Form
     private string AreaEm(Point p)
     {
         if (RetFechar.Contains(p)) return "fechar";
-        if (RetMinimizar.Contains(p)) return "minimizar";
         if (_estado == Estado.Erro)
         {
             if (RetTentar.Contains(p)) return "tentar";
@@ -467,7 +465,6 @@ internal sealed class JanelaInstalacao : Form
         switch (AreaEm(e.Location))
         {
             case "fechar": Fechar(); break;
-            case "minimizar": WindowState = FormWindowState.Minimized; break;
             case "tentar": Iniciar(); break;
             case "sair": Close(); break;
             case "log": AbrirLog(); break;
@@ -518,8 +515,7 @@ internal sealed class JanelaInstalacao : Form
             using (var caneta = new Pen(Borda))
                 g.DrawRectangle(caneta, 0, 0, ClientSize.Width - 1, ClientSize.Height - 1);
 
-        DesenharBotaoJanela(g, RetMinimizar, "minimizar");
-        DesenharBotaoJanela(g, RetFechar, "fechar");
+        DesenharBotaoFechar(g, RetFechar);  // só o fechar, sem minimizar (como o do OnlyOffice)
 
         int tamLogo = E(60);
         g.DrawImage(_logo, new Rectangle((w - tamLogo) / 2, E(34), tamLogo, tamLogo));
@@ -630,21 +626,16 @@ internal sealed class JanelaInstalacao : Form
         }
     }
 
-    private void DesenharBotaoJanela(Graphics g, Rectangle r, string nome)
+    private void DesenharBotaoFechar(Graphics g, Rectangle r)
     {
-        if (_hover == nome)
+        if (_hover == "fechar")
             using (var b = new SolidBrush(Hover))
                 PreencherArredondado(g, b, r, E(6));
         using (var caneta = new Pen(Texto2, Math.Max(1f, 1.2f * _s)))
         {
             float cx = r.X + r.Width / 2f, cy = r.Y + r.Height / 2f, m = E(5);
-            if (nome == "fechar")
-            {
-                g.DrawLine(caneta, cx - m, cy - m, cx + m, cy + m);
-                g.DrawLine(caneta, cx - m, cy + m, cx + m, cy - m);
-            }
-            else
-                g.DrawLine(caneta, cx - m, cy, cx + m, cy);
+            g.DrawLine(caneta, cx - m, cy - m, cx + m, cy + m);
+            g.DrawLine(caneta, cx - m, cy + m, cx + m, cy - m);
         }
     }
 
