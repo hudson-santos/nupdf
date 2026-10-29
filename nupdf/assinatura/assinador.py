@@ -19,6 +19,7 @@ from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
 from pyhanko.pdf_utils.reader import PdfFileReader
 from pyhanko.sign import fields, signers, timestamps
 
+from ..versao import VERSAO
 from .certificado import InfoCertificado
 
 
@@ -67,6 +68,7 @@ def _gerar_carimbo(info: InfoCertificado, largura: float, altura: float,
         linhas.append(("helv", f"{'CPF' if info.tipo == 'e-CPF' else 'CNPJ'}: {info.documento}", 0.10))
     linhas.append(("helv", f"Data/Hora: {agora:%d/%m/%Y %H:%M:%S} {agora:%z}", 0.10))
     linhas.append(("helv", f"Verifique em {_DOMINIO_VALIDAR}", 0.42))
+    linhas.append(("helv", f"Assinado com NuPDF - Versão: {VERSAO}", 0.42))
 
     rotacao %= 360
     if rotacao in (90, 270):  # desenha na orientação que o usuário vê

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.25.2] - 2026-10-29
+
+### Changed
+- Carimbo da assinatura visível ganha a linha "Assinado com NuPDF - Versão: X.Y.Z", abaixo de
+  "Verifique em validar.iti.gov.br".
+
 ## [1.25.1] - 2026-10-23
 
 ### Changed
