@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.26.2] - 2026-10-31
+
+### Changed
+- Tela inicial sem o subtítulo "Leia PDFs, Copie Dados e Assine Digitalmente com Certificado
+  ICP-Brasil" abaixo do nome "nupdf.".
+
 ## [1.26.1] - 2026-10-31
 
 ### Changed

@@ -150,10 +150,6 @@ class TelaInicial(QWidget):
         titulo = _logo_nome("tituloInicio")
         titulo.setAlignment(Qt.AlignCenter)
         lay.addWidget(titulo)
-        sub = QLabel("Leia PDFs, Copie Dados e Assine Digitalmente com Certificado ICP-Brasil")
-        sub.setObjectName("sub")
-        sub.setAlignment(Qt.AlignCenter)
-        lay.addWidget(sub)
         lay.addSpacing(10)
 
         zona = QFrame()
