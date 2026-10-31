@@ -332,6 +332,3 @@ class AbaDocumento(QWidget):
         self.area.busca.abrir(texto if len(texto) < 80 and "\n" not in texto else "")
         self.area.reposicionar()
 
-    def atualizar_cores(self):
-        self.visualizador.atualizar_cores(ui.cores())
-        self.assinaturas.redesenhar()

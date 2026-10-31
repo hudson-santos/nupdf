@@ -187,7 +187,6 @@ def selecionar_linha(v, pagina: int, primeira_palavra: str):
 
 
 def main():
-    from nupdf import tema
     from nupdf.assinatura.assinador import ConfigAssinatura, assinar_pdf
     from nupdf.assinatura.certificado import info_de_certificado
     from nupdf.assinatura.validador import confiar
@@ -220,8 +219,6 @@ def main():
     j = JanelaPrincipal()
     j.resize(LARGURA, ALTURA)
     j.show()
-    if j.escuro:
-        j.alternar_tema()
     for p in (relatorio, assinado, contrato):
         j.config.adicionar_recente(str(p))
     j.inicio.atualizar(j.config.recentes())
@@ -278,16 +275,6 @@ def main():
     esperar(0.6)
     salvar(compor_dialogo(fundo, dlg.grab().toImage(), "Assinar Documento"), "captura-05-assinar-com-certificado.png")
     dlg.close()
-
-    # 6) tema escuro
-    j.alternar_tema()
-    aba = j.abrir_arquivo(str(relatorio))  # já aberto: só troca de aba
-    aba.visualizador.limpar_selecao()
-    if aba.painel != "miniaturas":
-        aba.mostrar_painel("miniaturas")
-    esperar(1.5)
-    salvar(j.grab().toImage(), "captura-06-tema-escuro.png")
-    j.alternar_tema()
     return j
 
 

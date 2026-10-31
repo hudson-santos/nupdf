@@ -214,10 +214,6 @@ class Visualizador(QScrollArea):
         self._cache.clear()
         self._cache_bytes = 0
 
-    def atualizar_cores(self, cores: dict):
-        self.cores = cores
-        self._pag.update()
-
     # ------------------------------------------------------------------ navegação
     @property
     def pagina_atual(self) -> int:

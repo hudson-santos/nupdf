@@ -8,7 +8,7 @@ from PySide6.QtWidgets import QAbstractButton, QFrame, QLabel, QToolButton, QWid
 from . import tema
 from .icones import icone, largura_icone
 
-_cores: dict = tema.ESCURO
+_cores: dict = tema.CLARO
 _registro: list = []  # (widget, nome_icone, tamanho, chave_cor)
 
 

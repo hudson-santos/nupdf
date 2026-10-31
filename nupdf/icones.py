@@ -51,8 +51,6 @@ _SVG = {
     "acima": '<path d="m18 15-6-6-6 6"/>',
     "seta_menu": '<path d="m6 9 6 6 6-6"/>',
     "abaixo": '<path d="m6 9 6 6 6-6"/>',
-    "sol": '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>',
-    "lua": '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
     "arquivo": '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8M16 17H8M10 9H8"/>',
     "menos": '<path d="M5 12h14"/>',
     "mais": '<path d="M12 5v14M5 12h14"/>',

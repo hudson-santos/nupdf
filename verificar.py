@@ -467,7 +467,6 @@ def main() -> int:
         aba.mostrar_painel("miniaturas")
         for _ in range(50):
             app.processEvents()
-        jan.alternar_tema()
         jan.fechar_aba(0)
         # recentes: remover um e limpar todos (só a lista - os arquivos continuam lá)
         ini = jan.inicio

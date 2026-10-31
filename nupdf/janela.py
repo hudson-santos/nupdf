@@ -254,10 +254,9 @@ class JanelaPrincipal(QMainWindow):
     def __init__(self, verificar_atualizacao: bool = False):
         super().__init__()
         self.config = Config()
-        self.escuro = self.config.tema_escuro()
         tema.carregar_fontes()
-        ui.definir_cores(tema.paleta(self.escuro))
-        tema.aplicar(QApplication.instance(), self.escuro)
+        ui.definir_cores(tema.CLARO)
+        tema.aplicar(QApplication.instance())
         self.setWindowTitle(NOME_APP)
         self.setWindowIcon(icone_app())
         self.setAcceptDrops(True)
@@ -348,9 +347,6 @@ class JanelaPrincipal(QMainWindow):
         self.b_atualizacao = ui.botao("atualizar", "Verificar Atualizações")
         self.b_atualizacao.clicked.connect(self.verificar_atualizacoes)
         lay.addWidget(self.b_atualizacao)
-        self.b_tema = ui.botao("sol" if self.escuro else "lua", "Alternar Tema Claro/Escuro")
-        self.b_tema.clicked.connect(self.alternar_tema)
-        lay.addWidget(self.b_tema)
         sobre = ui.botao("info", "Sobre o NuPDF")
         sobre.clicked.connect(self._sobre)
         lay.addWidget(sobre)
@@ -1213,17 +1209,6 @@ class JanelaPrincipal(QMainWindow):
         tarefa.start()
 
     # ================================================================== diversos
-    def alternar_tema(self):
-        self.escuro = not self.escuro
-        self.config.set("tema_escuro", self.escuro)
-        ui.definir_cores(tema.paleta(self.escuro))
-        tema.aplicar(QApplication.instance(), self.escuro)
-        ui.aplicar_icone(self.b_tema, "sol" if self.escuro else "lua")
-        for aba in self.abas:
-            aba.atualizar_cores()
-        for i in range(self.tabbar.count()):
-            self.tabbar.setTabIcon(i, icone("arquivo", ui.cores()["texto2"], 14))
-
     def verificar_atualizacoes(self):
         from .dialogo_atualizacao import DialogoAtualizacao
         DialogoAtualizacao(self).exec()

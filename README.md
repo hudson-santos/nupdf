@@ -6,7 +6,7 @@ Leitor de PDF leve para uso corporativo interno: **ler**, **copiar dados** e
 ## Funcionalidades
 
 - **Leitura**: abas, miniaturas, zoom (Ctrl + roda), ajuste à largura/página,
-  rotação, modo mão, busca (Ctrl+F), impressão, tema claro/escuro, recentes,
+  rotação, modo mão, busca (Ctrl+F), impressão, recentes,
   arrastar e soltar. Instância única (PDFs do Explorer abrem em abas).
 - **Copiar dados**: seleção de texto em ordem visual (duplo clique = palavra,
   triplo = linha, Alt+arrastar = retângulo), Ctrl+C e menu de contexto.

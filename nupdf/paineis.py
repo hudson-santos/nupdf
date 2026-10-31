@@ -700,10 +700,6 @@ class PainelAssinaturas(QWidget):
         self.status.setText(texto)
         self.status.setVisible(bool(texto))
 
-    def redesenhar(self):
-        if self._resultados is not None:
-            self._exibir(self._resultados)
-
     def carregar(self, forcar=False):
         if self._carregado and not forcar:
             return

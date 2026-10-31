@@ -1,4 +1,4 @@
-"""Paletas claro/escuro, fonte e folha de estilo (QSS) do NuPDF."""
+"""Paleta (tema claro), fonte e folha de estilo (QSS) do NuPDF."""
 
 from pathlib import Path
 from string import Template
@@ -35,35 +35,8 @@ def carregar_fontes():
         QApplication.setFont(fonte)
 
 # Cores da identidade visual do NuPDF (claude-design/nupdf, "nupdf cores"): vermelho coral
-# (brand-500 #E5484D) sobre o preto e os neutros da Nukt. Botões: #CC343A com texto branco
-# no claro e a primária do modo escuro (#F2787C) com texto preto. Status de assinatura nas
-# cores de texto de cada selo (válida / não verificada / documento alterado).
-ESCURO = {
-    "janela": "#07080c",         # fundo
-    "barra": "#0b0d12",          # superfície
-    "superficie": "#0b0d12",
-    "superficie2": "#1d2129",    # superfície 2
-    "hover": "#343a46",
-    "borda": "#343a46",
-    "canvas": "#1d2129",
-    "rolagem": "#4a5261",        # alça da barra de rolagem (visível sobre o canvas)
-    "rolagem_hover": "#687180",
-    "texto": "#ebedf1",
-    "texto2": "#949ca9",
-    "texto3": "#687180",
-    "destaque": "#f2787c",       # primária do modo escuro
-    "destaque_hover": "#ef878b",
-    "destaque_suave": "#3a0f1e",
-    "botao": "#f2787c",
-    "botao_hover": "#ef878b",
-    "botao_texto": "#0b0d12",
-    "ok": "#6ee7a0",
-    "aviso": "#fbbf5c",
-    "erro": "#fda4c0",
-    "selecao": "#3b82f6",
-    "sombra": "#000000",
-}
-
+# (brand-500 #E5484D) sobre o preto e os neutros da Nukt. Botões: #CC343A com texto branco. Status de
+# assinatura nas cores de texto de cada selo (válida / não verificada / documento alterado).
 CLARO = {
     "janela": "#f5f6f8",         # neutral-50
     "barra": "#ffffff",
@@ -228,24 +201,20 @@ QTabWidget > QTabBar::tab:selected { background: $superficie2; }
 """)
 
 
-def paleta(escuro: bool) -> dict:
-    return ESCURO if escuro else CLARO
-
-
-def aplicar(app, escuro: bool):
+def aplicar(app):
     """Folha de estilo + paleta do tema. A cor de destaque (Highlight) da paleta
     vira o cinza do tema - o azul padrão do Qt aparecia em listas suspensas."""
     from PySide6.QtGui import QColor, QPalette
-    c = paleta(escuro)
+    c = CLARO
     pal = app.palette()
     for grupo in (QPalette.Active, QPalette.Inactive):
         pal.setColor(grupo, QPalette.Highlight, QColor(c["hover"]))
         pal.setColor(grupo, QPalette.HighlightedText, QColor(c["texto"]))
     app.setPalette(pal)
-    app.setStyleSheet(qss(escuro))
+    app.setStyleSheet(qss())
 
 
-def qss(escuro: bool) -> str:
+def qss() -> str:
     # caminho com "/" (o QSS não aceita "\\" do Windows)
     check = (Path(__file__).resolve().parents[1] / "assets" / "check.svg").as_posix()
-    return _QSS.substitute(paleta(escuro), check=check, familia=_familia)
+    return _QSS.substitute(CLARO, check=check, familia=_familia)

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.26.3] - 2026-10-31
+
+### Changed
+- Tema escuro removido: o NuPDF usa sempre o tema claro (também para quem estava no escuro) e
+  o botão "Alternar Tema Claro/Escuro" saiu da barra do topo.
+
 ## [1.26.2] - 2026-10-31
 
 ### Changed
