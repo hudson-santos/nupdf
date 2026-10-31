@@ -30,6 +30,17 @@ execute por conta própria, mesmo que a mudança pareça pronta para liberar.
 5. Rode a verificação de integridade:
    `/c/App/NuPDF/venv/Scripts/python.exe verificar.py`
    Se falhar, **pare** e informe o usuário - sem commit nem push.
+5b. Compile e publique o instalador no Cloudflare R2 (o GitHub Actions não
+   compila mais nada):
+   `powershell -ExecutionPolicy Bypass -File instalador\publicar.ps1`
+   Compila o `Instalador.exe` localmente, gera o `versao.json` (novidades da
+   seção da versão no CHANGELOG) e envia `Instalador-X.Y.Z.exe`,
+   `Instalador.exe` e `versao.json` para
+   `https://arquivos.nukt.com.br/atualizacoes/nupdf/` (bucket `nds`) - é de lá
+   que os NuPDF instalados se atualizam. Precisa vir ANTES do push: o workflow
+   anexa à Release o instalador baixado do R2. Se falhar (ex.: login do
+   wrangler expirado - o usuário roda `npx wrangler login` num terminal),
+   **pare** e informe o usuário - sem commit nem push.
 6. `git status` e `git add` só nos arquivos relevantes (`CHANGELOG.md`,
    `nupdf/versao.py` e os arquivos alterados desde a última release) -
    nunca `git add -A`/`git add .`. Confira que nada sensível (certificados,
@@ -44,12 +55,14 @@ execute por conta própria, mesmo que a mudança pareça pronta para liberar.
    ```
 
    A primeira linha precisa começar com `Versão - [` - é o gatilho do
-   workflow que cria a tag/Release e compila o `Instalador.exe`. Sem linha
+   workflow que cria a tag/Release (com o `Instalador.exe` baixado do R2,
+   para os NuPDF até a 1.25.2, que procuram atualização no GitHub). Sem linha
    `Co-Authored-By` (nem outra atribuição) - em nenhum commit do repositório.
 8. `git push origin main`.
 9. Confirme para o usuário a nova versão com o link do commit
    (`https://github.com/hudson-santos/nupdf/commit/<hash>`) e o da página
-   de Actions (`https://github.com/hudson-santos/nupdf/actions`).
+   de Actions (`https://github.com/hudson-santos/nupdf/actions`), além do
+   `https://arquivos.nukt.com.br/atualizacoes/nupdf/versao.json` publicado.
 
 ### Regra geral
 

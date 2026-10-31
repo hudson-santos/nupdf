@@ -1,7 +1,7 @@
-// O download aponta para "releases/latest/download/Instalador.exe": o GitHub
-// redireciona sempre para o Instalador.exe da release mais recente (gerado pelo
-// workflow .github/workflows/versao.yml), sem precisar republicar o site. A
-// página ainda busca a versão/tamanho da última release (ver pages/index.astro).
+// O download aponta para o Instalador.exe da última versão no Cloudflare R2
+// (publicado pelo instalador\publicar.ps1 a cada versão), sem precisar republicar
+// o site. A página ainda busca versão/data/tamanho no versao.json, repassado pelo
+// worker do site em /versao.json (ver worker/index.js e pages/index.astro).
 export const REPO = 'https://github.com/hudson-santos/nupdf';
-export const DOWNLOAD = `${REPO}/releases/latest/download/Instalador.exe`;
-export const API_RELEASE = 'https://api.github.com/repos/hudson-santos/nupdf/releases/latest';
+export const DOWNLOAD = 'https://arquivos.nukt.com.br/atualizacoes/nupdf/Instalador.exe';
+export const VERSAO_JSON = '/versao.json';

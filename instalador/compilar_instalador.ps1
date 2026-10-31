@@ -3,7 +3,8 @@
 #   2. Inno Setup: Instalador.iss -> InstaladorInno.exe (o motor da instalação)
 #   3. csc.exe do .NET Framework do Windows: instalador\Setup.cs -> Instalador.exe,
 #      a janela de instalação, com o InstaladorInno.exe embutido como recurso.
-# Usado no GitHub Actions (.github/workflows/versao.yml) e para compilar localmente:
+# Compilado só localmente (o GitHub Actions não compila mais) - chamado pelo
+# instalador\publicar.ps1, que publica a versão no Cloudflare R2, ou direto:
 #   powershell -ExecutionPolicy Bypass -File instalador\compilar_instalador.ps1
 $ErrorActionPreference = "Stop"
 $raiz = Split-Path $PSScriptRoot -Parent

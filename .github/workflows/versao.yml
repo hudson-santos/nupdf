@@ -5,7 +5,14 @@ name: versao
 # tag e a Release do GitHub dessa versão (nome da Release = só "X.Y.Z"),
 # com a descrição copiada direto do CHANGELOG.md (a mesma fonte
 # única já usada em todo o resto do projeto - nada aqui fica hardcoded
-# por versão) e o Instalador.exe recém-compilado como anexo.
+# por versão).
+#
+# O Instalador.exe NÃO é compilado aqui: é gerado localmente e publicado no
+# Cloudflare R2 pelo instalador\publicar.ps1 ANTES do push
+# (https://arquivos.nukt.com.br/atualizacoes/nupdf/). Este workflow só baixa de lá
+# o Instalador-X.Y.Z.exe, confere o SHA-256 com o versao.json publicado e o anexa
+# à Release - é por esse anexo que os NuPDF até a 1.25.2 (que procuram atualização
+# no GitHub) recebem a versão nova, que já passa a usar o R2.
 "on":
   push:
     branches: [main]
@@ -16,7 +23,7 @@ permissions:
 jobs:
   release:
     if: startsWith(github.event.head_commit.message, 'Versão - [')
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     env:
       # e-mail de aviso no fim (ver "Enviar o e-mail da release"): sem o secret, não envia
       SMTP_SERVIDOR: ${{ secrets.SMTP_SERVIDOR }}
@@ -94,22 +101,27 @@ jobs:
             echo "CHANGELOG_EOF"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Instalar o Inno Setup
-        shell: powershell
-        run: choco install innosetup -y --no-progress
-
-      # pip do build: monta o Python embutido do NuPDF (build/python) com as
-      # dependências do requirements.txt - ver instalador/compilar_instalador.ps1
-      - name: Python do build
-        uses: actions/setup-python@v6  # Node 24
-        with:
-          python-version: "3.14"
-
-      # Inno Setup (motor, InstaladorInno.exe) + janela de instalação própria
-      # (instalador/Setup.cs) com o motor embutido -> Instalador.exe
-      - name: Compilar o Instalador.exe
-        shell: powershell
-        run: powershell -NoProfile -ExecutionPolicy Bypass -File instalador\compilar_instalador.ps1
+      - name: Baixar o Instalador.exe publicado no R2
+        shell: bash
+        env:
+          VERSAO: ${{ steps.versao.outputs.versao }}
+        run: |
+          set -euo pipefail
+          BASE="https://arquivos.nukt.com.br/atualizacoes/nupdf"
+          curl -fsSL --retry 5 --retry-all-errors "$BASE/versao.json?t=$(date +%s)" -o versao.json
+          PUBLICADA="$(jq -r .versao versao.json)"
+          if [ "$PUBLICADA" != "$VERSAO" ]; then
+            echo "::error::O versao.json do R2 está na versão $PUBLICADA, não na $VERSAO. Rode instalador\\publicar.ps1 antes do push."
+            exit 1
+          fi
+          curl -fsSL --retry 5 --retry-all-errors "$(jq -r .url versao.json)" -o Instalador.exe
+          ESPERADO="$(jq -r .sha256 versao.json)"
+          OBTIDO="$(sha256sum Instalador.exe | cut -d' ' -f1)"
+          if [ "$OBTIDO" != "$ESPERADO" ]; then
+            echo "::error::SHA-256 do instalador baixado ($OBTIDO) não confere com o versao.json ($ESPERADO)."
+            exit 1
+          fi
+          echo "Instalador $VERSAO conferido: $OBTIDO"
 
       - name: Criar a tag e a Release no GitHub
         shell: bash

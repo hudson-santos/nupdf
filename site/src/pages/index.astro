@@ -10,7 +10,7 @@ import Benefits from '../components/Benefits.astro';
 import Faq from '../components/Faq.astro';
 import Cta from '../components/Cta.astro';
 import Footer from '../components/Footer.astro';
-import { API_RELEASE } from '../dados';
+import { VERSAO_JSON } from '../dados';
 ---
 
 <Layout>
@@ -25,21 +25,20 @@ import { API_RELEASE } from '../dados';
   </main>
   <Footer />
 
-  <script is:inline define:vars={{ API_RELEASE }}>
-    // Versão e tamanho da última release (API pública do GitHub) e link direto do
-    // instalador. Se falhar (sem internet, limite de requisições), a página continua
-    // com o texto padrão e os botões baixam pelo link "latest" do mesmo jeito.
-    fetch(API_RELEASE, { headers: { Accept: "application/vnd.github+json" } })
+  <script is:inline define:vars={{ VERSAO_JSON }}>
+    // Versão, data e tamanho da última versão (versao.json do R2, repassado pelo worker
+    // do site) e link direto do instalador dessa versão. Se falhar, a página continua
+    // com o texto padrão e os botões baixam o Instalador.exe da última versão do mesmo jeito.
+    fetch(VERSAO_JSON)
       .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((rel) => {
-        const exe = (rel.assets || []).find((a) => a.name === "Instalador.exe");
-        if (!exe) return;
-        const mb = (exe.size / 1048576).toFixed(1).replace(".", ",");
-        const data = new Date(rel.published_at).toLocaleDateString("pt-BR");
+      .then((v) => {
+        if (!v.versao || !v.url) return;
+        const mb = (v.tamanho / 1048576).toFixed(1).replace(".", ",");
+        const data = v.data ? new Date(`${v.data}T12:00:00`).toLocaleDateString("pt-BR") : "";
         document.querySelectorAll("[data-meta]").forEach((el) => {
-          el.textContent = `Versão ${rel.tag_name} · ${data} · ${mb} MB · Windows 10 e 11 (64 bits)`;
+          el.textContent = `Versão ${v.versao}${data ? ` · ${data}` : ""} · ${mb} MB · Windows 10 e 11 (64 bits)`;
         });
-        document.querySelectorAll("[data-download]").forEach((a) => { a.href = exe.browser_download_url; });
+        document.querySelectorAll("[data-download]").forEach((a) => { a.href = v.url; });
       })
       .catch(() => {});
   </script>

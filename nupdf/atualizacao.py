@@ -1,10 +1,11 @@
-"""Verificação e download de atualizações (releases do GitHub).
+"""Verificação e download de atualizações (Cloudflare R2, arquivos.nukt.com.br).
 
-A release é criada pelo workflow .github/workflows/versao.yml a cada commit
-"Versão - [X.Y.Z]", com o Instalador.exe anexado e as notas copiadas do
-CHANGELOG.md. Só a biblioteca padrão é usada: urllib respeita o proxy
-configurado no Windows e o ssl usa o repositório de certificados do sistema
-(inclusive certificados de inspeção SSL corporativos).
+Cada versão é publicada pelo instalador\\publicar.ps1 (compilado localmente) em
+https://arquivos.nukt.com.br/atualizacoes/nupdf/: Instalador-X.Y.Z.exe,
+Instalador.exe (link fixo da última versão) e versao.json com versão, URL,
+SHA-256, tamanho, data e novidades (do CHANGELOG.md). Só a biblioteca padrão é
+usada: urllib respeita o proxy configurado no Windows e o ssl usa o repositório
+de certificados do sistema (inclusive certificados de inspeção SSL corporativos).
 
 Atualização automática: a verificação diária (janela.py) baixa o instalador da
 versão nova em segundo plano para PASTA_PENDENTE; no próximo acesso, o main.py
@@ -13,22 +14,23 @@ reabre o NuPDF ao final). O urllib só é importado ao consultar/baixar - a
 checagem de pendência roda em toda abertura e precisa ser instantânea.
 """
 
+import hashlib
 import json
 import os
 import re
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
 from .versao import VERSAO
 
-REPO = "hudson-santos/nupdf"
-API_ULTIMA = f"https://api.github.com/repos/{REPO}/releases/latest"
+URL_VERSAO = "https://arquivos.nukt.com.br/atualizacoes/nupdf/versao.json"
 PAGINA_DOWNLOAD = "https://nupdf.com.br"
 PASTA_INSTALACAO = Path(r"C:\NuPDF")
 NOME_INSTALADOR = "Instalador.exe"
-HOSTS_PERMITIDOS = ("github.com", "objects.githubusercontent.com", "release-assets.githubusercontent.com")
+HOSTS_PERMITIDOS = ("arquivos.nukt.com.br",)
 PASTA_PENDENTE = PASTA_INSTALACAO / "atualizacao"
 TIMEOUT = 15
 
@@ -40,10 +42,13 @@ class ErroAtualizacao(Exception):
 @dataclass
 class Release:
     versao: str
-    notas: str          # markdown (seção do CHANGELOG)
+    notas: str          # markdown: itens "- ..." (novidades do versao.json)
     url_instalador: str
     tamanho: int
     pagina: str
+    sha256: str = ""    # conferido depois do download
+    minima: str = ""    # versão mínima suportada (informativo: o NuPDF já se atualiza sozinho)
+    data: str = ""
 
 
 def _tupla(versao: str) -> tuple:
@@ -64,35 +69,39 @@ def instalado() -> bool:
 
 def _abrir(url: str):
     import urllib.request
-    req = urllib.request.Request(url, headers={
-        "User-Agent": f"NuPDF/{VERSAO}",
-        "Accept": "application/vnd.github+json",
-    })
+    req = urllib.request.Request(url, headers={"User-Agent": f"NuPDF/{VERSAO}", "Cache-Control": "no-cache"})
     return urllib.request.urlopen(req, timeout=TIMEOUT)
 
 
 def ultima_release() -> Release:
     import urllib.error
     try:
-        with _abrir(API_ULTIMA) as r:
+        # ?t=...: nunca uma cópia antiga do versao.json guardada por cache/proxy
+        with _abrir(f"{URL_VERSAO}?t={int(time.time())}") as r:
             dados = json.load(r)
     except urllib.error.HTTPError as e:
         if e.code == 404:
             raise ErroAtualizacao("Nenhuma versão publicada ainda.") from e
-        if e.code == 403:
-            raise ErroAtualizacao("O GitHub limitou as consultas por agora. Tente novamente mais tarde.") from e
-        raise ErroAtualizacao(f"O GitHub respondeu com erro {e.code}.") from e
+        raise ErroAtualizacao(f"O servidor de atualizações respondeu com erro {e.code}.") from e
+    except ValueError as e:
+        raise ErroAtualizacao("Resposta inválida do servidor de atualizações.") from e
     except OSError as e:
-        raise ErroAtualizacao("Não foi possível conectar ao GitHub. Verifique a conexão com a internet.") from e
-    exe = next((a for a in dados.get("assets", []) if a.get("name") == NOME_INSTALADOR), None)
-    if not exe:
-        raise ErroAtualizacao("A versão mais recente ainda não tem o instalador disponível.")
+        raise ErroAtualizacao("Não foi possível conectar ao servidor de atualizações. "
+                              "Verifique a conexão com a internet.") from e
+    try:
+        versao, url = str(dados["versao"]).strip(), str(dados["url"]).strip()
+    except (KeyError, TypeError) as e:
+        raise ErroAtualizacao("Resposta inválida do servidor de atualizações.") from e
+    novidades = dados.get("novidades") or []
     return Release(
-        versao=str(dados.get("tag_name", "")).lstrip("vV"),
-        notas=str(dados.get("body") or "").strip(),
-        url_instalador=exe["browser_download_url"],
-        tamanho=int(exe.get("size") or 0),
-        pagina=dados.get("html_url") or PAGINA_DOWNLOAD,
+        versao=versao,
+        notas="\n".join(f"- {n}" for n in novidades if isinstance(n, str) and n.strip()),
+        url_instalador=url,
+        tamanho=int(dados.get("tamanho") or 0),
+        pagina=PAGINA_DOWNLOAD,
+        sha256=str(dados.get("sha256") or "").strip().lower(),
+        minima=str(dados.get("minima") or ""),
+        data=str(dados.get("data") or ""),
     )
 
 
@@ -101,13 +110,15 @@ def baixar_instalador(release: Release, progresso=None, cancelado=lambda: False,
     """Baixa o Instalador.exe para C:\\NuPDF (arquivo .part renomeado no fim)."""
     import urllib.parse
     host = urllib.parse.urlparse(release.url_instalador).hostname or ""
-    if not any(host == h or host.endswith("." + h) for h in HOSTS_PERMITIDOS):
+    if urllib.parse.urlparse(release.url_instalador).scheme != "https" or \
+            not any(host == h or host.endswith("." + h) for h in HOSTS_PERMITIDOS):
         raise ErroAtualizacao(f"Endereço de download inesperado: {host}")
     destino = destino or PASTA_INSTALACAO / NOME_INSTALADOR
     destino.parent.mkdir(parents=True, exist_ok=True)
     # .part por processo: em servidor RemoteApp vários usuários podem baixar ao mesmo tempo
     parcial = destino.with_name(f"{destino.name}.{os.getpid()}.part")
     try:
+        resumo = hashlib.sha256()
         with _abrir(release.url_instalador) as r, open(parcial, "wb") as f:
             total = int(r.headers.get("Content-Length") or release.tamanho or 0)
             lido = 0
@@ -118,13 +129,17 @@ def baixar_instalador(release: Release, progresso=None, cancelado=lambda: False,
                 if not bloco:
                     break
                 f.write(bloco)
+                resumo.update(bloco)
                 lido += len(bloco)
                 if progresso:
                     progresso(lido, total)
         if release.tamanho and parcial.stat().st_size != release.tamanho:
             raise ErroAtualizacao("O download ficou incompleto. Tente novamente.")
-        if parcial.read_bytes()[:2] != b"MZ":
-            raise ErroAtualizacao("O arquivo baixado não é um instalador válido.")
+        if release.sha256 and resumo.hexdigest() != release.sha256:
+            raise ErroAtualizacao("O instalador baixado não confere com o publicado (SHA-256). Tente novamente.")
+        with open(parcial, "rb") as f:
+            if f.read(2) != b"MZ":
+                raise ErroAtualizacao("O arquivo baixado não é um instalador válido.")
         os.replace(parcial, destino)
         return destino
     except ErroAtualizacao:

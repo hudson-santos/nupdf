@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.26.0] - 2026-10-31
+
+### Changed
+- Atualizações agora vêm de arquivos.nukt.com.br (Cloudflare R2) e não mais do GitHub: o
+  NuPDF lê o versao.json publicado e confere o tamanho e o SHA-256 do instalador baixado.
+- Botão de download do site aponta para o instalador da última versão em arquivos.nukt.com.br.
+
 ## [1.25.2] - 2026-10-29
 
 ### Changed

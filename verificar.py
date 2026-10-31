@@ -269,6 +269,46 @@ def main() -> int:
         (atualizacao.PASTA_INSTALACAO, atualizacao.PASTA_PENDENTE, atualizacao.instalado,
          atualizacao.executar_instalador, atualizacao.baixar_instalador) = orig
 
+    # versao.json (Cloudflare R2) -> Release; download conferido por tamanho e SHA-256
+    import hashlib
+    import io
+    import json
+    exe_falso = b"MZ" + b"1" * 30
+    respostas = {
+        "versao.json": json.dumps({
+            "versao": "9.9.9", "minima": "9.9.9", "data": "2026-10-31", "tamanho": len(exe_falso),
+            "url": "https://arquivos.nukt.com.br/atualizacoes/nupdf/Instalador-9.9.9.exe",
+            "sha256": hashlib.sha256(exe_falso).hexdigest(), "novidades": ["Item um", "Item dois"]}).encode(),
+        "Instalador-9.9.9.exe": exe_falso,
+    }
+
+    class _Resp(io.BytesIO):
+        headers = {}
+
+    abrir_orig = atualizacao._abrir
+    try:
+        atualizacao._abrir = lambda url: _Resp(respostas[url.split("?")[0].rsplit("/", 1)[1]])
+        rel = atualizacao.ultima_release()
+        checar("lê o versao.json do R2", rel.versao == "9.9.9" and rel.tamanho == len(exe_falso)
+               and rel.notas == "- Item um\n- Item dois" and len(rel.sha256) == 64, str(rel))
+        pasta_dl = Path(tempfile.mkdtemp())
+        baixado = atualizacao.baixar_instalador(rel, destino=pasta_dl / "Instalador.exe")
+        checar("download conferido pelo SHA-256", baixado.read_bytes() == exe_falso)
+        rel.sha256 = "0" * 64
+        try:
+            atualizacao.baixar_instalador(rel, destino=pasta_dl / "Outro.exe")
+            checar("SHA-256 diferente é recusado", False)
+        except atualizacao.ErroAtualizacao:
+            checar("SHA-256 diferente é recusado", not (pasta_dl / "Outro.exe").exists())
+        rel.url_instalador = "https://github.com/x/Instalador.exe"
+        try:
+            atualizacao.baixar_instalador(rel, destino=pasta_dl / "Outro.exe")
+            checar("download só de arquivos.nukt.com.br", False)
+        except atualizacao.ErroAtualizacao:
+            checar("download só de arquivos.nukt.com.br", True)
+    finally:
+        atualizacao._abrir = abrir_orig
+
     print("Leitor de PDF padrão:")
     from nupdf import leitor_padrao
     padrao = leitor_padrao.e_padrao()

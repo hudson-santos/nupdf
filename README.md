@@ -50,7 +50,10 @@ venv\Scripts\python.exe verificar.py       # verificação de integridade
 ```
 
 Tecnologias: PySide6 (Qt), PyMuPDF, pyHanko, cryptography.
-Release: ver `CLAUDE.md` (o GitHub Actions compila o `Instalador.exe` a cada
-commit `Versão - [X.Y.Z]`). O `Instalador.exe` é a janela de instalação própria
+Release: ver `CLAUDE.md`. O `Instalador.exe` é compilado localmente e publicado no
+Cloudflare R2 (`https://arquivos.nukt.com.br/atualizacoes/nupdf/`, com o
+`versao.json` lido pela atualização automática) por
+`powershell -ExecutionPolicy Bypass -File instalador\publicar.ps1`; o commit
+`Versão - [X.Y.Z]` só cria a Release no GitHub. O `Instalador.exe` é a janela de instalação própria
 (`instalador/Setup.cs`) com o motor do Inno Setup (`Instalador.iss`) embutido;
 para gerar localmente: `powershell -ExecutionPolicy Bypass -File instalador\compilar_instalador.ps1`.
