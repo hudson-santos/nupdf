@@ -94,6 +94,8 @@ Source: "criar_atalho_appid.ps1"; DestDir: "{tmp}"; Flags: dontcopy
 ; do sistema.
 Type: filesandordirs; Name: "{app}\python"
 Type: filesandordirs; Name: "{app}\venv"
+; Google Sans (até a 1.26.0): a interface passou a usar a Inter da identidade visual
+Type: files; Name: "{app}\assets\fonts\GoogleSans.ttf"
 
 [Dirs]
 ; Cadeias de certificados confiáveis (ICP-Brasil) para validar assinaturas.

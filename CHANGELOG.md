@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.26.1] - 2026-10-31
+
+### Changed
+- Nova identidade visual: ícone do selo com o visto (app, atalhos e instalador), nome "nupdf."
+  com o ponto vermelho, cores da marca nos temas claro e escuro (botões em #CC343A com texto
+  branco no claro e #F2787C com texto preto no escuro) e fonte Inter na interface, no lugar da
+  Google Sans (instalador menor).
+- Site nupdf.com.br no mesmo padrão das páginas do Zeebs, Kippe, QiPonto e Lacsio, com a nova
+  identidade visual.
+- GitHub Actions não envia mais e-mail ao gerar a Release.
+
 ## [1.26.0] - 2026-10-31
 
 ### Changed

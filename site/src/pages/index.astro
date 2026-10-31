@@ -1,45 +1,171 @@
 ---
-// Página de apresentação do NuPDF - mesmo modelo das páginas Asste, Kippe, QiPonto
-// e Nukt (componentes em src/components, estilos em src/styles/global.css).
-import Layout from '../layouts/Layout.astro';
-import Header from '../components/Header.astro';
-import Hero from '../components/Hero.astro';
-import Features from '../components/Features.astro';
-import HowItWorks from '../components/HowItWorks.astro';
-import Benefits from '../components/Benefits.astro';
-import Faq from '../components/Faq.astro';
-import Cta from '../components/Cta.astro';
-import Footer from '../components/Footer.astro';
-import { VERSAO_JSON } from '../dados';
+// Landing page do NuPDF - mesmo padrão das LPs do Zeebs, Kippe, QiPonto e Lacsio
+// (cabeçalho, hero com ilustração e rodapé), com a identidade visual do NuPDF
+// (claude-design/nupdf): vermelho #E5484D, preto #0B0D12, Comfortaa só no nome,
+// Plus Jakarta Sans nos títulos e Inter no texto. Estilos em public/lp/lp.css.
+//
+// O download aponta para o Instalador.exe da última versão no Cloudflare R2
+// (publicado pelo instalador\publicar.ps1 a cada versão) - não é preciso
+// republicar o site a cada versão.
+const DOWNLOAD = 'https://arquivos.nukt.com.br/atualizacoes/nupdf/Instalador.exe';
+const year = new Date().getFullYear();
 ---
 
-<Layout>
-  <Header />
-  <main>
-    <Hero />
-    <Features />
-    <HowItWorks />
-    <Benefits />
-    <Faq />
-    <Cta />
-  </main>
-  <Footer />
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <!-- Google tag (gtag.js) -->
+  <script is:inline async src="https://www.googletagmanager.com/gtag/js?id=G-K3WNBF02JT"></script>
+  <script is:inline>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
 
-  <script is:inline define:vars={{ VERSAO_JSON }}>
-    // Versão, data e tamanho da última versão (versao.json do R2, repassado pelo worker
-    // do site) e link direto do instalador dessa versão. Se falhar, a página continua
-    // com o texto padrão e os botões baixam o Instalador.exe da última versão do mesmo jeito.
-    fetch(VERSAO_JSON)
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((v) => {
-        if (!v.versao || !v.url) return;
-        const mb = (v.tamanho / 1048576).toFixed(1).replace(".", ",");
-        const data = v.data ? new Date(`${v.data}T12:00:00`).toLocaleDateString("pt-BR") : "";
-        document.querySelectorAll("[data-meta]").forEach((el) => {
-          el.textContent = `Versão ${v.versao}${data ? ` · ${data}` : ""} · ${mb} MB · Windows 10 e 11 (64 bits)`;
-        });
-        document.querySelectorAll("[data-download]").forEach((a) => { a.href = v.url; });
-      })
-      .catch(() => {});
+    gtag('config', 'G-K3WNBF02JT');
   </script>
-</Layout>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NuPDF</title>
+  <meta name="description" content="O NuPDF é um leitor de PDF leve para Windows: abre na hora, copia qualquer texto com um clique e assina digitalmente com certificado ICP-Brasil, além de validar as assinaturas do documento.">
+  <meta name="theme-color" content="#FDEEEE">
+  <link rel="canonical" href="https://nupdf.com.br/">
+  <!-- favicon: o Google (resultados e Search Console) usa uma imagem quadrada de pelo
+       menos 48 px (múltiplo de 48) ou o /favicon.ico; o SVG fica para os navegadores -->
+  <link rel="icon" href="/favicon.ico" sizes="48x48">
+  <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png?v=2">
+  <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png?v=2">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="NuPDF - Leia, copie e assine PDFs com ICP-Brasil">
+  <meta property="og:description" content="Leitor de PDF leve para Windows: copie qualquer texto com um clique e assine com o certificado ICP-Brasil instalado no Windows.">
+  <meta property="og:url" content="https://nupdf.com.br/">
+  <meta property="og:image" content="https://nupdf.com.br/img/nupdf-logo.png">
+  <meta property="og:locale" content="pt_BR">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="stylesheet" href="/lp/lp.css">
+</head>
+<body>
+
+<header>
+  <div class="container bar">
+    <a href="#top" class="logo" aria-label="NuPDF"><span class="marca">nupdf<span class="ponto-marca">.</span></span></a>
+    <a class="btn btn-primary cta" href={DOWNLOAD}>Baixar para Windows</a>
+  </div>
+</header>
+
+<main>
+  <section id="top" class="hero">
+    <div class="glow" aria-hidden="true"></div>
+    <div class="container grid">
+      <div class="copy">
+        <h1>Leia, copie e assine PDFs com <span class="grad">ICP&#8209;Brasil</span>.</h1>
+        <p class="lead">
+          O NuPDF abre seus PDFs na hora, copia qualquer texto com um clique e assina digitalmente com o certificado
+          A1 ou A3 instalado no Windows, além de validar as assinaturas do documento. Tudo no seu computador.
+        </p>
+        <ul class="trust">
+          <li>✓ Assinatura PAdES ICP-Brasil</li>
+          <li>✓ Sem administrador</li>
+          <li>✓ Atualização automática</li>
+        </ul>
+      </div>
+
+      <div class="ilustra" aria-hidden="true">
+        <svg viewBox="0 0 560 460" xmlns="http://www.w3.org/2000/svg" role="img">
+          <circle cx="280" cy="232" r="206" fill="#FDEEEE"/>
+          <circle cx="280" cy="232" r="150" fill="none" stroke="#F6B5B7" stroke-width="2" stroke-dasharray="3 9" stroke-linecap="round"/>
+          <!-- ligações dos signatários até o selo -->
+          <g fill="none" stroke="#EF878B" stroke-width="3.5" stroke-dasharray="1 9" stroke-linecap="round">
+            <path d="M122 124 Q172 168 206 192"/>
+            <path d="M440 118 Q394 166 356 192"/>
+            <path d="M112 332 Q166 292 206 276"/>
+            <path d="M452 336 Q396 296 356 276"/>
+          </g>
+          <!-- documentos -->
+          <g>
+            <path d="M150 86 l8 9 l8 -9 z" fill="#FFFFFF" stroke="#DCE0E6" stroke-width="1.5" stroke-linejoin="round"/>
+            <rect x="140" y="40" width="112" height="46" rx="16" fill="#FFFFFF" stroke="#DCE0E6" stroke-width="1.5"/>
+            <rect x="156" y="52" width="68" height="7" rx="3.5" fill="#F6B5B7"/>
+            <rect x="156" y="66" width="37" height="7" rx="3.5" fill="#DCE0E6"/>
+
+            <path d="M420 76 l8 9 l8 -9 z" fill="#FFFFFF" stroke="#DCE0E6" stroke-width="1.5" stroke-linejoin="round"/>
+            <rect x="330" y="30" width="120" height="46" rx="16" fill="#FFFFFF" stroke="#DCE0E6" stroke-width="1.5"/>
+            <rect x="346" y="42" width="76" height="7" rx="3.5" fill="#F6B5B7"/>
+            <rect x="346" y="56" width="42" height="7" rx="3.5" fill="#DCE0E6"/>
+
+            <path d="M150 384 l8 -9 l8 9 z" fill="#FDEEEE" stroke="#DCE0E6" stroke-width="1.5" stroke-linejoin="round"/>
+            <rect x="138" y="384" width="118" height="46" rx="16" fill="#FDEEEE" stroke="#DCE0E6" stroke-width="1.5"/>
+            <rect x="154" y="396" width="74" height="7" rx="3.5" fill="#EF878B"/>
+            <rect x="154" y="410" width="41" height="7" rx="3.5" fill="#F6B5B7"/>
+
+            <path d="M410 390 l8 -9 l8 9 z" fill="#FDEEEE" stroke="#DCE0E6" stroke-width="1.5" stroke-linejoin="round"/>
+            <rect x="316" y="390" width="124" height="46" rx="16" fill="#FDEEEE" stroke="#DCE0E6" stroke-width="1.5"/>
+            <rect x="332" y="402" width="80" height="7" rx="3.5" fill="#EF878B"/>
+            <rect x="332" y="416" width="44" height="7" rx="3.5" fill="#F6B5B7"/>
+          </g>
+          <!-- sombra e símbolo central (selo com o visto) -->
+          <ellipse cx="280" cy="336" rx="74" ry="10" fill="#0B0D12" opacity=".12"/>
+          <rect x="196" y="150" width="168" height="168" rx="48" fill="#E5484D"/>
+          <svg x="214" y="168" width="132" height="132" viewBox="0 0 100 100">
+            <polyline points="39,60 35,86 50,78 65,86 61,60" fill="none" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="50" cy="40" r="24" fill="#FFFFFF"/>
+            <polyline points="40,40 47,47 60,33" fill="none" stroke="#0B0D12" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <!-- signatários -->
+          <clipPath id="pa"><circle cx="100" cy="124" r="36"/></clipPath>
+          <circle cx="100" cy="124" r="36" fill="#EF878B"/>
+          <g clip-path="url(#pa)" fill="#FFFFFF">
+            <circle cx="100" cy="117.5" r="11.5"/>
+            <ellipse cx="100" cy="158.2" rx="22.3" ry="22.3"/>
+          </g>
+
+          <clipPath id="pb"><circle cx="462" cy="116" r="32"/></clipPath>
+          <circle cx="462" cy="116" r="32" fill="#EA6267"/>
+          <g clip-path="url(#pb)" fill="#FFFFFF">
+            <circle cx="462" cy="110.2" r="10.2"/>
+            <ellipse cx="462" cy="146.4" rx="19.8" ry="19.8"/>
+          </g>
+
+          <clipPath id="pc"><circle cx="92" cy="336" r="32"/></clipPath>
+          <circle cx="92" cy="336" r="32" fill="#F6B5B7"/>
+          <g clip-path="url(#pc)" fill="#FFFFFF">
+            <circle cx="92" cy="330.2" r="10.2"/>
+            <ellipse cx="92" cy="366.4" rx="19.8" ry="19.8"/>
+          </g>
+
+          <clipPath id="pd"><circle cx="472" cy="340" r="36"/></clipPath>
+          <circle cx="472" cy="340" r="36" fill="#CC343A"/>
+          <g clip-path="url(#pd)" fill="#FFFFFF">
+            <circle cx="472" cy="333.5" r="11.5"/>
+            <ellipse cx="472" cy="374.2" rx="22.3" ry="22.3"/>
+          </g>
+          <!-- selo de assinatura válida -->
+          <circle cx="128" cy="96" r="11" fill="#CC343A" stroke="#FFFFFF" stroke-width="3.5"/>
+          <path d="M123.5 96.2 l3.2 3.2 l6 -6.4" fill="none" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+          <!-- detalhes -->
+          <g fill="#F6B5B7">
+            <circle cx="40" cy="236" r="5"/><circle cx="522" cy="226" r="5"/><circle cx="284" cy="26" r="4"/><circle cx="270" cy="440" r="4"/>
+          </g>
+          <g stroke="#EF878B" stroke-width="3" stroke-linecap="round">
+            <path d="M510 70v14M503 77h14"/><path d="M46 52v14M39 59h14"/><path d="M500 410v12M494 416h12"/>
+          </g>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site">
+  <div class="container row">
+    <div>
+      <a href="#top" class="logo" aria-label="NuPDF"><span class="marca">nupdf<span class="ponto-marca">.</span></span></a>
+      <p>leia, copie e assine PDFs</p>
+    </div>
+    <small class="rodape-legal">© {year} NuPDF. Todos os direitos reservados.<br>NUKT LTDA</small>
+  </div>
+</footer>
+
+</body>
+</html>

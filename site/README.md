@@ -1,13 +1,16 @@
 # Site do NuPDF
 
-Página de apresentação em [Astro](https://astro.build), com saída 100% estática.
+Landing page do NuPDF (https://nupdf.com.br) no mesmo padrão das páginas do
+Zeebs, Kippe, QiPonto e Lacsio: cabeçalho, hero com ilustração e rodapé, em
+HTML e CSS puros (`src/pages/index.astro` + `public/lp/lp.css`), com a
+identidade visual do NuPDF (vermelho `#E5484D`, preto `#0B0D12`; Comfortaa só no
+nome "nupdf.", Plus Jakarta Sans nos títulos e Inter no texto - fontes em
+`public/fonts`). O Astro só gera a página estática.
 
 O botão **Baixar para Windows** aponta para
 `https://arquivos.nukt.com.br/atualizacoes/nupdf/Instalador.exe` (Cloudflare R2),
 o instalador da última versão, publicado pelo `instalador\publicar.ps1`.
-Não é preciso republicar o site a cada versão. A versão, a data e o tamanho
-exibidos abaixo do botão vêm do `versao.json` do R2, repassado pelo worker do
-site em `/versao.json` (`worker/index.js`).
+Não é preciso republicar o site a cada versão.
 
 ## Desenvolvimento
 
@@ -35,4 +38,5 @@ Quem faz o trabalho é o `wrangler.jsonc` da raiz do repositório:
    customizado.
 
 O campo `name` do `wrangler.jsonc` (`pages-nupdf`) precisa ser igual ao nome do projeto no
-painel. Os cabeçalhos de `public/_headers` são aplicados pelo Cloudflare.
+painel. Os cabeçalhos de `public/_headers` são aplicados pelo Cloudflare. Cada push
+na `main` republica o site.

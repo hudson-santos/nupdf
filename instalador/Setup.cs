@@ -102,13 +102,14 @@ internal sealed class JanelaInstalacao : Form
 {
     // mesmas cores do tema claro do NuPDF (nupdf/tema.py)
     private static readonly Color Fundo = Color.White;
-    private static readonly Color Borda = Color.FromArgb(0xDD, 0xDE, 0xE2);
-    private static readonly Color Texto = Color.FromArgb(0x1F, 0x20, 0x23);
-    private static readonly Color Texto2 = Color.FromArgb(0x6B, 0x6F, 0x76);
-    private static readonly Color Destaque = Color.FromArgb(0xE5, 0x48, 0x4D);
-    private static readonly Color Trilho = Color.FromArgb(0xEC, 0xED, 0xF0);
-    private static readonly Color Hover = Color.FromArgb(0xF1, 0xF2, 0xF4);
-    private static readonly Color Cinza = Color.FromArgb(0x4B, 0x4D, 0x53);
+    private static readonly Color Borda = Color.FromArgb(0xDC, 0xE0, 0xE6);     // neutral-200
+    private static readonly Color Texto = Color.FromArgb(0x0B, 0x0D, 0x12);     // neutral-900 (preto)
+    private static readonly Color Texto2 = Color.FromArgb(0x4A, 0x52, 0x61);    // neutral-600
+    private static readonly Color Destaque = Color.FromArgb(0xE5, 0x48, 0x4D);  // vermelho NuPDF (brand-500)
+    private static readonly Color Botao = Color.FromArgb(0xCC, 0x34, 0x3A);     // botões: brand-600, texto branco
+    private static readonly Color Trilho = Color.FromArgb(0xEB, 0xED, 0xF1);    // neutral-100
+    private static readonly Color Hover = Color.FromArgb(0xF5, 0xF6, 0xF8);     // neutral-50
+    private static readonly Color Cinza = Color.FromArgb(0x4A, 0x52, 0x61);
 
     private enum Estado { Instalando, Concluido, Erro }
 
@@ -554,7 +555,7 @@ internal sealed class JanelaInstalacao : Form
 
         if (_estado == Estado.Erro)
         {
-            DesenharBotao(g, RetTentar, "Tentar Novamente", Destaque, "tentar");
+            DesenharBotao(g, RetTentar, "Tentar Novamente", Botao, "tentar");
             DesenharBotao(g, RetSair, "Fechar", Cinza, "sair");
             using (var f = new Font("Segoe UI", 8.5f, _hover == "log" ? FontStyle.Underline : FontStyle.Regular))
             using (var b = new SolidBrush(Texto2))
@@ -572,21 +573,21 @@ internal sealed class JanelaInstalacao : Form
                 PreencherArredondado(g, b, new RectangleF(trilho.X, trilho.Y, largura, trilho.Height));
     }
 
-    // Logo "nupdf" centralizado: Comfortaa, "nu" na cor do texto e "pdf" no vermelho da
-    // marca (mesmo padrão do app e do site). Sem a fonte, cai para Segoe UI Semibold.
+    // Logo "nupdf." centralizado: Comfortaa, o nome na cor do texto e o ponto no vermelho
+    // da marca (mesmo padrão do app e do site). Sem a fonte, cai para Segoe UI Semibold.
     private void DesenharLogoNome(Graphics g, int y, int largura, float pontos)
     {
         var fmt = (StringFormat)StringFormat.GenericTypographic.Clone();
         Font fLogo = FonteLogo(pontos) ?? new Font("Segoe UI Semibold", pontos, FontStyle.Regular, GraphicsUnit.Point);
         try
         {
-            SizeF nu = g.MeasureString("nu", fLogo, PointF.Empty, fmt);
-            SizeF pdf = g.MeasureString("pdf", fLogo, PointF.Empty, fmt);
-            float x = (largura - nu.Width - pdf.Width) / 2f;
+            SizeF nome = g.MeasureString("nupdf", fLogo, PointF.Empty, fmt);
+            SizeF ponto = g.MeasureString(".", fLogo, PointF.Empty, fmt);
+            float x = (largura - nome.Width - ponto.Width) / 2f;
             using (var b = new SolidBrush(Texto))
-                g.DrawString("nu", fLogo, b, x, y, fmt);
+                g.DrawString("nupdf", fLogo, b, x, y, fmt);
             using (var b = new SolidBrush(Destaque))
-                g.DrawString("pdf", fLogo, b, x + nu.Width, y, fmt);
+                g.DrawString(".", fLogo, b, x + nome.Width, y, fmt);
         }
         finally
         {

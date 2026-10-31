@@ -3,9 +3,9 @@
 from pathlib import Path
 from string import Template
 
-FONTE = "Google Sans"
+FONTE = "Inter"  # fonte da interface na identidade visual do NuPDF (abas, menus, painéis)
 # Família usada no QSS: uma só (a embutida, ou a Segoe UI se ela faltar). Uma
-# lista com alternativas ("Google Sans", "Segoe UI", sans-serif) faz o Qt varrer
+# lista com alternativas ("Inter", "Segoe UI", sans-serif) faz o Qt varrer
 # todas as fontes instaladas no primeiro desenho - em máquinas com muitas fontes
 # isso atrasava a abertura em quase meio segundo ou mais.
 _familia = "Segoe UI"
@@ -14,7 +14,7 @@ _fontes_carregadas = False
 
 
 def carregar_fontes():
-    """Registra a Google Sans embutida em assets/fonts (licença OFL) - assim o
+    """Registra a Inter embutida em assets/fonts (licença OFL) - assim o
     app fica igual em máquinas que não têm a fonte instalada. Sem o arquivo,
     o QSS cai para Segoe UI."""
     global _fontes_carregadas, _familia
@@ -34,50 +34,60 @@ def carregar_fontes():
         fonte.setHintingPreference(QFont.PreferNoHinting)
         QApplication.setFont(fonte)
 
+# Cores da identidade visual do NuPDF (claude-design/nupdf, "nupdf cores"): vermelho coral
+# (brand-500 #E5484D) sobre o preto e os neutros da Nukt. Botões: #CC343A com texto branco
+# no claro e a primária do modo escuro (#F2787C) com texto preto. Status de assinatura nas
+# cores de texto de cada selo (válida / não verificada / documento alterado).
 ESCURO = {
-    "janela": "#17181b",
-    "barra": "#1f2023",
-    "superficie": "#26272b",
-    "superficie2": "#303136",
-    "hover": "#34363b",
-    "borda": "#34363b",
-    "canvas": "#2b2c31",
-    "rolagem": "#5c5f67",        # alça da barra de rolagem (visível sobre o canvas)
-    "rolagem_hover": "#80838c",
-    "texto": "#e7e7ea",
-    "texto2": "#a1a3aa",
-    "texto3": "#6f727a",
-    "destaque": "#e5484d",
-    "destaque_hover": "#ec5d61",
-    "destaque_suave": "#3b2023",
-    "ok": "#3fb950",
-    "aviso": "#d29922",
-    "erro": "#f85149",
+    "janela": "#07080c",         # fundo
+    "barra": "#0b0d12",          # superfície
+    "superficie": "#0b0d12",
+    "superficie2": "#1d2129",    # superfície 2
+    "hover": "#343a46",
+    "borda": "#343a46",
+    "canvas": "#1d2129",
+    "rolagem": "#4a5261",        # alça da barra de rolagem (visível sobre o canvas)
+    "rolagem_hover": "#687180",
+    "texto": "#ebedf1",
+    "texto2": "#949ca9",
+    "texto3": "#687180",
+    "destaque": "#f2787c",       # primária do modo escuro
+    "destaque_hover": "#ef878b",
+    "destaque_suave": "#3a0f1e",
+    "botao": "#f2787c",
+    "botao_hover": "#ef878b",
+    "botao_texto": "#0b0d12",
+    "ok": "#6ee7a0",
+    "aviso": "#fbbf5c",
+    "erro": "#fda4c0",
     "selecao": "#3b82f6",
     "sombra": "#000000",
 }
 
 CLARO = {
-    "janela": "#f4f4f6",
+    "janela": "#f5f6f8",         # neutral-50
     "barra": "#ffffff",
     "superficie": "#ffffff",
-    "superficie2": "#f1f1f4",
-    "hover": "#ebebef",
-    "borda": "#e3e3e8",
-    "canvas": "#e8e8ec",
-    "rolagem": "#a6a9b1",        # alça da barra de rolagem (visível sobre o canvas)
-    "rolagem_hover": "#878b94",
-    "texto": "#1d1f24",
-    "texto2": "#5d6068",
-    "texto3": "#9a9ca3",
-    "destaque": "#e5484d",
-    "destaque_hover": "#d63e43",
-    "destaque_suave": "#fde8e9",
-    "ok": "#1a7f37",
-    "aviso": "#9a6700",
-    "erro": "#cf222e",
+    "superficie2": "#f5f6f8",
+    "hover": "#ebedf1",          # neutral-100
+    "borda": "#dce0e6",          # neutral-200
+    "canvas": "#ebedf1",
+    "rolagem": "#949ca9",        # alça da barra de rolagem (visível sobre o canvas)
+    "rolagem_hover": "#687180",
+    "texto": "#0b0d12",          # neutral-900 (preto)
+    "texto2": "#4a5261",
+    "texto3": "#949ca9",
+    "destaque": "#e5484d",       # vermelho NuPDF (brand-500)
+    "destaque_hover": "#cc343a",
+    "destaque_suave": "#fdeeee",
+    "botao": "#cc343a",          # botões: brand-600 com texto branco (5,1:1)
+    "botao_hover": "#a8282d",
+    "botao_texto": "#ffffff",
+    "ok": "#166534",
+    "aviso": "#92400e",
+    "erro": "#9f1239",
     "selecao": "#2563eb",
-    "sombra": "#6b7280",
+    "sombra": "#687180",
 }
 
 _QSS = Template("""
@@ -119,12 +129,12 @@ QPushButton#preto { background: #111214; border: 1px solid #2e3035; color: #ffff
 QPushButton#preto:hover { background: #26282c; }
 QPushButton#perigo { background: #c62828; border: 1px solid #c62828; color: #ffffff; font-weight: 600; }
 QPushButton#perigo:hover { background: #b71c1c; }
-QPushButton#primario { background: $destaque; border: 1px solid $destaque; color: #ffffff; font-weight: 600; }
-QPushButton#primario:hover { background: $destaque_hover; }
+QPushButton#primario { background: $botao; border: 1px solid $botao; color: $botao_texto; font-weight: 600; }
+QPushButton#primario:hover { background: $botao_hover; border-color: $botao_hover; }
 QPushButton#primario:disabled { background: $superficie2; border-color: $borda; color: $texto3; }
 QPushButton#avisoPadrao { background: $destaque_suave; border: none; border-radius: 12px; color: $destaque;
     font-size: 12px; font-weight: 600; padding: 4px 12px; margin-right: 6px; min-height: 16px; }
-QPushButton#avisoPadrao:hover { background: $destaque; color: #ffffff; }
+QPushButton#avisoPadrao:hover { background: $botao; color: $botao_texto; }
 QPushButton#link { background: transparent; border: none; color: $texto2; text-align: left; padding: 6px 8px; }
 QPushButton#link:hover { background: $hover; color: $texto; }
 #linhaRecente { border-radius: 8px; }
@@ -186,7 +196,7 @@ QScrollBar::add-page, QScrollBar::sub-page { background: transparent; }
 #botaoCopiar { background: #202124; color: #ffffff; border: none; border-radius: 8px;
                padding: 6px 12px; font-weight: 600; }
 #botaoCopiar:hover { background: #33353a; }
-#aviso { background: $destaque; color: #ffffff; border-radius: 10px; padding: 8px 14px; font-weight: 600; }
+#aviso { background: $botao; color: $botao_texto; border-radius: 10px; padding: 8px 14px; font-weight: 600; }
 #toast { background: $superficie2; color: $texto; border: 1px solid $borda; border-radius: 10px; padding: 8px 14px; }
 
 #inicio { background: $janela; }

@@ -311,7 +311,7 @@ def compor_dialogo(fundo: QImage, dlg: QImage, titulo: str) -> QImage:
     p.drawImage(QPoint(x, y + barra), dlg)
     p.setClipping(False)
     p.setPen(TEXTO2)
-    f = QFont("Google Sans", 10)
+    f = QFont("Inter", 10)
     p.setFont(f)
     p.drawText(QRect(x + 16, y, w - 32, barra), Qt.AlignVCenter | Qt.AlignLeft, titulo)
     p.drawText(QRect(x + w - 40, y, 30, barra), Qt.AlignCenter, "✕")
@@ -340,7 +340,7 @@ def fundo_suave(p: QPainter, w: int, h: int):
 
 def nome_app(p: QPainter, rect: QRect, px: int, alinhamento=Qt.AlignHCenter):
     """ "Nu" escuro + "PDF" vermelho, como no topo do app."""
-    f = QFont("Google Sans", 10, QFont.Bold)
+    f = QFont("Inter", 10, QFont.Bold)
     f.setPixelSize(px)
     p.setFont(f)
     fm = p.fontMetrics()
@@ -355,7 +355,7 @@ def nome_app(p: QPainter, rect: QRect, px: int, alinhamento=Qt.AlignHCenter):
 
 def texto(p: QPainter, rect: QRect, conteudo: str, px: int, cor=TEXTO2, peso=QFont.Normal,
           alinhamento=Qt.AlignHCenter | Qt.AlignTop):
-    f = QFont("Google Sans", 10, peso)
+    f = QFont("Inter", 10, peso)
     f.setPixelSize(px)
     p.setFont(f)
     p.setPen(cor)

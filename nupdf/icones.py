@@ -60,18 +60,17 @@ _SVG = {
     "chave": '<circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6M15.5 7.5l3 3L22 7l-3-3"/>',
 }
 
-_LOGO = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-<defs>
-<linearGradient id="f" x1="0" y1="0" x2="1" y2="1">
-<stop offset="0" stop-color="#F2656A"/><stop offset="1" stop-color="#D93A40"/>
-</linearGradient>
-</defs>
-<rect x="3" y="3" width="58" height="58" rx="15" fill="url(#f)"/>
-<path d="M21 13h15.5L46 22.5V47a4 4 0 0 1-4 4H21a4 4 0 0 1-4-4V17a4 4 0 0 1 4-4z" fill="#FFFFFF"/>
-<path d="M36.5 13v6.5a3 3 0 0 0 3 3H46z" fill="#FBC6C8"/>
-<path d="M23 25h9M23 31h16" stroke="#F4B3B6" stroke-width="2.6" stroke-linecap="round"/>
-<path d="M22.5 43c2.2-4.6 4.4-6.4 5.6-4.9 1.1 1.4-1.4 5.6.4 5.8 1.7.2 3.3-4.6 5-4.2 1.3.3.4 3.1 1.8 3.2 1.2.1 2.4-1.3 4.2-1.6"
- fill="none" stroke="#E5484D" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+# Ícone do app (identidade visual: claude-design/nupdf, "nupdf-icone-app.svg"): o selo de
+# certificado com o visto - confiança e validade jurídica - sobre o vermelho NuPDF.
+_LOGO = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<rect width="512" height="512" rx="124" fill="#E5484D"/>
+<g transform="translate(84 84) scale(3.44)">
+<polyline points="39,60 35,86 50,78 65,86 61,60" fill="none" stroke="#FFFFFF" stroke-width="9"
+ stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="50" cy="40" r="24" fill="#FFFFFF"/>
+<polyline points="40,40 47,47 60,33" fill="none" stroke="#0B0D12" stroke-width="8"
+ stroke-linecap="round" stroke-linejoin="round"/>
+</g>
 </svg>"""
 
 _cache: dict = {}

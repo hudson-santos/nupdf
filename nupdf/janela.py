@@ -50,9 +50,9 @@ def _disco_local(caminho: str) -> bool:
 
 
 def _logo_nome(nome_objeto: str) -> QLabel:
-    """Logo "nupdf" em Comfortaa: "nu" na cor do texto e "pdf" no vermelho da marca -
-    o mesmo padrão dos logos nukt, nusign, qiponto e flow (fonte em assets/fonts)."""
-    rotulo = QLabel(f'nu<span style="color:{ui.cores().get("destaque", "#e5484d")}">pdf</span>')
+    """Logo "nupdf." em Comfortaa: o nome na cor do texto e o ponto no vermelho da marca -
+    o mesmo padrão dos logos zeebs., kippe. e lacsio. (fonte em assets/fonts)."""
+    rotulo = QLabel(f'nupdf<span style="color:{ui.cores().get("destaque", "#e5484d")}">.</span>')
     rotulo.setObjectName(nome_objeto)
     rotulo.setTextFormat(Qt.RichText)
     rotulo.setAccessibleName(NOME_APP)
@@ -163,8 +163,7 @@ class TelaInicial(QWidget):
         zl.setSpacing(10)
         bt = QPushButton("  Abrir PDF")
         bt.setObjectName("primario")
-        bt.setIcon(icone("abrir", "#ffffff", 18))
-        bt.setIconSize(QSize(18, 18))
+        ui.aplicar_icone(bt, "abrir", 18, "botao_texto")  # cor do texto do botão (muda com o tema)
         bt.setCursor(Qt.PointingHandCursor)
         bt.setMinimumHeight(40)
         bt.setFixedWidth(200)
@@ -410,7 +409,7 @@ class JanelaPrincipal(QMainWindow):
 
         self.b_assinar = QPushButton("  Assinar com Certificado Digital")
         self.b_assinar.setObjectName("primario")
-        self.b_assinar.setIcon(icone("assinar", "#ffffff", 16))
+        ui.aplicar_icone(self.b_assinar, "assinar", 16, "botao_texto")
         self.b_assinar.setCursor(Qt.PointingHandCursor)
         lay.addWidget(self.b_assinar)
         self._acoes_documento.append(self.b_assinar)
