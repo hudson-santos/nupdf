@@ -863,7 +863,15 @@ class PainelEditor(QWidget):
         lay = QVBoxLayout(self)
         lay.setContentsMargins(12, 14, 12, 12)
         lay.setSpacing(8)
-        lay.addWidget(_cabecalho("Editor de PDF", maiusculas=False))
+        cab = QHBoxLayout()
+        cab.setSpacing(8)
+        cab.addWidget(_cabecalho("Editor de PDF", maiusculas=False))
+        beta = QLabel("Beta")  # ferramenta ainda em fase de testes
+        beta.setObjectName("badgeBeta")
+        beta.setToolTip("O Editor de PDF está em fase Beta")
+        cab.addWidget(beta)
+        cab.addStretch(1)
+        lay.addLayout(cab)
         lay.addWidget(ui.separador_horizontal())
         lista = _area_rolavel(lay)
 

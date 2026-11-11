@@ -146,6 +146,8 @@ QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 4px; color:
 #trilhoLateral { background: $barra; border-right: 1px solid $borda; }
 #painelLateral { background: $barra; border-right: 1px solid $borda; }
 #tituloPainel { font-size: 12px; font-weight: 700; color: $texto2; letter-spacing: 0.5px; }
+#badgeBeta { background: $texto; color: #ffffff; font-size: 10px; font-weight: 700;
+    border-radius: 4px; padding: 1px 6px; }
 
 QListWidget, QTreeWidget { background: transparent; border: none; outline: none; }
 QListWidget::item, QTreeWidget::item { border-radius: 6px; padding: 4px; }

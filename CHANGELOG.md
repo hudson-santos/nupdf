@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.26.4] - 2026-11-10
+
+### Changed
+- Editor de PDF: badge preto "Beta" ao lado do título do painel, indicando que a ferramenta
+  está em fase Beta.
+
 ## [1.26.3] - 2026-10-31
 
 ### Changed
